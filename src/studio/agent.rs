@@ -38,20 +38,20 @@ impl AgentKind {
         match self {
             AgentKind::Codex => (
                 &[
-                    ("With Homebrew", "brew install --cask codex"),
-                    ("Or with npm", "npm install -g @openai/codex"),
+                    ("npm ile", "npm install -g @openai/codex"),
+                    ("Ya da winget ile", "winget install OpenAI.Codex"),
                 ],
-                "Then run `codex` once in Terminal and choose Sign in with ChatGPT.",
+                "Sonra Terminal'de `codex` komutunu bir kez çalıştırıp Sign in with ChatGPT'yi seçin.",
             ),
             AgentKind::Claude => (
                 &[
                     (
-                        "Recommended",
-                        "curl -fsSL https://claude.ai/install.sh | bash",
+                        "Önerilen (PowerShell)",
+                        "irm https://claude.ai/install.ps1 | iex",
                     ),
-                    ("Or with Homebrew", "brew install --cask claude-code"),
+                    ("Ya da npm ile", "npm install -g @anthropic-ai/claude-code"),
                 ],
-                "Then run `claude` once in Terminal to sign in.",
+                "Sonra oturum açmak için PowerShell'de `claude` komutunu bir kez çalıştırın.",
             ),
         }
     }
@@ -177,10 +177,28 @@ fn locate(kind: AgentKind, login: Option<&str>) -> Option<PathBuf> {
     ] {
         dirs.push(PathBuf::from(&home).join(d));
     }
+    if cfg!(windows) {
+        if let Ok(up) = std::env::var("USERPROFILE") {
+            for d in [".local/bin", ".claude/local", ".bun/bin", ".cargo/bin"] {
+                dirs.push(PathBuf::from(&up).join(d));
+            }
+        }
+        if let Ok(ad) = std::env::var("APPDATA") {
+            dirs.push(PathBuf::from(ad).join("npm"));
+        }
+    }
     dirs.push("/opt/homebrew/bin".into());
     dirs.push("/usr/local/bin".into());
+    let names: Vec<String> = if cfg!(windows) {
+        ["exe", "cmd", "bat"]
+            .iter()
+            .map(|e| format!("{}.{e}", kind.program()))
+            .collect()
+    } else {
+        vec![kind.program().to_string()]
+    };
     dirs.into_iter()
-        .map(|d| d.join(kind.program()))
+        .flat_map(|d| names.iter().map(move |n| d.join(n)).collect::<Vec<_>>())
         .find(|p| p.is_file())
 }
 
@@ -223,7 +241,7 @@ impl AgentState {
     pub fn status(&self) -> &'static str {
         match self.log.last() {
             Some(Entry::Tool(name, _, None)) => activity(name),
-            _ => "Thinking",
+            _ => "Düşünüyor",
         }
     }
 
@@ -232,7 +250,7 @@ impl AgentState {
             if let Ok(mut c) = r.child.lock() {
                 let _ = c.kill();
             }
-            self.log.push(Entry::Error("Stopped.".into()));
+            self.log.push(Entry::Error("Durduruldu.".into()));
         }
     }
 
@@ -392,19 +410,19 @@ impl AgentState {
         self.log.push(Entry::You(text.clone()));
         let Some(addr) = mcp else {
             self.log.push(Entry::Error(
-                "The agent works through the studio's MCP server, which is off (started with --no-mcp).".into(),
+                "Ajan stüdyonun MCP sunucusu üzerinden çalışır, ancak sunucu kapalı (--no-mcp ile başlatıldı).".into(),
             ));
             return;
         };
         let Some(program) = self.find(self.kind) else {
             let (ways, sign_in) = self.kind.install_steps();
             self.log.push(Entry::Error(format!(
-                "{} isn't installed (no `{}` command found). Install it in Terminal with `{}`{}. {sign_in} Then try again.",
+                "{} kurulu değil (`{}` komutu bulunamadı). Terminal'de `{}`{} ile kurun. {sign_in} Sonra yeniden deneyin.",
                 self.kind.name(),
                 self.kind.program(),
                 ways[0].1,
                 ways.get(1)
-                    .map(|w| format!(" (or `{}`)", w.1))
+                    .map(|w| format!(" (ya da `{}`)", w.1))
                     .unwrap_or_default(),
             )));
             return;
@@ -422,7 +440,7 @@ impl AgentState {
             Ok(c) => c,
             Err(e) => {
                 self.log.push(Entry::Error(format!(
-                    "Couldn't start {}: {e}",
+                    "{} başlatılamadı: {e}",
                     self.kind.name()
                 )));
                 return;
@@ -523,7 +541,7 @@ impl AgentState {
                     Entry::Done(String::new())
                 } else {
                     Entry::Error(if tail.is_empty() {
-                        format!("{} stopped (exit code {code:?}).", self.kind.name())
+                        format!("{} durdu (çıkış kodu {code:?}).", self.kind.name())
                     } else {
                         tail
                     })
@@ -623,7 +641,7 @@ fn claude_event(v: &Value, session: &mut Option<String>) -> Vec<(Option<String>,
         Some("result") => {
             if v["is_error"].as_bool().unwrap_or(false) || v["subtype"] != "success" {
                 let msg = v["result"].as_str().map(str::to_string).unwrap_or_else(|| {
-                    format!("Stopped: {}", v["subtype"].as_str().unwrap_or("error"))
+                    format!("Durdu: {}", v["subtype"].as_str().unwrap_or("error"))
                 });
                 out.push((None, Entry::Error(msg)));
             } else {
@@ -647,7 +665,7 @@ fn codex_tool_error(tool: &str, message: &str) -> String {
         return "Codex cancelled the edit: it wanted approval for ZigZag's tools, which it can't ask for when run from here. Updating Codex (`npm i -g @openai/codex`) should fix it.".into();
     }
     if message.is_empty() {
-        format!("{tool} failed.")
+        format!("{tool} başarısız oldu.")
     } else {
         format!("{tool}: {message}")
     }
@@ -739,7 +757,7 @@ fn codex_event(v: &Value, session: &mut Option<String>) -> Vec<(Option<String>, 
             Entry::Error(
                 v["error"]["message"]
                     .as_str()
-                    .unwrap_or("The turn failed.")
+                    .unwrap_or("Bu tur başarısız oldu.")
                     .to_string(),
             ),
         )),
@@ -872,24 +890,24 @@ fn boxed(shapes: &[zigzag::svg::Shape], uids: &[usize]) -> Vec<usize> {
 /// What a tool call is doing, in a word or two.
 pub fn activity(tool: &str) -> &'static str {
     match tool {
-        "add_svg" => "Drawing",
-        "add_text" | "edit_text" | "list_fonts" => "Lettering",
-        "set_object" | "group_colors" => "Restyling",
-        "transform_objects" | "move_object" => "Placing",
-        "duplicate_objects" => "Duplicating",
-        "delete_object" => "Removing",
-        "round_corners" => "Rounding corners",
-        "add_outline" => "Outlining",
-        "simplify_design" => "Simplifying",
-        "trace_image" => "Tracing",
-        "render_preview" => "Looking",
-        "check_design" => "Checking",
-        "get_design" | "get_svg" | "select" => "Reading",
-        "set_document" => "Setting up",
-        "batch" => "Making changes",
-        "undo" => "Undoing",
-        "save" | "export" => "Saving",
-        _ => "Working",
+        "add_svg" => "Çiziyor",
+        "add_text" | "edit_text" | "list_fonts" => "Yazı yazıyor",
+        "set_object" | "group_colors" => "Stil değiştiriyor",
+        "transform_objects" | "move_object" => "Yerleştiriyor",
+        "duplicate_objects" => "Çoğaltıyor",
+        "delete_object" => "Kaldırıyor",
+        "round_corners" => "Köşeleri yuvarlıyor",
+        "add_outline" => "Dış hat ekliyor",
+        "simplify_design" => "Sadeleştiriyor",
+        "trace_image" => "İzliyor",
+        "render_preview" => "Bakıyor",
+        "check_design" => "Denetliyor",
+        "get_design" | "get_svg" | "select" => "Okuyor",
+        "set_document" => "Ayarlıyor",
+        "batch" => "Değişiklik yapıyor",
+        "undo" => "Geri alıyor",
+        "save" | "export" => "Kaydediyor",
+        _ => "Çalışıyor",
     }
 }
 
@@ -1247,7 +1265,7 @@ impl Studio {
                     child.add(
                         egui::Label::new(
                             egui::RichText::new(format!(
-                                "Ask {} for a design, or a change to this one. It works on the canvas as you watch.",
+                                "{} ajanından bir tasarım ya da bu tasarımda bir değişiklik isteyin. Siz izlerken tuval üzerinde çalışır.",
                                 a.kind.name()
                             ))
                             .size(12.0)
@@ -1261,9 +1279,9 @@ impl Studio {
                     child.spacing_mut().item_spacing.y = space::S;
                     child.spacing_mut().button_padding = Vec2::new(12.0, 6.0);
                     for idea in [
-                        "A round camp badge with a pine tree",
-                        "Make the lettering satin",
-                        "Simplify this for a 4x4 hoop",
+                        "Çam ağaçlı yuvarlak bir kamp arması",
+                        "Yazıyı saten yap",
+                        "Bunu 4x4 kasnak için sadeleştir",
                     ] {
                         if child
                             .add(egui::Button::new(egui::RichText::new(idea).size(11.5)).corner_radius(10))
@@ -1338,13 +1356,13 @@ impl Studio {
                             // As tall as the button, the text centered on it.
                             .min_size(Vec2::new(field_w, button_h))
                             .align(egui::Align2::LEFT_CENTER)
-                            .hint_text("Describe a design, or a change…")
+                            .hint_text("Bir tasarım ya da değişiklik tarif edin…")
                             .return_key(None),
                     );
                     r.widget_info(|| {
-                        egui::WidgetInfo::labeled(egui::Role::TextInput, true, "Prompt")
+                        egui::WidgetInfo::labeled(egui::Role::TextInput, true, "İstem")
                     });
-                    let r = r.on_hover_text("Enter sends · Shift-Enter for a new line");
+                    let r = r.on_hover_text("Enter gönderir · yeni satır için Shift-Enter");
                     if a.focus {
                         r.request_focus();
                         a.focus = false;
@@ -1361,7 +1379,7 @@ impl Studio {
                     }
                     if a.running() {
                         if ui
-                            .add_sized([button_w, button_h], egui::Button::new("Stop"))
+                            .add_sized([button_w, button_h], egui::Button::new("Durdur"))
                             .clicked()
                         {
                             a.stop();
@@ -1369,7 +1387,7 @@ impl Studio {
                     } else {
                         let ok = !a.prompt.trim().is_empty();
                         let b =
-                            egui::Button::new(egui::RichText::new("Send").color(Color32::WHITE))
+                            egui::Button::new(egui::RichText::new("Gönder").color(Color32::WHITE))
                                 .fill(p.accent);
                         if ui
                             .add_enabled_ui(ok, |ui| ui.add_sized([button_w, button_h], b))
@@ -1563,7 +1581,7 @@ fn entry(ui: &mut egui::Ui, e: &Entry, time: f64) {
         Entry::Error(t) => crate::theme::callout(ui, p.warning, Icon::Warning, t),
         Entry::Done(t) => {
             if !t.is_empty() {
-                caption(ui, format!("Done · {t}"));
+                caption(ui, format!("Bitti · {t}"));
             }
         }
     }
@@ -1581,7 +1599,7 @@ fn install_steps(ui: &mut egui::Ui, a: &mut AgentState) {
         let (r, _) = ui.allocate_exact_size(Vec2::splat(16.0), Sense::hover());
         icons::paint(ui.painter(), r, Icon::Info, p.secondary);
         ui.label(
-            egui::RichText::new(format!("{} isn't installed on this Mac", kind.name()))
+            egui::RichText::new(format!("{} bu bilgisayarda kurulu değil", kind.name()))
                 .size(13.0)
                 .strong()
                 .color(p.text),
@@ -1590,7 +1608,7 @@ fn install_steps(ui: &mut egui::Ui, a: &mut AgentState) {
     caption(
         ui,
         format!(
-            "ZigZag works with the {} command-line tool (`{}`). Install it in Terminal:",
+            "ZigZag, {} komut satırı aracıyla (`{}`) çalışır. Terminal'de kurun:",
             kind.name(),
             kind.program()
         ),
@@ -1602,8 +1620,8 @@ fn install_steps(ui: &mut egui::Ui, a: &mut AgentState) {
     ui.add_space(space::XS);
     ui.horizontal(|ui| {
         if ui
-            .button("Check Again")
-            .on_hover_text("Look for it again, after installing it")
+            .button("Yeniden Denetle")
+            .on_hover_text("Kurduktan sonra yeniden ara")
             .clicked()
         {
             a.check_again();
@@ -1613,7 +1631,7 @@ fn install_steps(ui: &mut egui::Ui, a: &mut AgentState) {
             .find(|&k| k != kind)
             .unwrap_or_default();
         if a.found[other.index()].as_ref().is_some_and(|f| f.is_some())
-            && ui.button(format!("Use {} Instead", other.name())).clicked()
+            && ui.button(format!("Bunun Yerine {} Kullan", other.name())).clicked()
         {
             a.set_kind(other);
         }

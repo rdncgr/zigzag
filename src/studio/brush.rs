@@ -110,7 +110,7 @@ impl Studio {
         self.hud(
             painter,
             rect,
-            "Paint a line: it's smoothed and sewn as satin (or a run) · end where you began to close it · Smoothness and width in the bar above",
+            "Bir çizgi boyayın: yumuşatılır ve saten (ya da düz dikiş) olarak dikilir · kapatmak için başladığınız yerde bitirin · Yumuşaklık ve genişlik üstteki çubukta",
         );
         self.brush_options(ui.ctx(), ui.make_persistent_id("brush-options"), rect);
     }
@@ -146,16 +146,16 @@ impl Studio {
                 self.set_selection(&[idx]);
                 self.status = match kind {
                     Kind::Satin => format!(
-                        "Painted a {}satin line {width:.1} mm wide ({n} points).",
-                        if closed { "closed " } else { "" }
+                        "{width:.1} mm genişliğinde {}saten çizgi boyandı ({n} nokta).",
+                        if closed { "kapalı" } else { "" }
                     ),
                     _ => format!(
-                        "Painted a {}running-stitch line ({n} points).",
-                        if closed { "closed " } else { "" }
+                        "{}düz dikiş çizgisi boyandı ({n} nokta).",
+                        if closed { "kapalı" } else { "" }
                     ),
                 };
             }
-            Err(e) => self.status = format!("Couldn't add the line: {e:#}"),
+            Err(e) => self.status = format!("Çizgi eklenemedi: {e:#}"),
         }
     }
 
@@ -180,10 +180,10 @@ impl Studio {
                                 ui,
                                 "brush-kind",
                                 &mut self.brush.kind,
-                                &[(Kind::Satin, "Satin"), (Kind::Run, "Run")],
+                                &[(Kind::Satin, "Saten"), (Kind::Run, "Düz")],
                             );
                             if self.brush.kind == Kind::Satin {
-                                label(ui, "Width");
+                                label(ui, "Genişlik");
                                 ui.add(
                                     egui::DragValue::new(&mut self.brush.width_mm)
                                         .range(0.5..=8.0)
@@ -191,14 +191,14 @@ impl Studio {
                                         .fixed_decimals(1)
                                         .suffix(" mm"),
                                 )
-                                .on_hover_text("Satin column width. Keep it under 7 mm.");
+                                .on_hover_text("Saten sütun genişliği. 7 mm'nin altında tutun.");
                             }
-                            label(ui, "Smoothness");
+                            label(ui, "Yumuşaklık");
                             ui.add(
                                 egui::Slider::new(&mut self.brush.smoothness, 0.0..=100.0)
                                     .show_value(false),
                             )
-                            .on_hover_text("How much of the hand's wobble is taken out");
+                            .on_hover_text("El titremesinin ne kadarının giderileceği");
                         });
                     });
             });

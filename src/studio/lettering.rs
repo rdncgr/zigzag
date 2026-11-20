@@ -263,7 +263,7 @@ pub(crate) fn font_list(
             i.consume_key(egui::Modifiers::NONE, egui::Key::Enter),
         )
     });
-    let field = ui.add(egui::TextEdit::singleline(filter).hint_text("Search fonts"));
+    let field = ui.add(egui::TextEdit::singleline(filter).hint_text("Yazı tipi ara"));
     // Just opened (it wasn't shown last frame)?
     let seen = ui.scope_id().with("font-list-seen");
     let frame = ui.ctx().cumulative_frame_nr();
@@ -403,18 +403,18 @@ impl Studio {
             done(&d)
         };
         form(ui, &format!("{id}-form"), |fm| {
-            fm.row("Text", |ui, lid| {
+            fm.row("Metin", |ui, lid| {
                 let r = ui
                     .add(
                         egui::TextEdit::multiline(&mut spec.text)
-                            .hint_text("Your text")
+                            .hint_text("Metniniz")
                             .desired_rows(1)
                             .desired_width(f32::INFINITY),
                     )
                     .labelled_by(lid);
                 committed |= done(&r);
             });
-            fm.row("Font", |ui, lid| {
+            fm.row("Yazı tipi", |ui, lid| {
                 let r = egui::ComboBox::from_id_salt(format!("{id}-font"))
                     .selected_text(&spec.font)
                     .width(170.0)
@@ -424,24 +424,24 @@ impl Studio {
                 let r = r.response.labelled_by(lid);
                 committed |= r.changed();
             });
-            fm.row("Style", |ui, _| {
-                committed |= ui.toggle_value(&mut spec.bold, "Bold").changed();
-                committed |= ui.toggle_value(&mut spec.italic, "Italic").changed();
+            fm.row("Stil", |ui, _| {
+                committed |= ui.toggle_value(&mut spec.bold, "Kalın").changed();
+                committed |= ui.toggle_value(&mut spec.italic, "İtalik").changed();
                 committed |= ui
                     .color_edit_button_srgb(&mut spec.color)
-                    .on_hover_text("Thread color")
+                    .on_hover_text("İplik rengi")
                     .changed();
             });
-            fm.row("Height", |ui, _| {
-                committed |= num(ui, &mut spec.size_mm, 3.0..=40.0, 0.5, "Letter height")
+            fm.row("Yükseklik", |ui, _| {
+                committed |= num(ui, &mut spec.size_mm, 3.0..=40.0, 0.5, "Harf yüksekliği")
             });
-            fm.row("Tracking", |ui, _| {
-                committed |= num(ui, &mut spec.spacing_mm, -1.0..=5.0, 0.1, "Letter spacing")
+            fm.row("Harf aralığı", |ui, _| {
+                committed |= num(ui, &mut spec.spacing_mm, -1.0..=5.0, 0.1, "Harf aralığı")
             });
             // Pair kerning: pick the pair, set its gap.
             let chars: Vec<char> = spec.case.apply(&spec.text).chars().collect();
             if chars.len() >= 2 {
-                fm.row("Kern", |ui, _| {
+                fm.row("Çift aralığı", |ui, _| {
                     let pair_id = ui.make_persistent_id((id, "kern-pair"));
                     let mut at: usize = ui
                         .data(|d| d.get_temp(pair_id))
@@ -467,7 +467,7 @@ impl Studio {
                         })
                         .response
                         .on_hover_text(
-                            "The pair of letters to adjust (pairs already kerned are bold)",
+                            "Ayarlanacak harf çifti (aralığı ayarlanmış çiftler kalın)",
                         );
                     ui.data_mut(|d| d.insert_temp(pair_id, at));
                     let mut v = spec.kern_at(at);
@@ -479,7 +479,7 @@ impl Studio {
                 });
             }
             if spec.text.contains('\n') {
-                fm.row("Leading", |ui, lid| {
+                fm.row("Satır aralığı", |ui, lid| {
                     let d = ui
                         .add(
                             egui::DragValue::new(&mut spec.leading)
@@ -488,18 +488,18 @@ impl Studio {
                                 .fixed_decimals(2)
                                 .suffix(" ×"),
                         )
-                        .on_hover_text("Line spacing, as a multiple of the letter height")
+                        .on_hover_text("Harf yüksekliğinin katı olarak satır aralığı")
                         .labelled_by(lid);
                     committed |= done(&d);
                 });
             }
-            fm.row("Scale", |ui, _| {
+            fm.row("Ölçek", |ui, _| {
                 ui.label(egui::RichText::new("W").size(11.0));
-                committed |= pct(ui, &mut spec.h_scale, "Horizontal scale");
+                committed |= pct(ui, &mut spec.h_scale, "Yatay ölçek");
                 ui.label(egui::RichText::new("H").size(11.0));
-                committed |= pct(ui, &mut spec.v_scale, "Vertical scale");
+                committed |= pct(ui, &mut spec.v_scale, "Dikey ölçek");
             });
-            fm.row("Case", |ui, _| {
+            fm.row("Harf", |ui, _| {
                 if segmented(
                     ui,
                     &format!("{id}-case"),
@@ -514,15 +514,15 @@ impl Studio {
                     committed = true;
                 }
             });
-            fm.row("Align", |ui, _| {
+            fm.row("Hizala", |ui, _| {
                 for (a, icon, name) in [
-                    (Align::Left, crate::icons::Icon::AlignLeft, "Align Left"),
+                    (Align::Left, crate::icons::Icon::AlignLeft, "Sola Hizala"),
                     (
                         Align::Center,
                         crate::icons::Icon::AlignCenter,
-                        "Align Center",
+                        "Ortaya Hizala",
                     ),
-                    (Align::Right, crate::icons::Icon::AlignRight, "Align Right"),
+                    (Align::Right, crate::icons::Icon::AlignRight, "Sağa Hizala"),
                 ] {
                     if icon_button(ui, icon, name, spec.align == a, 24.0).clicked()
                         && spec.align != a
@@ -532,12 +532,12 @@ impl Studio {
                     }
                 }
             });
-            fm.row("Baseline", |ui, _| {
+            fm.row("Taban çizgisi", |ui, _| {
                 if spec.path.is_some() {
-                    ui.label("On a path");
+                    ui.label("Yol üzerinde");
                     if ui
-                        .add(egui::Button::new("Straighten").small())
-                        .on_hover_text("Take the text off its path")
+                        .add(egui::Button::new("Düzleştir").small())
+                        .on_hover_text("Metni yolundan çıkar")
                         .clicked()
                     {
                         spec.path = None;
@@ -556,7 +556,7 @@ impl Studio {
                     ui,
                     &format!("{id}-baseline"),
                     &mut mode,
-                    &[(0, "Straight"), (1, "Arc Over"), (-1, "Arc Under")],
+                    &[(0, "Düz"), (1, "Üst Yay"), (-1, "Alt Yay")],
                 ) {
                     let r = if spec.arc_mm.abs() < 0.5 {
                         25.0
@@ -568,7 +568,7 @@ impl Studio {
                 }
             });
             if spec.path.is_some() {
-                fm.row("Offset", |ui, lid| {
+                fm.row("Kaydırma", |ui, lid| {
                     let mut v = spec.path_offset * 100.0;
                     let d = ui
                         .add(
@@ -578,14 +578,14 @@ impl Studio {
                                 .fixed_decimals(0)
                                 .suffix(" %"),
                         )
-                        .on_hover_text("Where along the path the text starts")
+                        .on_hover_text("Metnin yol üzerinde başladığı yer")
                         .labelled_by(lid);
                     spec.path_offset = v / 100.0;
                     committed |= done(&d);
                     let mut flip = spec.path_flip;
                     if ui
-                        .checkbox(&mut flip, "Flip")
-                        .on_hover_text("Letters on the other side of the path")
+                        .checkbox(&mut flip, "Çevir")
+                        .on_hover_text("Harfler yolun diğer tarafında")
                         .changed()
                     {
                         spec.path_flip = flip;
@@ -593,22 +593,22 @@ impl Studio {
                     }
                 });
             } else if spec.arc_mm.abs() >= 0.5 {
-                fm.row("Radius", |ui, _| {
+                fm.row("Yarıçap", |ui, _| {
                     let sign = spec.arc_mm.signum();
                     let mut r = spec.arc_mm.abs();
-                    committed |= num(ui, &mut r, 8.0..=80.0, 0.5, "Arc radius");
+                    committed |= num(ui, &mut r, 8.0..=80.0, 0.5, "Yay yarıçapı");
                     spec.arc_mm = r * sign;
                 });
             }
-            fm.row("Stitch", |ui, _| {
+            fm.row("Dikiş", |ui, _| {
                 if segmented(
                     ui,
                     &format!("{id}-kind"),
                     &mut spec.kind,
                     &[
-                        (Kind::Satin, "Satin"),
-                        (Kind::Fill, "Fill"),
-                        (Kind::Run, "Run"),
+                        (Kind::Satin, "Saten"),
+                        (Kind::Fill, "Dolgu"),
+                        (Kind::Run, "Düz"),
                     ],
                 ) {
                     committed = true;
@@ -664,11 +664,11 @@ impl Studio {
                     .collect();
                 self.set_selection(&sel);
                 self.status = format!(
-                    "Back to text: {} object(s) can be edited as text again (changes made to the outlines' points don't carry over).",
+                    "Metne döndü: {} nesne yeniden metin olarak düzenlenebilir (dış hat noktalarında yapılan değişiklikler aktarılmaz).",
                     sel.len()
                 );
             }
-            Err(e) => self.status = format!("Couldn't convert to text: {e:#}"),
+            Err(e) => self.status = format!("Metne dönüştürülemedi: {e:#}"),
         }
         self.dirty = true;
     }
@@ -706,11 +706,11 @@ impl Studio {
                     .collect();
                 self.set_selection(&sel);
                 self.status = format!(
-                    "Outlines made: {} object(s) can be edited point by point now, not as text.",
+                    "Dış hatlar oluşturuldu: {} nesne artık metin olarak değil, nokta nokta düzenlenebilir.",
                     sel.len()
                 );
             }
-            Err(e) => self.status = format!("Couldn't create outlines: {e:#}"),
+            Err(e) => self.status = format!("Dış hatlar oluşturulamadı: {e:#}"),
         }
         // (Planned on the next frame: at once for a small design, on the
         // worker for a big one, so the UI never stalls here.)
@@ -742,7 +742,7 @@ impl Studio {
             Ok(())
         });
         if let Err(e) = r {
-            self.status = format!("Couldn't change the text: {e:#}");
+            self.status = format!("Metin değiştirilemedi: {e:#}");
         }
         // (Planned on the next frame: at once for a small design, on the
         // worker for a big one, so the UI never stalls here.)
@@ -754,15 +754,15 @@ impl Studio {
     pub fn type_on_selected_path(&mut self) {
         let sel = self.sel_indices();
         let Some(&t) = sel.iter().find(|&&i| self.doc.lettering(i).is_some()) else {
-            self.status = "Select a text object and a path.".into();
+            self.status = "Bir metin nesnesi ve bir yol seçin.".into();
             return;
         };
         let Some(&p) = sel.iter().find(|&&i| self.doc.lettering(i).is_none()) else {
-            self.status = "Select the path the text should follow too.".into();
+            self.status = "Metnin izleyeceği yolu da seçin.".into();
             return;
         };
         let Ok(path) = self.doc.edit_path(p) else {
-            self.status = format!("{} can't be a baseline.", self.names[p]);
+            self.status = format!("{} taban çizgisi olamaz.", self.names[p]);
             return;
         };
         let c = zigzag::bezier::bounds(&path).center();
@@ -791,7 +791,7 @@ impl Studio {
         match r {
             Ok(()) => {
                 self.status =
-                    "The text follows the path now. Offset and Flip are in the Lettering panel."
+                    "Metin artık yolu izliyor. Kaydırma ve Çevir, Yazı panelinde."
                         .into();
                 let sel: Vec<usize> = self
                     .doc
@@ -803,7 +803,7 @@ impl Studio {
                     .collect();
                 self.set_selection(&sel);
             }
-            Err(e) => self.status = format!("Couldn't put the text on the path: {e:#}"),
+            Err(e) => self.status = format!("Metin yola yerleştirilemedi: {e:#}"),
         }
         // (Planned on the next frame: at once for a small design, on the
         // worker for a big one, so the UI never stalls here.)
@@ -912,7 +912,7 @@ impl Studio {
             };
             // Placed with a placeholder so there's something to see; the
             // placeholder is replaced by what's typed.
-            spec.text = "Text".into();
+            spec.text = "Metin".into();
             match self.add_lettering(&spec, center) {
                 Ok(i) => {
                     if let Some((src, _)) = on_path {
@@ -925,9 +925,9 @@ impl Studio {
                     }
                     let uid = self.doc.shapes[i].uid;
                     self.lettering.typing = Some(Typing::new(uid, String::new(), 0, true));
-                    self.status = "Type your text. Enter for a new line, Esc when done.".into();
+                    self.status = "Metninizi yazın. Yeni satır için Enter, bitince Esc.".into();
                 }
-                Err(e) => self.status = format!("Couldn't add text: {e:#}"),
+                Err(e) => self.status = format!("Metin eklenemedi: {e:#}"),
             }
         }
     }
@@ -1209,7 +1209,7 @@ impl Studio {
                     let cs: Vec<char> = t.text.chars().collect();
                     (cs[at - 1], cs[at])
                 };
-                self.status = format!("Kerning {a}{b}: {}", crate::units::fmt_mm(spec.kern_at(at)));
+                self.status = format!("Çift aralığı {a}{b}: {}", crate::units::fmt_mm(spec.kern_at(at)));
             }
         }
         if line_step != 0 && !t.text.is_empty() {
@@ -1227,7 +1227,7 @@ impl Studio {
         }
         if let Some(s) = copied {
             ctx.copy_text(s);
-            self.status = "Copied.".into();
+            self.status = "Kopyalandı.".into();
         }
         if changed && let Some(spec) = self.doc.lettering(i) {
             t.placeholder = false;
@@ -1365,13 +1365,13 @@ impl Studio {
                     self.doc = doc;
                     self.stable = self.doc.clone();
                 }
-                self.status = "Nothing typed.".into();
+                self.status = "Hiçbir şey yazılmadı.".into();
             } else {
                 // Every letter deleted: the text goes (the edit's undo step
                 // brings it back).
                 match self.doc.delete(i) {
-                    Ok(()) => self.status = "Deleted the text.".into(),
-                    Err(e) => self.status = format!("Couldn't delete the text: {e:#}"),
+                    Ok(()) => self.status = "Metin silindi.".into(),
+                    Err(e) => self.status = format!("Metin silinemedi: {e:#}"),
                 }
                 self.stable = self.doc.clone();
                 self.modified = true;
@@ -1395,7 +1395,7 @@ impl Studio {
         // worker for a big one, so the UI never stalls here.)
         self.dirty = true;
         self.set_selection(&[i]);
-        self.status = "Done. Press T and click to add more text; V to go back to selecting.".into();
+        self.status = "Bitti. Daha fazla metin eklemek için T'ye basıp tıklayın; seçime dönmek için V.".into();
     }
 
     /// The floating "Add text" window.
@@ -1408,7 +1408,7 @@ impl Studio {
         let mut open = true;
         let mut add = false;
         let mut cancel = false;
-        egui::Window::new("Add Text")
+        egui::Window::new("Metin Ekle")
             .title_frame(crate::theme::title_frame(ctx))
             .open(&mut open)
             .resizable(false)
@@ -1426,12 +1426,12 @@ impl Studio {
                     |ui| {
                         let ok = !spec.text.trim().is_empty();
                         let add_btn = egui::Button::new(
-                            egui::RichText::new("Add to Design").color(egui::Color32::WHITE),
+                            egui::RichText::new("Tasarıma Ekle").color(egui::Color32::WHITE),
                         )
                         .fill(crate::theme::pal_ui(ui).accent);
                         add = ui.add_enabled(ok, add_btn).clicked()
                             || (ok && ui.input(|i| i.key_pressed(egui::Key::Enter)));
-                        cancel = ui.button("Cancel").clicked()
+                        cancel = ui.button("İptal").clicked()
                             || ui.input(|i| i.key_pressed(egui::Key::Escape));
                     },
                 );
@@ -1443,10 +1443,10 @@ impl Studio {
         if add {
             match self.add_lettering(&spec, (0.0, 0.0)) {
                 Ok(_) => {
-                    self.status = format!("Added \"{}\".", spec.text);
+                    self.status = format!("\"{}\" eklendi.", spec.text);
                     return;
                 }
-                Err(e) => self.status = format!("Couldn't add text: {e:#}"),
+                Err(e) => self.status = format!("Metin eklenemedi: {e:#}"),
             }
         }
         if open {
@@ -1471,8 +1471,8 @@ impl Studio {
         self.lettering.font_filter = filter;
         if commit && spec != current && !spec.text.trim().is_empty() {
             match self.update_lettering(index, &spec) {
-                Ok(()) => self.status = "Lettering updated.".into(),
-                Err(e) => self.status = format!("Couldn't update lettering: {e:#}"),
+                Ok(()) => self.status = "Yazı güncellendi.".into(),
+                Err(e) => self.status = format!("Yazı güncellenemedi: {e:#}"),
             }
         } else if spec != current {
             self.lettering.edit = Some((uid, spec));

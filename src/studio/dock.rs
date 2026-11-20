@@ -152,19 +152,25 @@ impl PanelId {
     fn key(self) -> &'static str {
         match self {
             PanelId::Objects => "Objects",
-            p => p.title(),
-        }
-    }
-
-    pub fn title(self) -> &'static str {
-        match self {
-            PanelId::Objects => "Layers",
+            // (Saved layouts know the panels by their English names.)
             PanelId::Stitch => "Stitch",
             PanelId::Transform => "Transform",
             PanelId::Lettering => "Lettering",
             PanelId::Threads => "Threads",
             PanelId::Document => "Document",
             PanelId::Agent => "Agent",
+        }
+    }
+
+    pub fn title(self) -> &'static str {
+        match self {
+            PanelId::Objects => "Katmanlar",
+            PanelId::Stitch => "Dikiş",
+            PanelId::Transform => "Dönüştür",
+            PanelId::Lettering => "Yazı",
+            PanelId::Threads => "İplikler",
+            PanelId::Document => "Belge",
+            PanelId::Agent => "Ajan",
         }
     }
     pub(crate) fn index(self) -> usize {
@@ -688,7 +694,7 @@ impl Studio {
                 let a = painter.text(
                     Pos2::new(title_x, rect.center().y),
                     egui::Align2::LEFT_CENTER,
-                    "Agent:",
+                    "Ajan:",
                     font.clone(),
                     p.secondary,
                 );
@@ -822,7 +828,7 @@ impl Studio {
             );
             let presp = ui.interact(pick, ui.make_persistent_id("agent-pick"), Sense::click());
             presp.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::Role::Button, true, "Choose Agent")
+                egui::WidgetInfo::labeled(egui::Role::Button, true, "Ajan Seç")
             });
             let open = egui::Popup::is_id_open(ui.ctx(), egui::Popup::default_response_id(&presp));
             if presp.hovered() || open {
@@ -862,7 +868,7 @@ impl Studio {
                 Sense::click(),
             );
             cresp.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::Role::Button, true, "Collapse to Icons")
+                egui::WidgetInfo::labeled(egui::Role::Button, true, "Simgelere Daralt")
             });
             if cresp.hovered() {
                 ui.painter().rect_filled(crect, 4.0, p.hover);
@@ -877,7 +883,7 @@ impl Studio {
                 },
                 if cresp.hovered() { p.text } else { p.secondary },
             );
-            if cresp.on_hover_text("Collapse to icons").clicked() {
+            if cresp.on_hover_text("Simgelere daralt").clicked() {
                 self.dock.iconic[side.side()] = true;
                 collapse_clicked = true;
             }
@@ -916,7 +922,7 @@ impl Studio {
                 ui.make_persistent_id("agent-new-chat"),
                 if some { Sense::click() } else { Sense::hover() },
             );
-            nresp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, some, "New Chat"));
+            nresp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, some, "Yeni Sohbet"));
             if some && nresp.hovered() {
                 ui.painter().rect_filled(nrect, 4.0, p.hover);
             }
@@ -933,7 +939,7 @@ impl Studio {
                 },
             );
             if nresp
-                .on_hover_text("New chat: the agent forgets this conversation")
+                .on_hover_text("Yeni sohbet: ajan bu konuşmayı unutur")
                 .clicked()
             {
                 self.agent.new_chat();
@@ -945,7 +951,7 @@ impl Studio {
                 ui.set_min_width(170.0);
                 if id == PanelId::Agent {
                     // (Which agent: the name in the header.)
-                    if ui.button("New Chat").clicked() {
+                    if ui.button("Yeni Sohbet").clicked() {
                         self.agent.new_chat();
                         ui.close();
                     }
@@ -954,9 +960,9 @@ impl Studio {
                 if id == PanelId::Objects {
                     let on = self.dock.layers_sewing_order;
                     if ui
-                        .add(egui::Button::new("List in Sewing Order").selected(on))
+                        .add(egui::Button::new("Dikiş Sırasına Göre Listele").selected(on))
                         .on_hover_text(
-                            "List the layers as they sew, the first at the top. Off: what's on top is at the top, as in Illustrator.",
+                            "Katmanları dikiliş sırasıyla, ilki en üstte olacak şekilde listeler. Kapalı: Illustrator'daki gibi üstte olan en üstte.",
                         )
                         .clicked()
                     {
@@ -967,7 +973,7 @@ impl Studio {
                 }
                 if id == PanelId::Threads {
                     if ui
-                        .add(egui::Button::new("Show Palette").selected(self.dock.show_palette))
+                        .add(egui::Button::new("Paleti Göster").selected(self.dock.show_palette))
                         .clicked()
                     {
                         self.dock.show_palette = !self.dock.show_palette;
@@ -975,9 +981,9 @@ impl Studio {
                     }
                     let name = self.palettes.name(self.palettes.source);
                     if ui
-                        .button(format!("Match All to {name}"))
+                        .button(format!("Tümünü {name} paletine eşle"))
                         .on_hover_text(
-                            "Change every color in the design to the nearest one in this palette",
+                            "Tasarımdaki her rengi bu paletteki en yakın renge değiştir",
                         )
                         .clicked()
                     {
@@ -988,7 +994,7 @@ impl Studio {
                 }
                 if !alone {
                     if ui
-                        .button(if collapsed { "Expand" } else { "Collapse" })
+                        .button(if collapsed { "Genişlet" } else { "Daralt" })
                         .clicked()
                     {
                         self.dock.collapsed[key.index()] = !collapsed;
@@ -998,9 +1004,9 @@ impl Studio {
                 }
                 let here = self.dock.place_of(key);
                 for (to, label) in [
-                    (Place::Left, "Dock Left"),
-                    (Place::Right, "Dock Right"),
-                    (Place::Float, "Float"),
+                    (Place::Left, "Sola Yerleştir"),
+                    (Place::Right, "Sağa Yerleştir"),
+                    (Place::Float, "Serbest"),
                 ] {
                     if to != here && ui.button(label).clicked() {
                         self.dock.move_panel(key, to, None);
@@ -1008,7 +1014,7 @@ impl Studio {
                         ui.close();
                     }
                 }
-                if tabs.is_some() && ui.button(format!("Separate {}", id.title())).clicked() {
+                if tabs.is_some() && ui.button(format!("{} ayır", id.title())).clicked() {
                     // Out of the group, just below it.
                     let place = self.dock.place_of(key);
                     let group = self.dock.members(key);
@@ -1026,7 +1032,7 @@ impl Studio {
                     ui.close();
                 }
                 ui.separator();
-                if ui.button("Hide Panel").clicked() {
+                if ui.button("Paneli Gizle").clicked() {
                     self.dock.toggle(id);
                     self.dock_ui.flyout = None;
                     ui.close();
@@ -1209,7 +1215,7 @@ impl Studio {
                 Sense::click(),
             );
             resp.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::Role::Button, true, "Expand Panels")
+                egui::WidgetInfo::labeled(egui::Role::Button, true, "Panelleri Genişlet")
             });
             if resp.hovered() {
                 ui.painter().rect_filled(b, 4.0, p.hover);
@@ -1224,7 +1230,7 @@ impl Studio {
                 },
                 if resp.hovered() { p.text } else { p.secondary },
             );
-            if resp.on_hover_text("Expand the panels").clicked() {
+            if resp.on_hover_text("Panelleri genişlet").clicked() {
                 self.dock.iconic[side.side()] = false;
                 self.dock_ui.flyout = None;
             }
@@ -1332,7 +1338,7 @@ impl Studio {
                 let (r, resp) =
                     ui.allocate_exact_size(Vec2::new(ui.available_width(), DIVIDER), Sense::drag());
                 resp.widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::Role::Splitter, true, "Agent panel divider")
+                    egui::WidgetInfo::labeled(egui::Role::Splitter, true, "Ajan paneli ayırıcısı")
                 });
                 let on = resp.hovered() || resp.dragged();
                 if on && !self.dock.collapsed(lead) {
@@ -1739,7 +1745,7 @@ impl Studio {
                     ui.add_space(8.0);
                     caption(
                         ui,
-                        "No layers yet. Open or drop an SVG, add text, or draw with the pen.",
+                        "Henüz katman yok. Bir SVG açın ya da sürükleyin, metin ekleyin veya kalemle çizin.",
                     );
                 }
                 for row in &rows[range] {
@@ -1889,7 +1895,7 @@ impl Studio {
                                 group_click = Some(members.clone());
                             }
                             resp.on_hover_text(format!(
-                                "{label}: {} layers, {} stitches. Click to select the group.",
+                                "{label}: {} katman, {} dikiş. Grubu seçmek için tıklayın.",
                                 members.len(),
                                 fmt_int(stitches)
                             ))
@@ -2019,7 +2025,7 @@ impl Studio {
                             })
                             .inner;
                         out.response.widget_info(|| {
-                            egui::WidgetInfo::labeled(egui::Role::TextInput, true, "Layer name")
+                            egui::WidgetInfo::labeled(egui::Role::TextInput, true, "Katman adı")
                         });
                         if *fresh {
                             // Just opened: the keyboard, and the whole name
@@ -2074,7 +2080,7 @@ impl Studio {
                         drag_start = Some(if selected && all_sel.len() > 1 {
                             (
                                 all_sel.iter().copied().collect(),
-                                format!("{} layers", all_sel.len()),
+                                format!("{} katman", all_sel.len()),
                             )
                         } else {
                             (vec![i], label.clone())
@@ -2174,30 +2180,30 @@ impl Studio {
         theme::hline(ui);
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 2.0;
-            let add = icon_button(ui, Icon::Plus, "Add", false, 24.0);
+            let add = icon_button(ui, Icon::Plus, "Ekle", false, 24.0);
             egui::Popup::menu(&add).show(|ui| {
-                if ui.button("Add Text…").clicked() {
+                if ui.button("Metin Ekle…").clicked() {
                     self.open_text_window();
                 }
-                if ui.button("Place SVG…").clicked() {
+                if ui.button("Yerleştir (SVG, VP3…)…").clicked() {
                     self.run_action(crate::commands::Action::Place);
                 }
-                if ui.button("Draw with Pen").clicked() {
+                if ui.button("Kalemle Çiz").clicked() {
                     self.set_tool(Tool::Pen);
                 }
             });
             let has = !self.sel_indices().is_empty();
             ui.add_enabled_ui(has, |ui| {
-                if icon_button(ui, Icon::Minus, "Delete", false, 24.0).clicked() {
+                if icon_button(ui, Icon::Minus, "Sil", false, 24.0).clicked() {
                     self.delete_selection();
                 }
                 ui.add_space(theme::space::S);
                 // Up the list is up the stack, sewn later; in sewing
                 // order it's sewn earlier.
                 let (up, down) = if self.dock.layers_sewing_order {
-                    (("Sew earlier", -1), ("Sew later", 1))
+                    (("Daha önce dik", -1), ("Daha sonra dik", 1))
                 } else {
-                    (("Sew later", 1), ("Sew earlier", -1))
+                    (("Daha sonra dik", 1), ("Daha önce dik", -1))
                 };
                 if icon_button(ui, Icon::ArrowUp, up.0, false, 24.0).clicked() {
                     self.move_selected(up.1);
@@ -2210,7 +2216,7 @@ impl Studio {
                 let n = self.doc.shapes.len();
                 caption(
                     ui,
-                    format!("{n} {}", if n == 1 { "layer" } else { "layers" }),
+                    format!("{n} {}", if n == 1 { "katman" } else { "katman" }),
                 );
             });
         });
@@ -2299,9 +2305,9 @@ impl Studio {
                     self.set_selection(&[at]);
                 }
                 self.names = zigzag::svg::display_names(&self.doc.shapes);
-                self.status = format!("Renamed to {name}.");
+                self.status = format!("Yeni ad: {name}.");
             }
-            Err(e) => self.status = format!("Couldn't rename it: {e}."),
+            Err(e) => self.status = format!("Yeniden adlandırılamadı: {e}."),
         }
     }
 
@@ -2309,13 +2315,13 @@ impl Studio {
         use crate::commands::Action as A;
         use crate::flyout::{RowIcon, menu_heading, menu_row, menu_separator};
         let Some(i) = self.sel_index() else {
-            ui.label("Nothing selected");
+            ui.label("Hiçbir şey seçili değil");
             return;
         };
         ui.set_min_width(240.0);
         ui.spacing_mut().item_spacing.y = 0.0;
         // Stitch types, each with its icon; a square beside the current one.
-        menu_heading(ui, "Stitch Type");
+        menu_heading(ui, "Dikiş Türü");
         let current = self.doc.shapes[i].params.kind.unwrap_or(Kind::Fill);
         for k in allowed_kinds(&self.doc.shapes[i]) {
             if menu_row(ui, RowIcon::Kind(k), kind_name(k), "", current == k, true).clicked() {
@@ -2327,22 +2333,22 @@ impl Studio {
         self.action_row(
             ui,
             A::Duplicate,
-            "Duplicate",
+            "Çoğalt",
             RowIcon::Icon(Icon::Duplicate),
         );
-        self.action_row(ui, A::Copy, "Copy", RowIcon::None);
-        self.action_row(ui, A::Paste, "Paste", RowIcon::None);
+        self.action_row(ui, A::Copy, "Kopyala", RowIcon::None);
+        self.action_row(ui, A::Paste, "Yapıştır", RowIcon::None);
         menu_separator(ui);
-        self.action_row(ui, A::FlipH, "Flip Horizontal", RowIcon::Icon(Icon::FlipH));
-        self.action_row(ui, A::FlipV, "Flip Vertical", RowIcon::Icon(Icon::FlipV));
+        self.action_row(ui, A::FlipH, "Yatay Çevir", RowIcon::Icon(Icon::FlipH));
+        self.action_row(ui, A::FlipV, "Dikey Çevir", RowIcon::Icon(Icon::FlipV));
         // The arrows point where it goes in the Layers list.
         let (last, first) = if self.dock.layers_sewing_order {
             (Icon::ArrowDown, Icon::ArrowUp)
         } else {
             (Icon::ArrowUp, Icon::ArrowDown)
         };
-        self.action_row(ui, A::BringToFront, "Sew Last", RowIcon::Icon(last));
-        self.action_row(ui, A::SendToBack, "Sew First", RowIcon::Icon(first));
+        self.action_row(ui, A::BringToFront, "En Son Dik", RowIcon::Icon(last));
+        self.action_row(ui, A::SendToBack, "İlk Dik", RowIcon::Icon(first));
         // One path drawing several shapes: offer to split it up.
         let compound = match &self.doc.shapes[i].geometry {
             zigzag::svg::Geometry::Fill { rings, .. } => rings.len() > 1,
@@ -2353,7 +2359,7 @@ impl Studio {
             self.action_row(
                 ui,
                 A::ReleaseCompound,
-                "Release Compound Path",
+                "Bileşik Yolu Ayır",
                 RowIcon::None,
             );
         }
@@ -2363,7 +2369,7 @@ impl Studio {
             self.action_row(
                 ui,
                 A::AddOutline,
-                "Add Outline",
+                "Dış Hat Ekle",
                 RowIcon::Icon(Icon::AddOutline),
             );
         } else if self.outline_index(i).is_some() {
@@ -2371,12 +2377,12 @@ impl Studio {
             self.action_row(
                 ui,
                 A::RemoveOutline,
-                "Remove Outline",
+                "Dış Hattı Kaldır",
                 RowIcon::Icon(Icon::NoOutline),
             );
         }
         menu_separator(ui);
-        if menu_row(ui, RowIcon::Icon(Icon::Close), "Delete", "", false, true).clicked() {
+        if menu_row(ui, RowIcon::Icon(Icon::Close), "Sil", "", false, true).clicked() {
             self.delete_selection();
             ui.close();
         }
@@ -2386,7 +2392,7 @@ impl Studio {
     pub(crate) fn issues_body(&mut self, ui: &mut egui::Ui) {
         let p = pal_ui(ui);
         if self.issues.is_empty() {
-            caption(ui, "No problems found.");
+            caption(ui, "Sorun bulunamadı.");
             return;
         }
         let mut pick = None;
@@ -2481,7 +2487,7 @@ impl Studio {
         if count > 1 {
             caption(
                 ui,
-                format!("Showing {name}'s settings. Stitch types apply to all."),
+                format!("{name} ayarları gösteriliyor. Dikiş türleri tümüne uygulanır."),
             );
         }
         // The stitch type: the main decision for every object.
@@ -2537,7 +2543,7 @@ impl Studio {
         let pr = &mut self.doc.shapes[i].params;
         form(ui, "stitch-form", |fm| match current {
             Kind::Fill => {
-                fm.row("Angle", |ui, lid| {
+                fm.row("Açı", |ui, lid| {
                     let shown = pr.angle.unwrap_or(defaults::FILL_ANGLE);
                     let mut v = shown;
                     ui.spacing_mut().slider_width = 100.0;
@@ -2561,8 +2567,8 @@ impl Studio {
                         pr.angle = Some(v);
                     }
                     if ui
-                        .add(egui::Button::new("Draw").small())
-                        .on_hover_text("Drag across the shape to set the angle (G)")
+                        .add(egui::Button::new("Çiz").small())
+                        .on_hover_text("Açıyı belirlemek için şeklin üzerinden sürükleyin (G)")
                         .clicked()
                     {
                         to_angle_tool = true;
@@ -2570,61 +2576,61 @@ impl Studio {
                 });
                 value_row(
                     fm,
-                    "Spacing",
+                    "Aralık",
                     &mut pr.spacing,
                     f.fill_spacing,
                     0.15..=0.8,
                     " mm",
                     0.01,
-                    "Row spacing: smaller is denser",
+                    "Sıra aralığı: küçük değer daha sık",
                 );
                 value_row(
                     fm,
-                    "Length",
+                    "Uzunluk",
                     &mut pr.len,
                     f.fill_len,
                     1.5..=7.0,
                     " mm",
                     0.1,
-                    "Longest stitch in a row",
+                    "Bir sıradaki en uzun dikiş",
                 );
                 value_row(
                     fm,
-                    "Pull comp.",
+                    "Çekme tel.",
                     &mut pr.pull,
                     f.fill_pull,
                     0.0..=0.6,
                     " mm",
                     0.05,
-                    "Extends rows at the edges to counter fabric pulling in",
+                    "Kumaşın içe çekmesini dengelemek için sıraları kenarlarda uzatır",
                 );
-                fm.row("Underlay", |ui, _| {
+                fm.row("Alt dikiş", |ui, _| {
                     underlay_box(
                         ui,
                         pr,
                         if f.fill_edge_walk {
-                            "Edge walk + rows"
+                            "Kenar yürüyüşü + sıralar"
                         } else {
-                            "Stabilizing rows"
+                            "Sabitleme sıraları"
                         },
                     )
                 });
             }
             Kind::Satin => {
                 if filled {
-                    fm.row("Shape", |ui, _| {
+                    fm.row("Şekil", |ui, _| {
                         let mut border = pr.is_border();
                         if theme::segmented(
                             ui,
                             "satin-shape",
                             &mut border,
-                            &[(false, "Column"), (true, "Border")],
+                            &[(false, "Sütun"), (true, "Kenarlık")],
                         ) {
                             pr.border = border.then_some(true);
                         }
                     });
                 }
-                fm.row("Stitch", |ui, _| {
+                fm.row("Dikiş", |ui, _| {
                     use zigzag::stitch::satin::SatinStyle;
                     let mut st = pr.satin_style();
                     if theme::segmented(
@@ -2632,15 +2638,15 @@ impl Studio {
                         "satin-stitch",
                         &mut st,
                         &[
-                            (SatinStyle::Plain, "Satin"),
+                            (SatinStyle::Plain, "Saten"),
                             (SatinStyle::SStitch, "S-stitch"),
-                            (SatinStyle::Zigzag, "Zig-zag"),
+                            (SatinStyle::Zigzag, "Zikzak"),
                         ],
                     ) {
                         pr.style = (st != SatinStyle::Plain).then_some(st);
                     }
                 });
-                fm.row("Threads", |ui, _| {
+                fm.row("İplikler", |ui, _| {
                     // Multicolor satin: the threads across the column.
                     let mut colors = pr.colors.clone().unwrap_or_default();
                     let mut changed = false;
@@ -2650,7 +2656,7 @@ impl Studio {
                     if colors.len() < 4
                         && ui
                             .add(egui::Button::new("+").small())
-                            .on_hover_text("Add a thread: the column is split across its width, one strip per thread")
+                            .on_hover_text("İplik ekle: sütun genişliği boyunca bölünür, her iplik için bir şerit")
                             .clicked()
                     {
                         let last = colors.last().copied().unwrap_or(color_now);
@@ -2663,7 +2669,7 @@ impl Studio {
                     if !colors.is_empty()
                         && ui
                             .add(egui::Button::new("−").small())
-                            .on_hover_text("Remove the last thread")
+                            .on_hover_text("Son ipliği kaldır")
                             .clicked()
                     {
                         colors.pop();
@@ -2682,7 +2688,7 @@ impl Studio {
                 if !filled || pr.is_border() {
                     value_row(
                         fm,
-                        "Width",
+                        "Genişlik",
                         &mut pr.width,
                         default_width,
                         0.6..=10.0,
@@ -2693,30 +2699,30 @@ impl Studio {
                 }
                 value_row(
                     fm,
-                    "Density",
+                    "Yoğunluk",
                     &mut pr.spacing,
                     f.satin_spacing,
                     0.2..=1.0,
                     " mm",
                     0.01,
-                    "Distance between zigzags (auto-adjusted for width unless set)",
+                    "Zikzaklar arası mesafe (ayarlanmadıkça genişliğe göre otomatik)",
                 );
                 value_row(
                     fm,
-                    "Pull comp.",
+                    "Çekme tel.",
                     &mut pr.pull,
                     f.satin_pull,
                     0.0..=0.6,
                     " mm",
                     0.05,
-                    "Extra width per side; satins pull in narrower than drawn",
+                    "Her kenara ek genişlik; satenler çizildiğinden daha dar çekilir",
                 );
-                fm.row("Underlay", |ui, _| {
+                fm.row("Alt dikiş", |ui, _| {
                     let mut auto = pr.satin_underlay.is_none() && pr.underlay_on();
                     if ui
-                        .checkbox(&mut auto, "Automatic")
+                        .checkbox(&mut auto, "Otomatik")
                         .on_hover_text(
-                            "None under 1.5 mm, center walk to 4 mm, contour + zigzag above",
+                            "1,5 mm altında yok, 4 mm'ye kadar orta yürüyüş, üzerinde kontur + zikzak",
                         )
                         .changed()
                     {
@@ -2733,18 +2739,18 @@ impl Studio {
                     for (bit, name, tip) in [
                         (
                             underlay::CENTER,
-                            "Center",
-                            "A run down the middle: anchors narrow columns",
+                            "Orta",
+                            "Ortadan düz dikiş: dar sütunları sabitler",
                         ),
                         (
                             underlay::CONTOUR,
-                            "Contour",
-                            "Runs just inside both edges: crisp edges on wide columns",
+                            "Kontur",
+                            "İki kenarın hemen içinden düz dikiş: geniş sütunlarda keskin kenarlar",
                         ),
                         (
                             underlay::ZIGZAG,
-                            "Zigzag",
-                            "Sparse zigzag: lifts and supports wide columns",
+                            "Zikzak",
+                            "Seyrek zikzak: geniş sütunları kaldırır ve destekler",
                         ),
                     ] {
                         let mut on = current_ul & bit != 0;
@@ -2758,17 +2764,17 @@ impl Studio {
                         }
                     }
                 });
-                fm.row("Curves", |ui, _| {
+                fm.row("Eğriler", |ui, _| {
                     let mut short = pr.short_stitches_on();
                     if ui
-                        .checkbox(&mut short, "Short stitches")
-                        .on_hover_text("Shortens every other stitch on the inside of tight curves")
+                        .checkbox(&mut short, "Kısa dikişler")
+                        .on_hover_text("Keskin eğrilerin iç tarafında dikişleri birer atlayarak kısaltır")
                         .changed()
                     {
                         pr.short_stitches = Some(short);
                     }
                 });
-                fm.row("Lean", |ui, lid| {
+                fm.row("Eğim", |ui, lid| {
                     let mut v = pr.satin_lean();
                     let r = ui
                         .add(
@@ -2779,17 +2785,17 @@ impl Studio {
                                 .suffix("°"),
                         )
                         .labelled_by(lid)
-                        .on_hover_text("How far the stitches lean from square across the column. A few degrees stops them sinking between a knit's rows; more shows a slant, like a leaf's veins.");
+                        .on_hover_text("Dikişlerin sütun boyunca diklikten ne kadar eğildiği. Birkaç derece, örgü kumaşın sıraları arasına gömülmelerini önler; fazlası yaprak damarları gibi eğim gösterir.");
                     if r.changed() {
                         pr.lean = (v != 0.0).then_some(v);
                     }
                 });
-                fm.row("Auto split", |ui, lid| {
+                fm.row("Otomatik bölme", |ui, lid| {
                     let mut on = pr.satin_split().is_some();
                     if ui
                         .checkbox(&mut on, "")
                         .labelled_by(lid)
-                        .on_hover_text("Split stitches longer than this so wide columns don't snag")
+                        .on_hover_text("Geniş sütunlar takılmasın diye bundan uzun dikişleri böl")
                         .changed()
                     {
                         pr.split = Some(if on { defaults::SATIN_SPLIT } else { 0.0 });
@@ -2803,7 +2809,7 @@ impl Studio {
                                 .suffix(" mm"),
                         );
                         r.widget_info(|| {
-                            egui::WidgetInfo::labeled(egui::Role::Slider, true, "Split length")
+                            egui::WidgetInfo::labeled(egui::Role::Slider, true, "Bölme uzunluğu")
                         });
                         if r.changed() {
                             pr.split = Some(v);
@@ -2812,30 +2818,30 @@ impl Studio {
                 });
             }
             Kind::Contour => {
-                fm.row("Style", |ui, _| {
+                fm.row("Stil", |ui, _| {
                     let mut spiral = pr.spiral == Some(true);
                     if theme::segmented(
                         ui,
                         "contour-style",
                         &mut spiral,
-                        &[(false, "Rings"), (true, "Spiral")],
+                        &[(false, "Halkalar"), (true, "Spiral")],
                     ) {
                         pr.spiral = spiral.then_some(true);
                     }
                 });
                 value_row(
                     fm,
-                    "Spacing",
+                    "Aralık",
                     &mut pr.spacing,
                     defaults::CONTOUR_SPACING,
                     0.25..=1.5,
                     " mm",
                     0.05,
-                    "Distance between the outline-following rows",
+                    "Dış hattı izleyen sıralar arası mesafe",
                 );
                 value_row(
                     fm,
-                    "Length",
+                    "Uzunluk",
                     &mut pr.len,
                     f.run_len,
                     1.0..=5.0,
@@ -2847,39 +2853,39 @@ impl Studio {
             Kind::Blanket => {
                 value_row(
                     fm,
-                    "Spacing",
+                    "Aralık",
                     &mut pr.spacing,
                     defaults::BLANKET_SPACING,
                     1.0..=6.0,
                     " mm",
                     0.1,
-                    "Distance between prongs",
+                    "Dişler arası mesafe",
                 );
                 value_row(
                     fm,
-                    "Prong",
+                    "Diş",
                     &mut pr.width,
                     defaults::BLANKET_WIDTH,
                     0.8..=6.0,
                     " mm",
                     0.1,
-                    "Prong length",
+                    "Diş uzunluğu",
                 );
             }
             Kind::Applique => {
                 value_row(
                     fm,
-                    "Cover",
+                    "Kaplama",
                     &mut pr.width,
                     defaults::APPLIQUE_WIDTH,
                     1.5..=6.0,
                     " mm",
                     0.1,
-                    "Satin cover width",
+                    "Saten kaplama genişliği",
                 );
                 value_row(
                     fm,
-                    "Density",
+                    "Yoğunluk",
                     &mut pr.spacing,
                     f.satin_spacing,
                     0.2..=1.0,
@@ -2887,23 +2893,23 @@ impl Studio {
                     0.01,
                     "",
                 );
-                fm.row("Underlay", |ui, _| underlay_box(ui, pr, "Under the cover"));
+                fm.row("Alt dikiş", |ui, _| underlay_box(ui, pr, "Kaplamanın altında"));
             }
             Kind::Manual => {}
             Kind::Meander => {
                 value_row(
                     fm,
-                    "Spacing",
+                    "Aralık",
                     &mut pr.spacing,
                     defaults::MEANDER_SPACING,
                     1.0..=8.0,
                     " mm",
                     0.1,
-                    "How close the wandering line comes to itself",
+                    "Gezinen çizginin kendine ne kadar yaklaştığı",
                 );
                 value_row(
                     fm,
-                    "Length",
+                    "Uzunluk",
                     &mut pr.len,
                     f.run_len,
                     1.0..=5.0,
@@ -2913,30 +2919,30 @@ impl Studio {
                 );
             }
             Kind::Ripple => {
-                fm.row("Style", |ui, _| {
+                fm.row("Stil", |ui, _| {
                     let mut spiral = pr.spiral == Some(true);
                     if theme::segmented(
                         ui,
                         "ripple-style",
                         &mut spiral,
-                        &[(false, "Rings"), (true, "Spiral")],
+                        &[(false, "Halkalar"), (true, "Spiral")],
                     ) {
                         pr.spiral = spiral.then_some(true);
                     }
                 });
                 value_row(
                     fm,
-                    "Spacing",
+                    "Aralık",
                     &mut pr.spacing,
                     defaults::RIPPLE_SPACING,
                     0.5..=6.0,
                     " mm",
                     0.1,
-                    "Distance between the rows",
+                    "Sıralar arası mesafe",
                 );
                 value_row(
                     fm,
-                    "Length",
+                    "Uzunluk",
                     &mut pr.len,
                     f.run_len,
                     1.0..=5.0,
@@ -2948,13 +2954,13 @@ impl Studio {
             Kind::Cross => {
                 value_row(
                     fm,
-                    "Cell",
+                    "Hücre",
                     &mut pr.cell,
                     defaults::CROSS_CELL,
                     1.0..=8.0,
                     " mm",
                     0.1,
-                    "Size of each X",
+                    "Her X'in boyutu",
                 );
             }
             Kind::Tartan => {
@@ -2965,13 +2971,13 @@ impl Studio {
                 let mut remove = None;
                 let n = sett.len();
                 for (k, (c, w)) in sett.iter_mut().enumerate() {
-                    fm.row(if k == 0 { "Stripes" } else { "" }, |ui, _| {
+                    fm.row(if k == 0 { "Şeritler" } else { "" }, |ui, _| {
                         changed |= ui.color_edit_button_srgb(c).changed();
                         changed |= ui.add(crate::units::drag_mm(w, 0.5..=30.0, 0.1)).changed();
                         if n > 1
                             && ui
                                 .add(egui::Button::new("−").small())
-                                .on_hover_text("Remove this stripe")
+                                .on_hover_text("Bu şeridi kaldır")
                                 .clicked()
                         {
                             remove = Some(k);
@@ -2981,8 +2987,8 @@ impl Studio {
                 fm.row("", |ui, _| {
                     if sett.len() < 8
                         && ui
-                            .add(egui::Button::new("+ Stripe").small())
-                            .on_hover_text("The stripes repeat mirrored: a b c b a b c…")
+                            .add(egui::Button::new("+ Şerit").small())
+                            .on_hover_text("Şeritler aynalanarak tekrarlanır: a b c b a b c…")
                             .clicked()
                     {
                         let last = sett.last().map(|s| s.0).unwrap_or(color_now);
@@ -2997,7 +3003,7 @@ impl Studio {
                 if changed {
                     pr.sett = Some(sett);
                 }
-                fm.row("Angle", |ui, lid| {
+                fm.row("Açı", |ui, lid| {
                     let mut v = pr.angle.unwrap_or(0.0);
                     let r = ui
                         .add(egui::DragValue::new(&mut v).range(-90.0..=90.0).suffix("°"))
@@ -3008,19 +3014,19 @@ impl Studio {
                 });
                 value_row(
                     fm,
-                    "Spacing",
+                    "Aralık",
                     &mut pr.spacing,
                     f.fill_spacing,
                     0.2..=0.8,
                     " mm",
                     0.01,
-                    "Row spacing within each stripe",
+                    "Her şerit içindeki sıra aralığı",
                 );
             }
             Kind::Run => {
                 value_row(
                     fm,
-                    "Length",
+                    "Uzunluk",
                     &mut pr.len,
                     f.run_len,
                     1.0..=5.0,
@@ -3028,15 +3034,15 @@ impl Studio {
                     0.1,
                     "",
                 );
-                fm.row("Passes", |ui, _| {
+                fm.row("Geçişler", |ui, _| {
                     let mut r = pr.run_repeats();
-                    if theme::segmented(ui, "passes", &mut r, &[(1, "Single"), (3, "Triple")]) {
+                    if theme::segmented(ui, "passes", &mut r, &[(1, "Tek"), (3, "Üçlü")]) {
                         pr.repeats = Some(r);
                     }
                 });
             }
             Kind::Skip => fm.wide(|ui| {
-                caption(ui, "This object won't be stitched.");
+                caption(ui, "Bu nesne dikilmeyecek.");
             }),
         });
         if to_angle_tool {
@@ -3058,8 +3064,8 @@ impl Studio {
         let reset = ui
             .horizontal(|ui| {
                 ui.add_space(theme::LABEL_W + theme::space::S);
-                ui.add(egui::Button::new("Reset to Defaults").small())
-                    .on_hover_text("Back to the fabric's defaults for this stitch type")
+                ui.add(egui::Button::new("Varsayılanlara Sıfırla").small())
+                    .on_hover_text("Bu dikiş türü için kumaşın varsayılanlarına dön")
                     .clicked()
             })
             .inner;
@@ -3083,10 +3089,10 @@ impl Studio {
         let mut clear: Option<Marker> = None;
         let pr = &mut self.doc.shapes[i].params;
         form(ui, "sewing-form", |fm| {
-            fm.row("Sewing", |ui, _| {
+            fm.row("Dikiş", |ui, _| {
                 for (m, label, set) in [
-                    (Marker::Start, "Start", pr.start.is_some()),
-                    (Marker::End, "End", pr.end.is_some()),
+                    (Marker::Start, "Başlangıç", pr.start.is_some()),
+                    (Marker::End, "Bitiş", pr.end.is_some()),
                 ] {
                     let on = picking == Some(m);
                     let text = egui::RichText::new(label).color(if set && !on {
@@ -3098,10 +3104,10 @@ impl Studio {
                         .add(egui::Button::new(text).selected(on).small())
                         .on_hover_text(match m {
                             Marker::Start => {
-                                "Click on the outline where this object should start sewing (drag the marker to move it)"
+                                "Bu nesnenin dikişe başlayacağı yerde dış hatta tıklayın (taşımak için işaretçiyi sürükleyin)"
                             }
                             Marker::End => {
-                                "Click on the outline where this object should finish (the thread goes on from there)"
+                                "Bu nesnenin biteceği yerde dış hatta tıklayın (iplik oradan devam eder)"
                             }
                         });
                     if r.clicked() {
@@ -3113,8 +3119,8 @@ impl Studio {
                 }
                 if (pr.start.is_some() || pr.end.is_some())
                     && ui
-                        .add(egui::Button::new("Clear").small())
-                        .on_hover_text("Let the planner choose where to start and end")
+                        .add(egui::Button::new("Temizle").small())
+                        .on_hover_text("Başlangıç ve bitişi planlayıcı seçsin")
                         .clicked()
                 {
                     pr.start = None;
@@ -3124,16 +3130,16 @@ impl Studio {
                 ui.add_space(theme::space::S);
                 let mut trim = pr.trim == Some(true);
                 if ui
-                    .checkbox(&mut trim, "Trim")
-                    .on_hover_text("Cut the thread after this object, even if the next one is close")
+                    .checkbox(&mut trim, "Kes")
+                    .on_hover_text("Sonraki nesne yakın olsa bile bu nesneden sonra ipliği kes")
                     .changed()
                 {
                     pr.trim = trim.then_some(true);
                 }
                 let mut stop = pr.stop == Some(true);
                 if ui
-                    .checkbox(&mut stop, "Stop")
-                    .on_hover_text("Pause the machine after this object (to lay foam, or trim appliqué fabric)")
+                    .checkbox(&mut stop, "Durdur")
+                    .on_hover_text("Bu nesneden sonra makineyi duraklat (köpük koymak ya da aplike kumaşını kesmek için)")
                     .changed()
                 {
                     pr.stop = stop.then_some(true);
@@ -3150,10 +3156,10 @@ impl Studio {
             self.view_tools.marker_pick = m;
             if let Some(m) = m {
                 self.status = format!(
-                    "Click on the object's outline where it should {}. Esc cancels.",
+                    "Nesnenin {} gereken yerde dış hattına tıklayın. Esc iptal eder.",
                     match m {
-                        Marker::Start => "start sewing",
-                        Marker::End => "finish",
+                        Marker::Start => "dikişe başlaması",
+                        Marker::End => "bitmesi",
                     }
                 );
             }
@@ -3167,7 +3173,7 @@ impl Studio {
         ui.spacing_mut().item_spacing.y = 0.0;
         let p = pal_ui(ui);
         if self.design.blocks.is_empty() {
-            caption(ui, "Nothing to sew yet.");
+            caption(ui, "Henüz dikilecek bir şey yok.");
             return;
         }
         let selected = self.sel_indices();
@@ -3252,7 +3258,7 @@ impl Studio {
                 .iter()
                 .filter_map(|&i| self.names.get(i).cloned())
                 .collect();
-            if swr.on_hover_text("Change this block's thread").clicked() {
+            if swr.on_hover_text("Bu bloğun ipliğini değiştir").clicked() {
                 pick = Some(objects.clone());
                 let w = crate::threads::PICKER_W + 2.0 * theme::space::M;
                 picker = Some(Pos2::new(
@@ -3260,7 +3266,7 @@ impl Studio {
                     rect.top() - theme::space::M,
                 ));
             } else if resp
-                .on_hover_text(format!("Sews: {}", names.join(", ")))
+                .on_hover_text(format!("Diker: {}", names.join(", ")))
                 .clicked()
             {
                 pick = Some(objects);
@@ -3279,7 +3285,7 @@ impl Studio {
         let fabric = self.doc.settings.fabric();
         form(ui, "doc-form", |fm: &mut Form| {
             self.machine_rows(fm);
-            fm.row("Fabric", |ui, lid| {
+            fm.row("Kumaş", |ui, lid| {
                 egui::ComboBox::from_id_salt("fabric")
                     .selected_text(fabric.name)
                     .width(170.0)
@@ -3305,11 +3311,11 @@ impl Studio {
                 .iter()
                 .position(|x| zigzag::machine::profile::same_hoop(x.0, here));
             let custom = self.hoop_custom || listed.is_none();
-            fm.row("Hoop", |ui, lid| {
+            fm.row("Kasnak", |ui, lid| {
                 egui::ComboBox::from_id_salt("hoop")
                     .selected_text(match listed {
                         Some(k) if !self.hoop_custom => hoops[k].1.as_str(),
-                        _ => "Custom",
+                        _ => "Özel",
                     })
                     .width(170.0)
                     .height(400.0)
@@ -3326,9 +3332,9 @@ impl Studio {
                         }
                         ui.separator();
                         if ui
-                            .selectable_label(custom, "Custom")
+                            .selectable_label(custom, "Özel")
                             .on_hover_text(
-                                "Any other frame: type its sewing field's width and height",
+                                "Başka bir kasnak: dikiş alanının genişliğini ve yüksekliğini yazın",
                             )
                             .clicked()
                         {
@@ -3340,41 +3346,41 @@ impl Studio {
             });
             if custom {
                 // The sewing field of any other frame, width by height.
-                fm.row("Size", |ui, lid| {
+                fm.row("Boyut", |ui, lid| {
                     let (w, h) = &mut self.doc.settings.hoop;
                     let side = zigzag::document::HOOP_SIDE_MM;
                     ui.add(crate::units::drag_mm(w, side.clone(), 1.0))
                         .labelled_by(lid)
-                        .on_hover_text("Width of the hoop's sewing field");
+                        .on_hover_text("Kasnağın dikiş alanı genişliği");
                     ui.label("×");
                     ui.add(crate::units::drag_mm(h, side, 1.0))
-                        .on_hover_text("Height of the hoop's sewing field")
+                        .on_hover_text("Kasnağın dikiş alanı yüksekliği")
                         .widget_info(|| {
-                            egui::WidgetInfo::labeled(egui::Role::SpinButton, true, "Hoop height")
+                            egui::WidgetInfo::labeled(egui::Role::SpinButton, true, "Kasnak yüksekliği")
                         });
                 });
             }
-            fm.row("Layers", |ui, _| {
-                ui.checkbox(&mut self.doc.settings.remove_overlaps, "Remove overlaps")
+            fm.row("Katmanlar", |ui, _| {
+                ui.checkbox(&mut self.doc.settings.remove_overlaps, "Çakışmaları kaldır")
                     .on_hover_text(
-                        "Don't fill areas that objects on top will cover (keeps 0.5 mm of overlap)",
+                        "Üstteki nesnelerin kaplayacağı alanları doldurma (0,5 mm çakışma bırakır)",
                     );
             });
-            fm.row("Order", |ui, _| {
-                ui.checkbox(&mut self.doc.settings.hat_order, "Cap order")
-                    .on_hover_text("Sew from the center out and the bottom up, grouping colors, so puckering is pushed away");
+            fm.row("Sıra", |ui, _| {
+                ui.checkbox(&mut self.doc.settings.hat_order, "Şapka sırası")
+                    .on_hover_text("Renkleri gruplayarak merkezden dışa ve aşağıdan yukarı dik; böylece büzüşme dışarı itilir");
             });
-            fm.row("Travel", |ui, _| {
-                ui.checkbox(&mut self.doc.settings.over_sewn, "Sew over fill")
+            fm.row("Geçiş", |ui, _| {
+                ui.checkbox(&mut self.doc.settings.over_sewn, "Dolgu üzerinden dik")
                     .on_hover_text(
-                        "Where the thread can't get from one part of an object to the next out of sight (under stitches still to come, or under what's sewn on top): off, it's cut; on, it's sewn over the fill already there. On saves cuts, and the running stitch shows on top of the fill.",
+                        "İplik bir nesnenin bir parçasından diğerine görünmeden (gelecek dikişlerin ya da üstte dikilenin altından) geçemediğinde: kapalıyken kesilir; açıkken mevcut dolgunun üzerinden dikilir. Açık olması kesimleri azaltır ve düz dikiş dolgunun üzerinde görünür.",
                     );
             });
             // Connect: gaps this short are sewn across in the open rather
             // than cut. A bar to drag, the cuts it saves beside it, and what
             // it sews lit up on the canvas meanwhile.
             let mut peek = false;
-            fm.row("Connect", |ui, lid| {
+            fm.row("Bağla", |ui, lid| {
                 let mm = &mut self.doc.settings.connect_mm;
                 ui.spacing_mut().slider_width = 100.0;
                 let bar = ui
@@ -3386,10 +3392,10 @@ impl Studio {
                     )
                     .labelled_by(lid)
                     .on_hover_text(
-                        "Sew across gaps up to this long with running stitches instead of cutting the thread, between objects or the parts of one. These stitches show: they light up on the canvas as you drag. (Travel that's out of sight, under a fill or what's sewn on top, is made anyway.)",
+                        "Nesneler ya da bir nesnenin parçaları arasında bu uzunluğa kadar olan boşlukları ipliği kesmek yerine düz dikişle geç. Bu dikişler görünür: sürüklerken tuvalde parlarlar. (Görünmeyen geçişler, bir dolgunun ya da üstte dikilenin altındakiler, yine de yapılır.)",
                     );
                 bar.widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::Role::Slider, true, "Connect gaps")
+                    egui::WidgetInfo::labeled(egui::Role::Slider, true, "Boşlukları bağla")
                 });
                 let field = ui.add(crate::units::drag_mm(mm, 0.0..=50.0, 0.1));
                 peek = [&bar, &field]
@@ -3408,10 +3414,10 @@ impl Studio {
                     Some(std::time::Instant::now() + std::time::Duration::from_secs(6));
                 fm.ui.ctx().request_repaint();
             }
-            fm.row("Preview on", |ui, lid| {
+            fm.row("Zemin", |ui, lid| {
                 ui.color_edit_button_srgb(&mut self.doc.settings.cloth)
                     .labelled_by(lid)
-                    .on_hover_text("Your hat's color, for the preview (saved with the design; doesn't change the stitches)");
+                    .on_hover_text("Önizleme için şapkanızın rengi (tasarımla kaydedilir; dikişleri değiştirmez)");
             });
             self.narrow_satin_row(fm);
         });
@@ -3422,7 +3428,7 @@ impl Studio {
     fn transform_body(&mut self, ui: &mut egui::Ui) {
         ui.spacing_mut().item_spacing.y = theme::space::S;
         if self.sel_indices().is_empty() {
-            caption(ui, "Nothing selected.");
+            caption(ui, "Hiçbir şey seçili değil.");
             return;
         }
         self.layout_panel(ui);
@@ -3434,16 +3440,16 @@ const CONNECT_BAR_MM: f64 = 20.0;
 
 /// Under the Connect bar: the cuts there are, and how many it saved.
 pub(crate) fn connect_note(connect_mm: f64, cuts: usize, bridged: usize) -> String {
-    let n = |k: usize| format!("{k} cut{}", if k == 1 { "" } else { "s" });
+    let n = |k: usize| format!("{k} kesim{:.0}", if k == 1 { "" } else { "s" });
     if bridged > 0 {
         // (In words: the app's font has no arrow.)
-        format!("{} down to {cuts}", n(cuts + bridged))
+        format!("{} → {cuts} kesime iniyor", n(cuts + bridged))
     } else if connect_mm > 0.0 && cuts > 0 {
-        format!("{}: none this short", n(cuts))
+        format!("{}: bu kadar kısa yok", n(cuts))
     } else if cuts > 0 {
-        format!("{}: drag to sew across the short ones", n(cuts))
+        format!("{}: kısa olanların üzerinden dikmek için sürükleyin", n(cuts))
     } else {
-        "No cuts".to_string()
+        "Kesim yok".to_string()
     }
 }
 

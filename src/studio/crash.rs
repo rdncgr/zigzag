@@ -218,9 +218,9 @@ impl crate::app::Studio {
             Some(d) => {
                 let _ = std::fs::create_dir_all(&d);
                 crate::sew::open_url(&d.to_string_lossy());
-                self.status = format!("Crash logs are kept in {}.", d.display());
+                self.status = format!("Çökme kayıtları şurada tutuluyor: {}.", d.display());
             }
-            None => self.status = "There's no settings folder to keep crash logs in.".into(),
+            None => self.status = "Çökme kayıtlarının tutulacağı bir ayarlar klasörü yok.".into(),
         }
     }
 
@@ -237,16 +237,16 @@ impl crate::app::Studio {
             egui::Id::unique("crash"),
             dialog::Place::Center,
             |ui| {
-                dialog::heading(ui, "ZigZag stopped unexpectedly last time");
+                dialog::heading(ui, "ZigZag geçen sefer beklenmedik şekilde kapandı");
                 dialog::body(
                     ui,
-                    "It kept a short log of what went wrong. Reporting it helps get the problem fixed: a GitHub issue opens with the gist of the log already in it, and the log file is shown so you can attach it. Nothing is sent unless you post it.",
+                    "Neyin ters gittiğine dair kısa bir kayıt tuttu. Bildirmeniz sorunun çözülmesine yardımcı olur: kaydın özetini içeren bir GitHub sorunu açılır ve kayıt dosyası eklemeniz için gösterilir. Siz göndermedikçe hiçbir şey gönderilmez.",
                 );
                 dialog::buttons(ui, |ui| {
-                    report = dialog::primary(ui, "Report on GitHub…", true).clicked();
-                    later = dialog::secondary(ui, "Not Now").clicked()
+                    report = dialog::primary(ui, "GitHub'da Bildir…", true).clicked();
+                    later = dialog::secondary(ui, "Şimdi Değil").clicked()
                         || ui.input(|i| i.key_pressed(egui::Key::Escape));
-                    show = dialog::apart(ui, |ui| dialog::secondary(ui, "Show Log").clicked());
+                    show = dialog::apart(ui, |ui| dialog::secondary(ui, "Kaydı Göster").clicked());
                 });
             },
         );

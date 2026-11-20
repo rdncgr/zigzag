@@ -279,7 +279,7 @@ impl Studio {
         if let Some(m) = self.view_tools.marker_pick {
             if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
                 self.view_tools.marker_pick = None;
-                self.status = "Cancelled.".into();
+                self.status = "İptal edildi.".into();
                 return true;
             }
             self.want_cursor(crate::cursors::Glyph::Cross(None));
@@ -295,8 +295,8 @@ impl Studio {
                 }
                 self.view_tools.marker_pick = None;
                 self.status = match m {
-                    Marker::Start => "Sewing starts there. Drag the marker to move it.".into(),
-                    Marker::End => "Sewing ends there. Drag the marker to move it.".into(),
+                    Marker::Start => "Dikiş buradan başlar. Taşımak için işaretçiyi sürükleyin.".into(),
+                    Marker::End => "Dikiş burada biter. Taşımak için işaretçiyi sürükleyin.".into(),
                 };
             }
             return true;
@@ -385,7 +385,7 @@ pub fn measure_text(a: P, b: P) -> String {
     let u = crate::units::current();
     let ang = (-d.y).atan2(d.x).to_degrees() + 0.0;
     format!(
-        "D  {}\nAngle  {:.1}°\nW  {}    H  {}",
+        "M  {}\nAçı  {:.1}°\nG  {}    Y  {}",
         u.fmt(d.len()),
         ang,
         u.fmt(d.x.abs()),
@@ -525,12 +525,12 @@ impl Studio {
                                         (
                                             PenMode::Shape,
                                             crate::icons::Icon::PenPath,
-                                            "Shape or Line",
+                                            "Şekil ya da Çizgi",
                                         ),
                                         (
                                             PenMode::Manual,
                                             crate::icons::Icon::NeedlePoints,
-                                            "Manual Stitches",
+                                            "Elle Dikişler",
                                         ),
                                     ] {
                                         if crate::theme::icon_button(
@@ -575,12 +575,12 @@ impl Studio {
         let after = self.design.blocks.len();
         self.status = if after < before {
             format!(
-                "Color changes: {} → {}.",
+                "Renk değişimi: {} → {}.",
                 before.saturating_sub(1),
                 after.saturating_sub(1)
             )
         } else {
-            "Already in the fewest color changes the layering allows.".into()
+            "Katman düzeninin izin verdiği en az renk değişimi zaten bu.".into()
         };
     }
 
@@ -615,7 +615,7 @@ impl Studio {
         let (hw, hh) = self.hoop_dims();
         let info = zigzag::formats::worksheet::WorksheetInfo {
             title: if self.doc.name.is_empty() {
-                "Design".into()
+                "Tasarım".into()
             } else {
                 self.doc.name.clone()
             },

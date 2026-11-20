@@ -37,7 +37,7 @@ impl Studio {
         self.hud(
             painter,
             rect,
-            "Click an object to give the selection its thread and stitch settings · Alt-click to give it the selection's · Shift-click for the thread alone",
+            "Seçime bir nesnenin ipliğini ve dikiş ayarlarını vermek için ona tıklayın · seçiminkini ona vermek için Alt-tıklama · yalnızca iplik için Shift-tıklama",
         );
         // On the press, as in VectorCraft: nothing to drag.
         let pressed = ui.input(|i| i.pointer.primary_pressed()) && resp.is_pointer_button_down_on();
@@ -62,7 +62,7 @@ impl Studio {
                 None => self.view_tools.sample.clone(),
             };
             let Some(look) = look else {
-                self.status = "Click an object first, to read its thread and settings.".into();
+                self.status = "İpliğini ve ayarlarını okumak için önce bir nesneye tıklayın.".into();
                 return;
             };
             self.give_look(&[target], &look, shift);
@@ -85,7 +85,7 @@ impl Studio {
         let targets: Vec<usize> = self.subjects().into_iter().filter(|&i| i != src).collect();
         if targets.is_empty() {
             self.status = format!(
-                "Read {}: Alt-click an object to give it this thread and these settings.",
+                "{} okundu: bu ipliği ve ayarları vermek için bir nesneye Alt-tıklayın.",
                 self.doc.shapes[src].label
             );
             return;
@@ -118,7 +118,7 @@ impl Studio {
             })
             .count();
         if changed == 0 {
-            self.status = "Nothing to change: it's sewn that way already.".into();
+            self.status = "Değişecek bir şey yok: zaten öyle dikiliyor.".into();
             return;
         }
         let _ = self.structural(|d| {
@@ -126,12 +126,12 @@ impl Studio {
             Ok(())
         });
         self.status = format!(
-            "Eyedropper: {changed} object{} given the {}.",
+            "Damlalık: {changed} nesneye {1} verildi.{0:.0}",
             if changed == 1 { "" } else { "s" },
             if thread_only {
-                "thread"
+                "iplik"
             } else {
-                "thread and stitch settings"
+                "iplik ve dikiş ayarları"
             }
         );
     }

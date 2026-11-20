@@ -185,8 +185,8 @@ impl Studio {
             Then::SaveAs => self.save(Some(&path)),
             Then::Export(ext) => {
                 self.status = match self.export_to(ext, &path) {
-                    Ok(()) => format!("Exported {}", path.display()),
-                    Err(e) => format!("Couldn't export {}: {e}", path.display()),
+                    Ok(()) => format!("Dışa aktarıldı: {}", path.display()),
+                    Err(e) => format!("Dışa aktarılamadı {}: {e}", path.display()),
                 };
             }
         }

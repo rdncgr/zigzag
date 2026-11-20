@@ -6,17 +6,17 @@ use zigzag::svg::{Geometry, Shape};
 
 pub fn kind_name(k: Kind) -> &'static str {
     match k {
-        Kind::Fill => "Fill",
-        Kind::Satin => "Satin",
-        Kind::Run => "Run",
-        Kind::Skip => "Off",
-        Kind::Contour => "Contour",
-        Kind::Blanket => "Blanket",
-        Kind::Applique => "Appliqué",
-        Kind::Manual => "Manual",
-        Kind::Meander => "Meander",
-        Kind::Ripple => "Ripple",
-        Kind::Cross => "Cross-stitch",
+        Kind::Fill => "Dolgu",
+        Kind::Satin => "Saten",
+        Kind::Run => "Düz Dikiş",
+        Kind::Skip => "Kapalı",
+        Kind::Contour => "Kontur",
+        Kind::Blanket => "Battaniye",
+        Kind::Applique => "Aplike",
+        Kind::Manual => "Elle",
+        Kind::Meander => "Kıvrımlı",
+        Kind::Ripple => "Dalga",
+        Kind::Cross => "Kanaviçe",
         Kind::Tartan => "Tartan",
     }
 }
@@ -24,39 +24,39 @@ pub fn kind_name(k: Kind) -> &'static str {
 pub fn kind_help(k: Kind, on_filled_shape: bool) -> &'static str {
     match (k, on_filled_shape) {
         (Kind::Fill, _) => {
-            "Tatami fill: rows of stitches that cover an area. Best for shapes wider than ~7 mm. (F)"
+            "Tatami dolgu: bir alanı kaplayan dikiş sıraları. ~7 mm'den geniş şekiller için en iyisi. (F)"
         }
         (Kind::Satin, true) => {
-            "Satin column across the shape (narrow shapes, letters, rings), or a satin border along its outline. (S)"
+            "Şekil boyunca saten sütun (dar şekiller, harfler, halkalar) ya da dış hattı boyunca saten kenarlık. (S)"
         }
         (Kind::Satin, false) => {
-            "Satin column: smooth, shiny zigzag 1–7 mm wide. Great for lettering and borders. (S)"
+            "Saten sütun: 1–7 mm genişliğinde düzgün, parlak zikzak. Yazı ve kenarlıklar için ideal. (S)"
         }
-        (Kind::Run, true) => "Running stitch along the outline: a thin line. (R)",
-        (Kind::Run, false) => "Running stitch: a thin line for details and fine outlines. (R)",
-        (Kind::Skip, _) => "Don't stitch this object. (X)",
+        (Kind::Run, true) => "Dış hat boyunca düz dikiş: ince bir çizgi. (R)",
+        (Kind::Run, false) => "Düz dikiş: ayrıntılar ve ince dış hatlar için ince bir çizgi. (R)",
+        (Kind::Skip, _) => "Bu nesneyi dikme. (X)",
         (Kind::Contour, _) => {
-            "Contour fill: rows that follow the outline inward, like ripples, or a spiral out from the center. Good for organic shapes. (C)"
+            "Kontur dolgu: dalgalar gibi dış hattı içe doğru izleyen sıralar ya da merkezden dışa spiral. Organik şekiller için iyi. (C)"
         }
         (Kind::Blanket, true) => {
-            "Blanket (E-stitch) edge: a line with prongs into the shape. Classic appliqué and patch edge. (B)"
+            "Battaniye (E-dikiş) kenarı: şeklin içine dişleri olan bir çizgi. Klasik aplike ve arma kenarı. (B)"
         }
-        (Kind::Blanket, false) => "Blanket (E-stitch): a line with prongs to one side. (B)",
+        (Kind::Blanket, false) => "Battaniye (E-dikiş): bir yana dişleri olan bir çizgi. (B)",
         (Kind::Applique, _) => {
-            "Appliqué: sews a placement line, stops for you to lay fabric, tacks it down, stops for you to trim, then covers the edge with satin."
+            "Aplike: yerleşim çizgisi diker, kumaşı koymanız için durur, sabitler, kesmeniz için durur, sonra kenarı satenle kaplar."
         }
         (Kind::Manual, _) => {
-            "Manual: every point of the path is a needle point, exactly as drawn. Used for imported machine files and hand digitizing. (M)"
+            "Elle: yolun her noktası, tam çizildiği gibi bir iğne noktasıdır. İçe aktarılan makine dosyaları ve elle dijitalleştirme için. (M)"
         }
         (Kind::Meander, _) => {
-            "Meander: one wandering line through the shape, quilting style. Light and soft; good on thin fabric and for large areas."
+            "Kıvrımlı: kapitone tarzı, şeklin içinde gezinen tek bir çizgi. Hafif ve yumuşak; ince kumaşta ve geniş alanlarda iyi."
         }
         (Kind::Ripple, _) => {
-            "Ripple: open running-stitch rows following the outline, like ripples on water, or one spiral from the center."
+            "Dalga: sudaki dalgalar gibi dış hattı izleyen açık düz dikiş sıraları ya da merkezden tek bir spiral."
         }
-        (Kind::Cross, _) => "Cross-stitch: a grid of X's, like hand cross-stitch. Flat and blocky.",
+        (Kind::Cross, _) => "Kanaviçe: el kanaviçesi gibi X'lerden oluşan bir ızgara. Düz ve bloklu.",
         (Kind::Tartan, _) => {
-            "Tartan: woven stripes in several threads. Set the stripes below; each thread sews as its own color."
+            "Tartan: birkaç iplikle dokuma şeritler. Şeritleri aşağıda ayarlayın; her iplik kendi rengiyle dikilir."
         }
     }
 }
@@ -81,7 +81,7 @@ pub const ALL_KINDS: [Kind; 12] = [
 /// (only a line can't take one: the types that cover an area).
 pub fn kind_unavailable(k: Kind) -> String {
     format!(
-        "{}\n{} covers an area, so it needs a filled shape. This object is a line.",
+        "{}\n{} bir alanı kaplar, bu yüzden dolgulu bir şekil gerekir. Bu nesne bir çizgi.",
         kind_blurb(k),
         kind_name(k)
     )
@@ -420,18 +420,18 @@ pub fn draw_kind_icon(p: &egui::Painter, r: Rect, k: Kind, c: Color32) {
 /// What each stitch type is for, in a sentence.
 pub fn kind_blurb(k: Kind) -> &'static str {
     match k {
-        Kind::Fill => "Rows of stitches covering an area wider than ~7 mm.",
-        Kind::Satin => "Glossy columns 1–7 mm wide: borders, letters, rings.",
-        Kind::Run => "A line of stitches for details; triple run is bolder.",
-        Kind::Contour => "Rows following the outline inward.",
-        Kind::Blanket => "A line with prongs, for appliqué and patch edges.",
-        Kind::Applique => "Fabric instead of stitches, with stops to place and trim it.",
-        Kind::Manual => "Every point is a needle point, exactly as drawn.",
-        Kind::Meander => "One wandering line, quilting style: light and soft.",
-        Kind::Ripple => "Open rows following the outline, or one spiral.",
-        Kind::Cross => "A grid of X's, like hand cross-stitch.",
-        Kind::Tartan => "Woven stripes in several threads.",
-        Kind::Skip => "Not stitched.",
+        Kind::Fill => "~7 mm'den geniş bir alanı kaplayan dikiş sıraları.",
+        Kind::Satin => "1–7 mm genişliğinde parlak sütunlar: kenarlıklar, harfler, halkalar.",
+        Kind::Run => "Ayrıntılar için bir dikiş çizgisi; üçlü düz dikiş daha belirgindir.",
+        Kind::Contour => "Dış hattı içe doğru izleyen sıralar.",
+        Kind::Blanket => "Aplike ve arma kenarları için dişli bir çizgi.",
+        Kind::Applique => "Dikiş yerine kumaş; yerleştirmek ve kesmek için duraklamalarla.",
+        Kind::Manual => "Her nokta, tam çizildiği gibi bir iğne noktasıdır.",
+        Kind::Meander => "Kapitone tarzı gezinen tek çizgi: hafif ve yumuşak.",
+        Kind::Ripple => "Dış hattı izleyen açık sıralar ya da tek bir spiral.",
+        Kind::Cross => "El kanaviçesi gibi X'lerden bir ızgara.",
+        Kind::Tartan => "Birkaç iplikle dokuma şeritler.",
+        Kind::Skip => "Dikilmez.",
     }
 }
 
@@ -513,7 +513,7 @@ pub fn compact_color_picker(ui: &mut egui::Ui, c: &mut [u8; 3]) -> bool {
     ui.painter()
         .circle_stroke(m, 5.0, Stroke::new(1.0, Color32::from_black_alpha(120)));
     resp.widget_info(|| {
-        egui::WidgetInfo::labeled(egui::Role::Slider, true, "Saturation and brightness")
+        egui::WidgetInfo::labeled(egui::Role::Slider, true, "Doygunluk ve parlaklık")
     });
 
     let (r, resp) = ui.allocate_exact_size(Vec2::new(w, 12.0), Sense::click_and_drag());
@@ -544,7 +544,7 @@ pub fn compact_color_picker(ui: &mut egui::Ui, c: &mut [u8; 3]) -> bool {
         Stroke::new(1.5, Color32::WHITE),
         egui::StrokeKind::Middle,
     );
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Slider, true, "Hue"));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Slider, true, "Ton"));
 
     if changed {
         ui.data_mut(|d| d.insert_temp(hue_id, hsva.h));

@@ -218,9 +218,9 @@ pub fn reference_point(b: &Bounds, r: (i8, i8)) -> P {
 fn reference_locator(ui: &mut egui::Ui, current: (i8, i8)) -> Option<(i8, i8)> {
     let p = crate::theme::pal_ui(ui);
     let (r, resp) = ui.allocate_exact_size(Vec2::splat(22.0), egui::Sense::click());
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Reference point"));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Referans noktası"));
     let resp =
-        resp.on_hover_text("Reference point: X and Y show this point; resizing keeps it in place");
+        resp.on_hover_text("Referans noktası: X ve Y bu noktayı gösterir; yeniden boyutlandırmada yerinde kalır");
     let painter = ui.painter();
     let cell = |k: i8| (k + 1) as f32 * 8.0 + 3.0;
     let mut picked = None;
@@ -433,7 +433,7 @@ impl Studio {
         if let Some(g) = self.click_group(i) {
             self.layout.expanded.insert(g.clone());
             self.status = format!(
-                "Editing group \"{}\". Press Esc or double-click empty canvas to leave it.",
+                "Grup düzenleniyor: \"{}\". Çıkmak için Esc'ye basın ya da boş tuvale çift tıklayın.",
                 Self::group_label(&g)
             );
             self.layout.isolated.push(g);
@@ -449,7 +449,7 @@ impl Studio {
         let members = self.group_members(&g);
         self.set_selection(&members);
         match self.scope() {
-            Some(outer) => self.status = format!("Editing group \"{}\".", Self::group_label(outer)),
+            Some(outer) => self.status = format!("Grup düzenleniyor: \"{}\".", Self::group_label(outer)),
             None => self.clear_group_status(),
         }
         true
@@ -464,7 +464,7 @@ impl Studio {
     }
 
     fn clear_group_status(&mut self) {
-        if self.status.starts_with("Editing group") {
+        if self.status.starts_with("Grup düzenleniyor") {
             self.status.clear();
         }
     }
@@ -493,7 +493,7 @@ impl Studio {
     pub fn group_label(g: &str) -> String {
         let words = zigzag::svg::name_words(g);
         if words.is_empty() {
-            "Group".into()
+            "Grup".into()
         } else {
             words.join(" ")
         }
@@ -602,17 +602,17 @@ impl Studio {
         }
         let c = b.center();
         let m = affine_mul(translation(P::default() - c), scale_about(c, s, s));
-        let ok = self.transform_selected(m, "Fitted");
+        let ok = self.transform_selected(m, "sığdırıldı");
         done(self);
         if !ok {
             return None;
         }
         self.status = format!(
-            "Scaled {} to {:.0}% ({}) to fit the {} hoop.",
+            "{0} {3} kasnağa sığması için %{1:.0} oranında ölçeklendi ({2}).",
             if had_sel {
-                "the selection"
+                "Seçim"
             } else {
-                "the design"
+                "Tasarım"
             },
             s * 100.0,
             crate::units::fmt_size(b.width() * s, b.height() * s),
@@ -631,7 +631,7 @@ impl Studio {
         let from = self.selection_bounds();
         match self.structural(|d| d.transform(&idx, m)) {
             Ok(()) => {
-                self.status = format!("{what} {}.", self.selection_label(idx.len()));
+                self.status = format!("{} {what}.", self.selection_label(idx.len()));
                 self.restore_selection(&uids);
                 self.layout.last = Some(LastTransform {
                     m,
@@ -642,7 +642,7 @@ impl Studio {
                 true
             }
             Err(e) => {
-                self.status = format!("Couldn't {}: {e:#}", what.to_lowercase());
+                self.status = format!("İşlem yapılamadı ({}): {e:#}", what.to_lowercase());
                 false
             }
         }
@@ -662,13 +662,13 @@ impl Studio {
                 .names
                 .get(i)
                 .cloned()
-                .unwrap_or_else(|| "object".into()),
-            _ => format!("{n} objects"),
+                .unwrap_or_else(|| "nesne".into()),
+            _ => format!("{n} nesne"),
         }
     }
 
     pub fn duplicate_selected(&mut self) {
-        self.copy_selection_by(P::new(DUPLICATE_OFFSET, DUPLICATE_OFFSET), "Duplicated");
+        self.copy_selection_by(P::new(DUPLICATE_OFFSET, DUPLICATE_OFFSET), "çoğaltıldı");
     }
 
     /// Copy the selection, shifted by `d` (design units), and select the copy.
@@ -685,7 +685,7 @@ impl Studio {
             Ok(())
         }) {
             Ok(()) => {
-                self.status = format!("{what} {label}.");
+                self.status = format!("{label} {what}.");
                 self.set_selection(&new);
                 self.layout.last = Some(LastTransform {
                     m: translation(d),
@@ -696,7 +696,7 @@ impl Studio {
                 true
             }
             Err(e) => {
-                self.status = format!("Couldn't duplicate: {e:#}");
+                self.status = format!("Çoğaltılamadı: {e:#}");
                 false
             }
         }
@@ -726,7 +726,7 @@ impl Studio {
             Ok(())
         }) {
             Ok(()) => {
-                self.status = format!("{what} {label}.");
+                self.status = format!("{label} {what}.");
                 self.set_selection(&new);
                 self.layout.last = Some(LastTransform {
                     m,
@@ -737,7 +737,7 @@ impl Studio {
                 true
             }
             Err(e) => {
-                self.status = format!("Couldn't copy: {e:#}");
+                self.status = format!("Kopyalanamadı: {e:#}");
                 false
             }
         }
@@ -764,9 +764,9 @@ impl Studio {
         }) {
             Ok(()) => {
                 self.set_selection(&[new]);
-                self.status = format!("{op:?}: {n} objects into one shape.");
+                self.status = format!("{n} nesne tek şekilde birleştirildi.");
             }
-            Err(e) => self.status = format!("Couldn't combine them: {e:#}"),
+            Err(e) => self.status = format!("Birleştirilemedi: {e:#}"),
         }
     }
 
@@ -780,9 +780,9 @@ impl Studio {
         }) {
             Ok(()) => {
                 self.set_selection(&new);
-                self.status = format!("Offset by {mm:+.1} mm (the new shape is behind).");
+                self.status = format!("{mm:+.1} mm kaydırıldı (yeni şekil arkada).");
             }
-            Err(e) => self.status = format!("Couldn't offset: {e:#}"),
+            Err(e) => self.status = format!("Kaydırılamadı: {e:#}"),
         }
     }
 
@@ -802,11 +802,11 @@ impl Studio {
                 }
                 self.set_selection(&new);
                 self.status = format!(
-                    "Released into {} objects, grouped. Each one has its own stitch settings now.",
+                    "{} nesneye ayrıldı ve gruplandı. Artık her birinin kendi dikiş ayarları var.",
                     new.len()
                 );
             }
-            Err(e) => self.status = format!("Couldn't release: {e:#}"),
+            Err(e) => self.status = format!("Ayrılamadı: {e:#}"),
         }
     }
 
@@ -819,9 +819,9 @@ impl Studio {
         }) {
             Ok(()) => {
                 self.set_selection(&new);
-                self.status = format!("Outlined {} line(s) into shapes.", new.len());
+                self.status = format!("{} çizgi şekle dönüştürüldü.", new.len());
             }
-            Err(e) => self.status = format!("Couldn't outline: {e:#}"),
+            Err(e) => self.status = format!("Dış hatta dönüştürülemedi: {e:#}"),
         }
     }
 
@@ -950,18 +950,18 @@ impl Studio {
     pub fn remove_outline_selected(&mut self) {
         let idx = self.subjects();
         match self.set_outline(&idx, false) {
-            Ok(0) => self.status = "No outline to remove.".into(),
+            Ok(0) => self.status = "Kaldırılacak dış hat yok.".into(),
             Ok(n) => {
                 self.status = format!(
-                    "Removed {}.",
+                    "{} kaldırıldı.",
                     if n == 1 {
-                        "the outline".to_string()
+                        "Dış hat".to_string()
                     } else {
-                        format!("{n} outlines")
+                        format!("{n} dış hat")
                     }
                 );
             }
-            Err(e) => self.status = format!("Couldn't remove the outline: {e:#}"),
+            Err(e) => self.status = format!("Dış hat kaldırılamadı: {e:#}"),
         }
     }
 
@@ -971,15 +971,15 @@ impl Studio {
         match self.set_outline(&idx, true) {
             Ok(n) => {
                 self.status = format!(
-                    "Added {}: a running stitch round the edge. Its stitch, thread and width are in the task bar's second row.",
+                    "{} eklendi: kenar boyunca düz dikiş. Dikişi, ipliği ve genişliği görev çubuğunun ikinci satırında.",
                     if n == 1 {
-                        "an outline".to_string()
+                        "Dış hat".to_string()
                     } else {
-                        format!("{n} outlines")
+                        format!("{n} dış hat")
                     }
                 );
             }
-            Err(e) => self.status = format!("Couldn't add an outline: {e:#}"),
+            Err(e) => self.status = format!("Dış hat eklenemedi: {e:#}"),
         }
     }
 
@@ -1039,21 +1039,21 @@ impl Studio {
         use crate::dialog;
         let id = egui::Id::unique("round-corners");
         dialog::show(ctx, id, dialog::Place::Top, |ui| {
-            dialog::heading(ui, "Round Corners");
+            dialog::heading(ui, "Köşeleri Yuvarla");
             crate::theme::form(ui, "corner-form", |f| {
-                f.row("Radius", |ui, l| {
+                f.row("Yarıçap", |ui, l| {
                     ui.add(crate::units::drag_mm(&mut d.radius, 0.0..=50.0, 0.05))
                         .labelled_by(l);
                 });
-                f.row("Corners", |ui, _| {
+                f.row("Köşeler", |ui, _| {
                     crate::theme::segmented(
                         ui,
                         "corner-kind",
                         &mut d.kind,
                         &[
-                            (CornerKind::Round, "Round"),
-                            (CornerKind::Inverted, "Inverted"),
-                            (CornerKind::Chamfer, "Chamfer"),
+                            (CornerKind::Round, "Yuvarlak"),
+                            (CornerKind::Inverted, "Ters"),
+                            (CornerKind::Chamfer, "Pah"),
                         ],
                     );
                 });
@@ -1061,17 +1061,17 @@ impl Studio {
             crate::theme::caption(
                 ui,
                 match (d.cut, d.only.is_empty()) {
-                    (0, _) => "No corners to round here.".to_string(),
-                    (n, true) => format!("{n} corners. Each rounds as far as its sides allow."),
+                    (0, _) => "Burada yuvarlatılacak köşe yok.".to_string(),
+                    (n, true) => format!("{n} köşe. Her biri kenarlarının izin verdiği kadar yuvarlanır."),
                     (n, false) => {
-                        format!("{n} selected corners. Each rounds as far as its sides allow.")
+                        format!("{n} seçili köşe. Her biri kenarlarının izin verdiği kadar yuvarlanır.")
                     }
                 },
             );
             dialog::buttons(ui, |ui| {
-                ok = dialog::primary(ui, "OK", true).clicked()
+                ok = dialog::primary(ui, "Tamam", true).clicked()
                     || ui.input(|i| i.key_pressed(Key::Enter));
-                cancel = dialog::secondary(ui, "Cancel").clicked()
+                cancel = dialog::secondary(ui, "İptal").clicked()
                     || ui.input(|i| i.key_pressed(Key::Escape));
             });
         });
@@ -1101,9 +1101,9 @@ impl Studio {
                     Ok(())
                 });
                 self.status = if d.radius > 0.0 {
-                    format!("Rounded {} corners.", d.cut)
+                    format!("{} köşe yuvarlatıldı.", d.cut)
                 } else {
-                    format!("Made {} corners sharp.", d.cut)
+                    format!("{} köşe keskinleştirildi.", d.cut)
                 };
             }
             self.path_edit.selected.clear();
@@ -1125,7 +1125,7 @@ impl Studio {
         };
         let mut open = true;
         let (mut ok, mut cancel) = (false, false);
-        egui::Window::new("Offset Path")
+        egui::Window::new("Yolu Kaydır")
             .title_frame(crate::theme::title_frame(ctx))
             .open(&mut open)
             .resizable(false)
@@ -1133,17 +1133,17 @@ impl Studio {
             .anchor(egui::Align2::CENTER_TOP, Vec2::new(0.0, 90.0))
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label("Offset");
+                    ui.label("Kaydırma");
                     let r = ui.add(
                         crate::units::drag_mm(&mut mm, -20.0..=20.0, 0.1),
                     );
                     r.widget_info(|| {
-                        egui::WidgetInfo::labeled(egui::Role::SpinButton, true, "Offset distance")
+                        egui::WidgetInfo::labeled(egui::Role::SpinButton, true, "Kaydırma mesafesi")
                     });
                 });
                 crate::theme::caption(
                     ui,
-                    "A new shape around each selected object (inside, if negative), sewn just before it.",
+                    "Her seçili nesnenin çevresinde (negatifse içinde) yeni bir şekil; nesneden hemen önce dikilir.",
                 );
                 ui.add_space(crate::theme::space::S);
                 // A button row (right-aligned), only as tall as its buttons.
@@ -1153,10 +1153,10 @@ impl Studio {
                     |ui| {
                     let accent = crate::theme::pal_ui(ui).accent;
                     ok = ui
-                        .add(egui::Button::new(egui::RichText::new("OK").color(egui::Color32::WHITE)).fill(accent))
+                        .add(egui::Button::new(egui::RichText::new("Tamam").color(egui::Color32::WHITE)).fill(accent))
                         .clicked()
                         || ui.input(|i| i.key_pressed(Key::Enter));
-                    cancel = ui.button("Cancel").clicked() || ui.input(|i| i.key_pressed(Key::Escape));
+                    cancel = ui.button("İptal").clicked() || ui.input(|i| i.key_pressed(Key::Escape));
                 });
             });
         self.layout.offset_dialog = Some(mm);
@@ -1198,9 +1198,9 @@ impl Studio {
             && m[1].abs() < 1e-9
             && m[2].abs() < 1e-9;
         let done = match (last.copy, moves_only) {
-            (true, true) => self.copy_selection_by(P::new(m[4], m[5]), "Copied"),
-            (true, false) => self.copy_selection_with(m, "Copied"),
-            (false, _) => self.transform_selected(m, "Transformed again:"),
+            (true, true) => self.copy_selection_by(P::new(m[4], m[5]), "kopyalandı"),
+            (true, false) => self.copy_selection_with(m, "kopyalandı"),
+            (false, _) => self.transform_selected(m, "yeniden dönüştürüldü"),
         };
         if done && last.fixed {
             self.keep_last_fixed();
@@ -1215,12 +1215,12 @@ impl Studio {
         let mut doc = self.doc.clone();
         match doc.copy(&idx) {
             Ok(frags) => {
-                self.status = format!("Copied {}.", self.selection_label(idx.len()));
+                self.status = format!("{} kopyalandı.", self.selection_label(idx.len()));
                 self.layout.system_clipboard = Some(doc.fragments_svg(&frags));
                 self.layout.clipboard = frags;
                 self.layout.pastes = 0;
             }
-            Err(e) => self.status = format!("Couldn't copy: {e:#}"),
+            Err(e) => self.status = format!("Kopyalanamadı: {e:#}"),
         }
     }
 
@@ -1244,10 +1244,10 @@ impl Studio {
             Ok(())
         }) {
             Ok(()) => {
-                self.status = format!("Pasted {} object(s).", new.len());
+                self.status = format!("{} nesne yapıştırıldı.", new.len());
                 self.set_selection(&new);
             }
-            Err(e) => self.status = format!("Couldn't paste: {e:#}"),
+            Err(e) => self.status = format!("Yapıştırılamadı: {e:#}"),
         }
     }
 
@@ -1260,8 +1260,8 @@ impl Studio {
         let label = self.selection_label(self.subjects().len());
         let idx = self.doc.with_outlines(&idx);
         match self.structural(|d| d.delete_many(&idx)) {
-            Ok(()) => self.status = format!("Deleted {label}."),
-            Err(e) => self.status = format!("Couldn't delete: {e:#}"),
+            Ok(()) => self.status = format!("{label} silindi."),
+            Err(e) => self.status = format!("Silinemedi: {e:#}"),
         }
         self.set_selection(&[]);
     }
@@ -1302,7 +1302,7 @@ impl Studio {
             self.paste();
         }
         if nudge.len() > 0.0 {
-            self.transform_selected(translation(nudge), "Nudged");
+            self.transform_selected(translation(nudge), "kaydırıldı");
         }
     }
 
@@ -1698,7 +1698,7 @@ impl Studio {
             // turned copy lands.
             self.doc = drag.base;
             if !tiny {
-                if self.copy_selection_with(drag.m, "Copied") {
+                if self.copy_selection_with(drag.m, "kopyalandı") {
                     self.keep_last_fixed();
                 }
                 self.plan_after_gesture();
@@ -1709,7 +1709,7 @@ impl Studio {
             // Option-drag: the original stays, a copy lands where you let go.
             self.doc = drag.base;
             if drag.m[4].abs() + drag.m[5].abs() >= 0.5 {
-                self.copy_selection_by(P::new(drag.m[4], drag.m[5]), "Copied");
+                self.copy_selection_by(P::new(drag.m[4], drag.m[5]), "kopyalandı");
                 self.plan_after_gesture();
             }
             return;
@@ -1719,9 +1719,9 @@ impl Studio {
             return;
         }
         let what = match drag.mode {
-            DragMode::Move => "Moved",
-            DragMode::Scale { .. } => "Resized",
-            DragMode::Rotate { .. } => "Rotated",
+            DragMode::Move => "taşındı",
+            DragMode::Scale { .. } => "yeniden boyutlandırıldı",
+            DragMode::Rotate { .. } => "döndürüldü",
         };
         if self.transform_selected(drag.m, what) {
             if drag.tool {
@@ -1816,7 +1816,7 @@ impl Studio {
         let mut flip: Option<(f64, f64)> = None;
         let mut center = false;
         form(ui, "transform-form", |fm| {
-            let (x, y) = fm.row("Position", |ui, _| {
+            let (x, y) = fm.row("Konum", |ui, _| {
                 if let Some(r) = reference_locator(ui, refp) {
                     new_ref = Some(r);
                 }
@@ -1826,7 +1826,7 @@ impl Studio {
                 )
             });
             let (old_w, old_h) = (f[2], f[3]);
-            let (w, h) = fm.row("Size", |ui, _| {
+            let (w, h) = fm.row("Boyut", |ui, _| {
                 // Line W/H up under X/Y (the reference point sits before X).
                 ui.add_space(22.0 + ui.spacing().item_spacing.x);
                 let w = field(ui, "W", &mut f[2], 0.5);
@@ -1835,9 +1835,9 @@ impl Studio {
                     ui,
                     Icon::Link,
                     if lock {
-                        "Proportions locked"
+                        "Oranlar kilitli"
                     } else {
-                        "Keep proportions"
+                        "Oranları koru"
                     },
                     lock,
                     22.0,
@@ -1861,7 +1861,7 @@ impl Studio {
                     commit = Some(f);
                 }
             }
-            fm.row("Rotate", |ui, _| {
+            fm.row("Döndür", |ui, _| {
                 let r = ui.add(
                     egui::DragValue::new(&mut self.layout.rotate_by)
                         .speed(1.0)
@@ -1869,46 +1869,46 @@ impl Studio {
                         .suffix("°"),
                 );
                 r.widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::Role::SpinButton, true, "Rotation angle")
+                    egui::WidgetInfo::labeled(egui::Role::SpinButton, true, "Döndürme açısı")
                 });
-                if (r.lost_focus() || ui.add(egui::Button::new("Apply").small()).clicked())
+                if (r.lost_focus() || ui.add(egui::Button::new("Uygula").small()).clicked())
                     && self.layout.rotate_by != 0.0
                 {
                     rotate = Some(self.layout.rotate_by);
                 }
-                if icon_button(ui, Icon::RotateLeft, "Rotate Left 90°", false, 22.0).clicked() {
+                if icon_button(ui, Icon::RotateLeft, "Sola 90° Döndür", false, 22.0).clicked() {
                     rotate = Some(-90.0);
                 }
-                if icon_button(ui, Icon::RotateRight, "Rotate Right 90°", false, 22.0).clicked() {
+                if icon_button(ui, Icon::RotateRight, "Sağa 90° Döndür", false, 22.0).clicked() {
                     rotate = Some(90.0);
                 }
             });
-            fm.row("Flip", |ui, _| {
-                if icon_button(ui, Icon::FlipH, "Flip Horizontal", false, 22.0).clicked() {
+            fm.row("Çevir", |ui, _| {
+                if icon_button(ui, Icon::FlipH, "Yatay Çevir", false, 22.0).clicked() {
                     flip = Some((-1.0, 1.0));
                 }
-                if icon_button(ui, Icon::FlipV, "Flip Vertical", false, 22.0).clicked() {
+                if icon_button(ui, Icon::FlipV, "Dikey Çevir", false, 22.0).clicked() {
                     flip = Some((1.0, -1.0));
                 }
                 ui.add_space(8.0);
-                if icon_button(ui, Icon::Target, "Center in Hoop", false, 22.0).clicked() {
+                if icon_button(ui, Icon::Target, "Kasnakta Ortala", false, 22.0).clicked() {
                     center = true;
                 }
-                if icon_button(ui, Icon::ZoomFit, "Fit to Hoop", false, 22.0).clicked() {
+                if icon_button(ui, Icon::ZoomFit, "Kasnağa Sığdır", false, 22.0).clicked() {
                     self.fit_to_hoop(false);
                 }
-                if icon_button(ui, Icon::Duplicate, "Duplicate", false, 22.0).clicked() {
+                if icon_button(ui, Icon::Duplicate, "Çoğalt", false, 22.0).clicked() {
                     self.duplicate_selected();
                 }
             });
             if self.subjects().len() >= 2 {
-                fm.row("Pathfinder", |ui, _| {
+                fm.row("Yol Bulucu", |ui, _| {
                     use zigzag::boolean::PathOp;
                     for (op, icon, label) in [
-                        (PathOp::Unite, Icon::PathUnite, "Unite"),
-                        (PathOp::MinusFront, Icon::PathMinusFront, "Minus Front"),
-                        (PathOp::Intersect, Icon::PathIntersect, "Intersect"),
-                        (PathOp::Exclude, Icon::PathExclude, "Exclude"),
+                        (PathOp::Unite, Icon::PathUnite, "Birleştir"),
+                        (PathOp::MinusFront, Icon::PathMinusFront, "Öndekini Çıkar"),
+                        (PathOp::Intersect, Icon::PathIntersect, "Kesiştir"),
+                        (PathOp::Exclude, Icon::PathExclude, "Hariç Tut"),
                     ] {
                         if icon_button(ui, icon, label, false, 22.0)
                             .on_hover_text(label)
@@ -1943,18 +1943,18 @@ impl Studio {
             );
             let resized = (m[0] - 1.0).abs() > 1e-4 || (m[3] - 1.0).abs() > 1e-4;
             if resized || (t[0] - now[0]).abs() > 1e-3 || (t[1] - now[1]).abs() > 1e-3 {
-                self.transform_selected(m, if resized { "Resized" } else { "Moved" });
+                self.transform_selected(m, if resized { "yeniden boyutlandırıldı" } else { "taşındı" });
             }
             self.layout.fields = None;
         }
         if let Some(deg) = rotate {
-            self.transform_selected(rotate_about(c, deg), "Rotated");
+            self.transform_selected(rotate_about(c, deg), "döndürüldü");
         }
         if let Some((sx, sy)) = flip {
-            self.transform_selected(scale_about(c, sx, sy), "Flipped");
+            self.transform_selected(scale_about(c, sx, sy), "çevrildi");
         }
         if center {
-            self.transform_selected(translation(P::default() - c), "Centered");
+            self.transform_selected(translation(P::default() - c), "ortalandı");
         }
     }
 }

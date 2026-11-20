@@ -52,26 +52,26 @@ const BROTHER_ALL: [&str; 61] = [
 pub const KITS: &[Kit] = &[
     Kit {
         brand: Brand::Brother,
-        name: "Brother 12 Colors",
-        about: "Brother Embroidery thread, 12-spool starter set",
+        name: "Brother 12 Renk",
+        about: "Brother nakış ipliği, 12 makaralı başlangıç seti",
         numbers: &BROTHER_12,
     },
     Kit {
         brand: Brand::Brother,
-        name: "Brother 40 Colors",
-        about: "Brother Embroidery thread, 40-spool set",
+        name: "Brother 40 Renk",
+        about: "Brother nakış ipliği, 40 makaralı set",
         numbers: &BROTHER_40,
     },
     Kit {
         brand: Brand::Brother,
-        name: "Brother 22 Colors",
-        about: "Brother Embroidery thread, 22-spool set (adds to the 40)",
+        name: "Brother 22 Renk",
+        about: "Brother nakış ipliği, 22 makaralı set (40'lık sete ek)",
         numbers: &BROTHER_22,
     },
     Kit {
         brand: Brand::Brother,
-        name: "Brother 40 + 22 Colors",
-        about: "Both Brother sets: all 61 Brother Embroidery colors",
+        name: "Brother 40 + 22 Renk",
+        about: "İki Brother seti birden: Brother nakış ipliğinin 61 rengi",
         numbers: &BROTHER_ALL,
     },
 ];

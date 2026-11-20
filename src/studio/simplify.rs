@@ -105,10 +105,10 @@ impl Studio {
             egui::Id::unique("simplify-design"),
             dialog::Place::TopLeft,
             |ui| {
-                dialog::heading(ui, "Simplify Design");
+                dialog::heading(ui, "Tasarımı Sadeleştir");
                 ui.spacing_mut().slider_width = 150.0;
                 crate::theme::form(ui, "simplify-design-form", |fm| {
-                    fm.row("Threads", |ui, lid| {
+                    fm.row("İplikler", |ui, lid| {
                         let mut n = d.opt.threads.unwrap_or(d.threads).min(d.threads);
                         let r = ui
                             .add_enabled(
@@ -117,21 +117,21 @@ impl Studio {
                             )
                             .labelled_by(lid)
                             .on_hover_text(
-                                "Merge the threads most alike until this many are left. Each pair becomes the one that sews more, so they stay real threads.",
+                                "Bu sayıda kalana kadar en benzer iplikleri birleştir. Her çift, daha çok dikilen ipliğe dönüşür; böylece gerçek iplikler olarak kalırlar.",
                             );
                         r.widget_info(|| {
-                            egui::WidgetInfo::labeled(egui::Role::Slider, true, "Threads to keep")
+                            egui::WidgetInfo::labeled(egui::Role::Slider, true, "Tutulacak iplik sayısı")
                         });
                         if r.changed() {
                             d.opt.threads = (n < d.threads).then_some(n);
                         }
                         ui.label(if n < d.threads {
-                            format!("{n} of {}", d.threads)
+                            format!("{n} / {}", d.threads)
                         } else {
-                            format!("all {}", d.threads)
+                            format!("tümü ({})", d.threads)
                         });
                     });
-                    fm.row("Details", |ui, lid| {
+                    fm.row("Ayrıntılar", |ui, lid| {
                         let mm = &mut d.opt.min_size_mm;
                         let r = ui
                             .add(
@@ -142,13 +142,13 @@ impl Studio {
                             )
                             .labelled_by(lid)
                             .on_hover_text(
-                                "Take out layers smaller than this across: details too small to sew well, each of which costs a stop. Lettering is left alone.",
+                                "Bundan küçük katmanları çıkar: iyi dikilemeyecek kadar küçük ve her biri bir duruşa mal olan ayrıntılar. Yazılara dokunulmaz.",
                             );
                         r.widget_info(|| {
                             egui::WidgetInfo::labeled(
                                 egui::Role::Slider,
                                 true,
-                                "Smallest detail to keep",
+                                "Tutulacak en küçük ayrıntı",
                             )
                         });
                         ui.add(crate::units::drag_mm(
@@ -157,7 +157,7 @@ impl Studio {
                             0.1,
                         ));
                     });
-                    fm.row("Trims", |ui, lid| {
+                    fm.row("Kesimler", |ui, lid| {
                         let least = d.base.settings.connect_mm;
                         let most = SimplifyDesign::MAX_CONNECT_MM.max(least);
                         let mm = &mut d.opt.connect_mm;
@@ -170,24 +170,24 @@ impl Studio {
                             )
                             .labelled_by(lid)
                             .on_hover_text(
-                                "Sew across gaps up to this long instead of cutting the thread (the Document panel's Connect). These stitches show on the fabric.",
+                                "Bu uzunluğa kadar olan boşluklarda ipliği kesmek yerine üzerinden dik (Belge panelindeki Bağla). Bu dikişler kumaşta görünür.",
                             );
                         r.widget_info(|| {
                             egui::WidgetInfo::labeled(
                                 egui::Role::Slider,
                                 true,
-                                "Longest gap to sew across",
+                                "Üzerinden dikilecek en uzun boşluk",
                             )
                         });
                         ui.add(crate::units::drag_mm(mm, least..=most, 0.1));
                     });
-                    fm.row("Order", |ui, _| {
-                        ui.checkbox(&mut d.opt.group, "Sew each thread together")
+                    fm.row("Sıra", |ui, _| {
+                        ui.checkbox(&mut d.opt.group, "Her ipliği bir arada dik")
                             .on_hover_text(
-                                "Reorder the layers so each thread sews in as few goes as the layering allows (Group Colors)",
+                                "Katmanları, her iplik katman düzeninin izin verdiği en az seferde dikilecek şekilde yeniden sırala (Renkleri Grupla)",
                             );
                     });
-                    fm.row("Unite", |ui, _| {
+                    fm.row("Birleştir", |ui, _| {
                         let choice = d.opt.unite;
                         ui.scope(|ui| {
                             crate::theme::segmented(
@@ -195,20 +195,20 @@ impl Studio {
                                 "simplify-design-unite",
                                 &mut d.opt.unite,
                                 &[
-                                    (Unite::Off, "Off"),
-                                    (Unite::Similar, "Similar Layers"),
-                                    (Unite::All, "All That Touch"),
+                                    (Unite::Off, "Kapalı"),
+                                    (Unite::Similar, "Benzer Katmanlar"),
+                                    (Unite::All, "Değenlerin Tümü"),
                                 ],
                             );
                         })
                         .response
                         .on_hover_text(match choice {
-                            Unite::Off => "Every layer stays a layer.",
+                            Unite::Off => "Her katman ayrı kalır.",
                             Unite::Similar => {
-                                "Layers in one thread that touch and are sewn the same way (fill with fill, satin with satin) become one shape. A satin on a fill stays."
+                                "Aynı iplikte olup birbirine değen ve aynı şekilde dikilen katmanlar (dolguyla dolgu, satenle saten) tek şekil olur. Dolgu üzerindeki saten kalır."
                             }
                             Unite::All => {
-                                "Layers in one thread that touch become one shape, whatever they're sewn as: the fewest stitches, and detail in the same thread goes."
+                                "Aynı iplikte olup birbirine değen katmanlar, nasıl dikilirse dikilsin tek şekil olur: en az dikiş, ama aynı iplikteki ayrıntılar kaybolur."
                             }
                         });
                     });
@@ -220,13 +220,13 @@ impl Studio {
                 ui.add_space(space::S);
                 ui.separator();
                 dialog::buttons(ui, |ui| {
-                    ok = dialog::primary(ui, "OK", true).clicked()
+                    ok = dialog::primary(ui, "Tamam", true).clicked()
                         || ui.input(|i| i.key_pressed(Key::Enter));
-                    cancel = dialog::secondary(ui, "Cancel").clicked()
+                    cancel = dialog::secondary(ui, "İptal").clicked()
                         || ui.input(|i| i.key_pressed(Key::Escape));
                     reset = dialog::apart(ui, |ui| {
-                        dialog::secondary(ui, "Reset")
-                            .on_hover_text("Back to the design as it was")
+                        dialog::secondary(ui, "Sıfırla")
+                            .on_hover_text("Tasarımın önceki hâline dön")
                             .clicked()
                     });
                 });
@@ -248,7 +248,7 @@ impl Studio {
                 Err(e) => {
                     self.doc = d.base.clone();
                     d.report = SimplifyReport::default();
-                    self.status = format!("Couldn't simplify: {e:#}");
+                    self.status = format!("Sadeleştirilemedi: {e:#}");
                 }
             }
             self.dirty = true;
@@ -282,32 +282,32 @@ fn simplified(before: &Figures, after: &Figures, report: &SimplifyReport) -> Str
     let mut parts = Vec::new();
     let mut say = |what: &str, a: usize, b: usize| {
         if a != b {
-            parts.push(format!("{what} {} to {}", fmt_int(a), fmt_int(b)));
+            parts.push(format!("{what} {} → {}", fmt_int(a), fmt_int(b)));
         }
     };
-    say("threads", before.threads, after.threads);
-    say("thread changes", before.changes, after.changes);
-    say("trims", before.trims, after.trims);
-    say("stitches", before.stitches, after.stitches);
-    let layers = |n: usize| if n == 1 { "layer" } else { "layers" };
+    say("iplik", before.threads, after.threads);
+    say("iplik değişimi", before.changes, after.changes);
+    say("kesim", before.trims, after.trims);
+    say("dikiş", before.stitches, after.stitches);
+    let layers = |n: usize| if n == 1 { "katman" } else { "katman" };
     if report.removed > 0 {
         parts.push(format!(
-            "{} small {} taken out",
+            "{} küçük {} çıkarıldı",
             report.removed,
             layers(report.removed)
         ));
     }
     if report.united > 0 {
         parts.push(format!(
-            "{} {} united with the one beside",
+            "{} {} yanındakiyle birleştirildi",
             report.united,
             layers(report.united)
         ));
     }
     if parts.is_empty() {
-        "Simplified: the same to sew as before.".into()
+        "Sadeleştirildi: dikimi öncekiyle aynı.".into()
     } else {
-        format!("Simplified: {}.", parts.join(", "))
+        format!("Sadeleştirildi: {}.", parts.join(", "))
     }
 }
 
@@ -323,15 +323,15 @@ fn figures_table(ui: &mut egui::Ui, before: &Figures, now: &Figures) {
                 ui.label(egui::RichText::new(t).size(11.0).color(p.tertiary));
             };
             head(ui, "");
-            head(ui, "Now");
-            head(ui, "Simplified");
+            head(ui, "Şu an");
+            head(ui, "Sadeleştirilmiş");
             ui.end_row();
             let rows: [(&str, usize, usize, &str); 5] = [
-                ("Threads", before.threads, now.threads, ""),
-                ("Thread changes", before.changes, now.changes, ""),
-                ("Trims", before.trims, now.trims, ""),
-                ("Stitches", before.stitches, now.stitches, ""),
-                ("Sewing time", before.minutes, now.minutes, " min"),
+                ("İplikler", before.threads, now.threads, ""),
+                ("İplik değişimleri", before.changes, now.changes, ""),
+                ("Kesimler", before.trims, now.trims, ""),
+                ("Dikişler", before.stitches, now.stitches, ""),
+                ("Dikiş süresi", before.minutes, now.minutes, " dk"),
             ];
             for (what, a, b, unit) in rows {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

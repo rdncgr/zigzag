@@ -41,26 +41,26 @@ impl Studio {
                 self.menu_bar(ui);
                 ui.add_space(4.0);
             }
-            if icon_button(ui, Icon::LeftPanel, "Show or Hide Layers", false, 28.0).clicked() {
+            if icon_button(ui, Icon::LeftPanel, "Katmanları Göster/Gizle", false, 28.0).clicked() {
                 self.run_action(Action::ToggleLeftDock);
             }
             ui.add_space(4.0);
             // The document's name, and whether it has unsaved changes.
             let name = if self.doc.name.is_empty() {
-                "Untitled"
+                "Adsız"
             } else {
                 &self.doc.name
             };
             ui.label(egui::RichText::new(name).size(13.0).color(p.text));
             if self.modified {
                 ui.label(
-                    egui::RichText::new("— Edited")
+                    egui::RichText::new("— Düzenlendi")
                         .size(13.0)
                         .color(p.secondary),
                 );
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if icon_button(ui, Icon::RightPanel, "Show or Hide Panels", false, 28.0).clicked() {
+                if icon_button(ui, Icon::RightPanel, "Panelleri Göster/Gizle", false, 28.0).clicked() {
                     self.run_action(Action::ToggleRightDock);
                 }
                 ui.add_space(6.0);
@@ -68,10 +68,10 @@ impl Studio {
                 if self.sends_direct() {
                     self.send_button(ui);
                 }
-                let share = icon_button(ui, Icon::Share, "Export", false, 28.0);
+                let share = icon_button(ui, Icon::Share, "Dışa Aktar", false, 28.0);
                 egui::Popup::menu(&share).show(|ui| {
                     ui.set_min_width(260.0);
-                    caption(ui, "Export for your machine");
+                    caption(ui, "Makineniz için dışa aktarın");
                     // The document's machine, and the file it reads, first.
                     if let Some((name, ext)) = self
                         .machine()
@@ -100,27 +100,27 @@ impl Studio {
                     if ui
                         .add_enabled(
                             !self.design.blocks.is_empty(),
-                            egui::Button::new("Production Worksheet (HTML)…"),
+                            egui::Button::new("Üretim Föyü (HTML)…"),
                         )
                         .clicked()
                     {
                         self.run_action(Action::Export("html"));
                     }
                 });
-                let view = icon_button(ui, Icon::ViewOptions, "View Options", false, 28.0);
+                let view = icon_button(ui, Icon::ViewOptions, "Görünüm Seçenekleri", false, 28.0);
                 egui::Popup::from_toggle_button_response(&view)
                     .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
                     .show(|ui| {
                         ui.set_min_width(200.0);
-                        ui.checkbox(&mut self.view_tools.grid, "Grid");
-                        ui.checkbox(&mut self.view_tools.points, "Needle points");
-                        ui.checkbox(&mut self.show_jumps, "Jump stitches");
+                        ui.checkbox(&mut self.view_tools.grid, "Izgara");
+                        ui.checkbox(&mut self.view_tools.points, "İğne noktaları");
+                        ui.checkbox(&mut self.show_jumps, "Atlama dikişleri");
                         ui.horizontal(|ui| {
                             ui.color_edit_button_srgb(&mut self.doc.settings.cloth);
-                            ui.label("Fabric color");
+                            ui.label("Kumaş rengi");
                         });
                         ui.separator();
-                        if ui.button("Zoom to Fit").clicked() {
+                        if ui.button("Sığacak Şekilde Yakınlaştır").clicked() {
                             self.request_fit();
                         }
                     });
@@ -138,8 +138,8 @@ impl Studio {
 
     /// The toolbar's Send: the Skitch window (connecting to the Skitch).
     fn send_button(&mut self, ui: &mut egui::Ui) {
-        if icon_button(ui, Icon::Send, "Send to Skitch", self.machine.open, 28.0)
-            .on_hover_text("Sew it on your Skitch")
+        if icon_button(ui, Icon::Send, "Skitch'e Gönder", self.machine.open, 28.0)
+            .on_hover_text("Skitch'inizde dikin")
             .clicked()
         {
             self.send_action();
@@ -176,11 +176,11 @@ impl Studio {
                         let r = icon_button(
                             ui,
                             Icon::RotateTool,
-                            "Rotate",
+                            "Döndür",
                             self.tool == Tool::Rotate,
                             30.0,
                         )
-                        .on_hover_text("Rotate (Shift+R)");
+                        .on_hover_text("Döndür (Shift+R)");
                         if r.clicked() {
                             self.set_tool(Tool::Rotate);
                         }
@@ -206,7 +206,7 @@ impl Studio {
                     _ => continue,
                 };
                 let tip = if t == Tool::Text {
-                    format!("Type ({}): click to place text, click text to edit it, click a selected path to put text on it", key.name())
+                    format!("Yazı ({}): metin yerleştirmek için tıklayın, düzenlemek için metne tıklayın, metni üzerine koymak için seçili bir yola tıklayın", key.name())
                 } else {
                     format!("{label} ({})", key.name())
                 };
@@ -220,7 +220,7 @@ impl Studio {
             ui.painter()
                 .hline(r.x_range(), r.center().y, Stroke::new(1.0, p.separator));
             ui.add_space(6.0);
-            if icon_button(ui, Icon::ZoomFit, "Zoom to Fit", false, 30.0).clicked() {
+            if icon_button(ui, Icon::ZoomFit, "Sığacak Şekilde Yakınlaştır", false, 30.0).clicked() {
                 self.request_fit();
             }
             // The selection's thread, like Illustrator's fill swatch: click
@@ -239,9 +239,9 @@ impl Studio {
                     egui::Role::Button,
                     thread != SelThread::None,
                     if thread == SelThread::Mixed {
-                        "Thread Color: several"
+                        "İplik Rengi: birkaç"
                     } else {
-                        "Thread Color"
+                        "İplik Rengi"
                     },
                 )
             });
@@ -276,13 +276,13 @@ impl Studio {
             }
             let resp = resp.on_hover_text(match thread {
                 SelThread::One(c) => format!(
-                    "Thread: {} · click to change",
+                    "İplik: {} · değiştirmek için tıklayın",
                     crate::threads::nearest(self.view_tools.brand, c).1
                 ),
                 SelThread::Mixed => {
-                    "Several threads · click to pick one for all the selected layers".into()
+                    "Birkaç iplik · tüm seçili katmanlar için birini seçmek üzere tıklayın".into()
                 }
-                SelThread::None => "Select layers to set their thread color".into(),
+                SelThread::None => "İplik rengini ayarlamak için katman seçin".into(),
             });
             if resp.clicked() {
                 // (Open for an outline, it becomes the selection's.)
@@ -319,11 +319,11 @@ impl Studio {
             ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
                 ui.add_space(10.0);
                 let on = self.agent_showing();
-                let r = icon_button(ui, Icon::Sparkle, "Agent", on, 30.0).on_hover_text(format!(
+                let r = icon_button(ui, Icon::Sparkle, "Ajan", on, 30.0).on_hover_text(format!(
                     "{} (Cmd+K){}",
                     self.agent.kind.name(),
                     if self.agent.running() {
-                        " · working"
+                        " · çalışıyor"
                     } else {
                         ""
                     }
@@ -349,11 +349,11 @@ impl Studio {
                 if icon_button(
                     ui,
                     icon,
-                    if self.playing { "Pause" } else { "Play" },
+                    if self.playing { "Duraklat" } else { "Oynat" },
                     false,
                     22.0,
                 )
-                .on_hover_text("Play the stitch-out (Space)")
+                .on_hover_text("Dikiş animasyonunu oynat (Boşluk)")
                 .clicked()
                 {
                     self.toggle_play();
@@ -366,9 +366,9 @@ impl Studio {
                     total > 0,
                     egui::Slider::new(&mut pos, 0..=total.max(1)).show_value(false),
                 )
-                .on_hover_text("Scrub through the sewing order");
+                .on_hover_text("Dikiş sırasında ileri geri gezin");
             slider.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::Role::Slider, total > 0, "Stitch position")
+                egui::WidgetInfo::labeled(egui::Role::Slider, total > 0, "Dikiş konumu")
             });
             if slider.changed() {
                 self.playing = false;
@@ -396,7 +396,7 @@ impl Studio {
                     }
                 })
                 .response
-                .on_hover_text("Playback speed");
+                .on_hover_text("Oynatma hızı");
             ui.add_space(8.0);
             use crate::canvas::StitchView;
             crate::theme::segmented(
@@ -404,13 +404,13 @@ impl Studio {
                 "stitch-view",
                 &mut self.view_tools.stitch_view,
                 &[
-                    (StitchView::Thread, "Thread"),
-                    (StitchView::Lines, "Stitch Lines"),
+                    (StitchView::Thread, "İplik"),
+                    (StitchView::Lines, "Dikiş Çizgileri"),
                 ],
             );
             let b = self.design_bounds();
             let stats = format!(
-                "{} · {} colors · {} trims · ~{:.0} min",
+                "{} · {} renk · {} kesim · ~{:.0} dk",
                 crate::units::fmt_size(b.width(), b.height()),
                 self.design.blocks.len(),
                 self.design.trim_count(),
@@ -426,7 +426,7 @@ impl Studio {
                     // A big design re-planning on the worker: the stitches
                     // shown are the last plan's until it's done.
                     ui.label(
-                        egui::RichText::new("Updating stitches…")
+                        egui::RichText::new("Dikişler güncelleniyor…")
                             .size(11.0)
                             .color(p.secondary),
                     );
@@ -434,7 +434,7 @@ impl Studio {
                 }
                 ui.label(egui::RichText::new(stats).size(11.0).color(p.secondary))
                     .on_hover_text(format!(
-                        "Estimate at {SPM} stitches/min. Planned in {:.1} ms.",
+                        "Dakikada {SPM} dikiş varsayımıyla tahmin. {:.1} ms'de planlandı.",
                         self.plan_ms
                     ));
                 ui.add_space(12.0);
@@ -455,7 +455,7 @@ impl Studio {
                 }
             })
             .response
-            .on_hover_text("Units for sizes, positions, the grid and measuring");
+            .on_hover_text("Boyutlar, konumlar, ızgara ve ölçüm için birimler");
         if u != self.dock.units {
             self.set_units(u);
         }
@@ -484,7 +484,7 @@ impl Studio {
             .layout_no_wrap(text, egui::FontId::proportional(11.5), color);
         let w = 26.0 + if n == 0 { 0.0 } else { galley.size().x + 4.0 };
         let (r, resp) = ui.allocate_exact_size(Vec2::new(w, 22.0), egui::Sense::click());
-        resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Issues"));
+        resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Sorunlar"));
         let popup_id = egui::Id::unique("issues-popover");
         let open = egui::Popup::is_id_open(ui.ctx(), popup_id);
         if resp.hovered() || open {
@@ -504,9 +504,9 @@ impl Studio {
             );
         }
         let resp = resp.on_hover_text(match n {
-            0 => "No problems found".to_string(),
-            1 => "1 issue".to_string(),
-            n => format!("{n} issues"),
+            0 => "Sorun bulunamadı".to_string(),
+            1 => "1 sorun".to_string(),
+            n => format!("{n} sorun"),
         });
         if std::mem::take(&mut self.open_issues) && !open {
             egui::Popup::open_id(ui.ctx(), popup_id);
@@ -519,7 +519,7 @@ impl Studio {
             .show(|ui| {
                 ui.set_width(320.0);
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("Issues").strong().size(13.0));
+                    ui.label(egui::RichText::new("Sorunlar").strong().size(13.0));
                     if n > 0 {
                         ui.label(
                             egui::RichText::new(n.to_string())

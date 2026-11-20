@@ -29,12 +29,12 @@ pub enum Step {
 }
 
 const STEPS: [(Step, &str); 6] = [
-    (Step::Connect, "Connect"),
-    (Step::Home, "Home"),
-    (Step::Send, "Send"),
-    (Step::Trace, "Trial"),
-    (Step::Sew, "Sew"),
-    (Step::Done, "Done"),
+    (Step::Connect, "Bağlan"),
+    (Step::Home, "Konumlandır"),
+    (Step::Send, "Gönder"),
+    (Step::Trace, "Deneme"),
+    (Step::Sew, "Dik"),
+    (Step::Done, "Bitti"),
 ];
 
 /// A step's name, as the window shows it.
@@ -267,15 +267,15 @@ fn headline(s: &Snapshot) -> String {
                 .filter(|m| !m.is_empty())
                 .unwrap_or_else(|| "Skitch".into());
             match (s.upload, s.status) {
-                (Some(f), _) => format!("{model} · Sending {:.0}%", f * 100.0),
+                (Some(f), _) => format!("{model} · Gönderiliyor %{:.0}", f * 100.0),
                 (_, Some(st)) => format!("{model} · {}", st.label()),
                 _ => model,
             }
         }
-        Link::Searching => "Looking for the Skitch…".into(),
-        Link::Lost(_) => "Connection lost".into(),
-        Link::NotPaired => "Not paired".into(),
-        _ => "Not connected".into(),
+        Link::Searching => "Skitch aranıyor…".into(),
+        Link::Lost(_) => "Bağlantı koptu".into(),
+        Link::NotPaired => "Eşleştirilmedi".into(),
+        _ => "Bağlı değil".into(),
     }
 }
 
@@ -470,28 +470,28 @@ impl Studio {
                 ui.add(egui::Spinner::new().size(12.0));
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if icon_button(ui, Icon::Minus, "Minimize", false, 24.0)
-                    .on_hover_text("Minimize: it carries on, and the status bar shows how it's doing")
+                if icon_button(ui, Icon::Minus, "Simge Durumuna Küçült", false, 24.0)
+                    .on_hover_text("Küçült: işlem sürer, durum çubuğu ilerlemeyi gösterir")
                     .clicked()
                 {
                     self.machine.open = false;
                 }
-                let more = icon_button(ui, Icon::More, "Skitch Menu", false, 24.0);
+                let more = icon_button(ui, Icon::More, "Skitch Menüsü", false, 24.0);
                 ui.add_space(space::S);
                 stepper(ui, step(s, ours));
                 egui::Popup::menu(&more).show(|ui| {
                     ui.set_min_width(220.0);
                     if s.link == Link::Connected {
-                        if ui.button("Disconnect").clicked() {
+                        if ui.button("Bağlantıyı Kes").clicked() {
                             self.machine.ask(Cmd::Disconnect, ui.ctx());
                         }
-                    } else if s.link != Link::Searching && ui.button("Connect").clicked() {
+                    } else if s.link != Link::Searching && ui.button("Bağlan").clicked() {
                         self.machine.connect(false, ui.ctx());
                     }
                     if ui
-                        .button("Connect to a Simulated Machine")
+                        .button("Sanal Makineye Bağlan")
                         .on_hover_text(
-                            "Try it without a Skitch: the simulated one does each step on the machine by itself",
+                            "Skitch olmadan deneyin: sanal makine her adımı kendisi yapar",
                         )
                         .clicked()
                     {
@@ -500,27 +500,27 @@ impl Studio {
                     ui.separator();
                     ui.add(egui::Checkbox::new(
                         &mut self.machine.follow,
-                        "Show progress on the canvas",
+                        "İlerlemeyi tuvalde göster",
                     ));
                     ui.add(egui::Checkbox::new(
                         &mut self.machine.trace_first,
-                        "Trial run after sending",
+                        "Gönderdikten sonra deneme turu",
                     ));
                     ui.add(egui::Checkbox::new(
                         &mut self.machine.auto_show,
-                        "Show this when the machine needs you",
+                        "Makine sizi beklerken bunu göster",
                     ));
                     if ours && s.link == Link::Connected {
                         ui.separator();
-                        if ui.button("Send Again").clicked() {
+                        if ui.button("Yeniden Gönder").clicked() {
                             let ctx = ui.ctx().clone();
                             self.send_design(&ctx);
                         }
                     }
                     ui.separator();
                     if ui
-                        .button("Skitch How-To Videos")
-                        .on_hover_text("Brother's videos: threading, the bobbin, the frame, a thread break, tension, cleaning")
+                        .button("Skitch Nasıl Yapılır Videoları")
+                        .on_hover_text("Brother videoları: iplik takma, masura, kasnak, iplik kopması, gerginlik, temizlik")
                         .clicked()
                     {
                         open_url(HOW_TO);
@@ -644,7 +644,7 @@ impl Studio {
             painter.text(
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
-                "Nothing to sew yet",
+                "Henüz dikilecek bir şey yok",
                 egui::FontId::proportional(13.0),
                 p.secondary,
             );
@@ -660,7 +660,7 @@ impl Studio {
                     Pos2::new(bar.left() + bar.width() * f, bar.bottom()),
                 );
                 ui.painter().rect_filled(done, 3.0, p.accent);
-                stats(ui, &format!("Sending {:.0}%", f * 100.0), "", "");
+                stats(ui, &format!("Gönderiliyor %{:.0}", f * 100.0), "", "");
             }
             (Some(sent), None) => self.timeline(ui, s, &sent),
             (None, None) => {
@@ -695,7 +695,7 @@ impl Studio {
             },
         );
         resp.widget_info(|| {
-            egui::WidgetInfo::labeled(egui::Role::Slider, movable, "Stitch timeline")
+            egui::WidgetInfo::labeled(egui::Role::Slider, movable, "Dikiş zaman çizelgesi")
         });
         let bar = Rect::from_center_size(r.center(), Vec2::new(w, 6.0));
         let x_of = |k: usize| bar.left() + bar.width() * k as f32 / total as f32;
@@ -746,7 +746,7 @@ impl Studio {
             }
             if let Some(pos) = resp.hover_pos() {
                 resp.clone()
-                    .on_hover_text(format!("Move the needle to stitch {}", n(pick(pos))));
+                    .on_hover_text(format!("İğneyi {} numaralı dikişe taşı", n(pick(pos))));
             }
         }
         let speed = s.pattern.map(|p| p.speed).filter(|v| *v > 0).unwrap_or(400) as f64;
@@ -805,23 +805,23 @@ impl Studio {
         let ble = cfg!(feature = "ble");
         match &s.link {
             Link::Searching => card(ui, None, |ui| {
-                title(ui, "Looking for the Skitch…");
+                title(ui, "Skitch aranıyor…");
             }),
             Link::NotPaired => card(ui, Some(p.warning), |ui| {
-                title(ui, "Pair the Skitch with this computer");
+                title(ui, "Skitch'i bu bilgisayarla eşleştirin");
                 numbered(
                     ui,
                     &[
-                        "Hold the Skitch's Bluetooth button until it beeps.",
-                        "Click Try Again straight away. If your computer asks to pair, click Connect or Pair.",
+                        "Skitch'in Bluetooth düğmesini bip sesi gelene kadar basılı tutun.",
+                        "Hemen Yeniden Dene'ye tıklayın. Bilgisayarınız eşleştirme isterse Bağlan ya da Eşleştir'e tıklayın.",
                     ],
                 );
                 ui.horizontal(|ui| {
-                    connect = primary(ui, "Try Again").clicked();
+                    connect = primary(ui, "Yeniden Dene").clicked();
                     if cfg!(target_os = "macos")
                         && ui
-                            .button("Bluetooth Permission")
-                            .on_hover_text("Check ZigZag is allowed to use Bluetooth")
+                            .button("Bluetooth İzni")
+                            .on_hover_text("ZigZag'ın Bluetooth kullanma izni olduğunu denetleyin")
                             .clicked()
                     {
                         open_bluetooth_settings();
@@ -830,26 +830,26 @@ impl Studio {
                 if cfg!(target_os = "macos") {
                     caption(
                         ui,
-                        "It won't show up in the Mac's Bluetooth settings: it pairs from here.",
+                        "Mac'in Bluetooth ayarlarında görünmez: buradan eşleşir.",
                     );
                 }
             }),
             Link::NotFound => card(ui, Some(p.warning), |ui| {
-                title(ui, "No Skitch found");
+                title(ui, "Skitch bulunamadı");
                 numbered(
                     ui,
                     &[
-                        "Check it's on and close by.",
-                        "Close Artspira: the Skitch talks to one app at a time.",
-                        "First time? Hold its Bluetooth button until it beeps, then Try Again.",
+                        "Açık ve yakında olduğundan emin olun.",
+                        "Artspira'yı kapatın: Skitch aynı anda tek uygulamayla konuşur.",
+                        "İlk kez mi? Bluetooth düğmesini bip sesi gelene kadar basılı tutun, sonra Yeniden Dene.",
                     ],
                 );
                 ui.horizontal(|ui| {
-                    connect = primary(ui, "Try Again").clicked();
+                    connect = primary(ui, "Yeniden Dene").clicked();
                     if cfg!(target_os = "macos")
                         && ui
-                            .button("Bluetooth Permission")
-                            .on_hover_text("Check ZigZag is allowed to use Bluetooth")
+                            .button("Bluetooth İzni")
+                            .on_hover_text("ZigZag'ın Bluetooth kullanma izni olduğunu denetleyin")
                             .clicked()
                     {
                         open_bluetooth_settings();
@@ -857,33 +857,33 @@ impl Studio {
                 });
             }),
             Link::Failed(msg) => card(ui, Some(p.error), |ui| {
-                title(ui, "Couldn't connect");
+                title(ui, "Bağlanılamadı");
                 caption(ui, msg);
                 ui.horizontal(|ui| {
-                    connect = primary(ui, "Try Again").clicked();
+                    connect = primary(ui, "Yeniden Dene").clicked();
                     if !ble {
-                        sim = ui.button("Use a Simulated Machine").clicked();
+                        sim = ui.button("Sanal Makine Kullan").clicked();
                     }
                 });
             }),
             Link::Lost(_) => card(ui, Some(p.error), |ui| {
-                title(ui, "Lost the connection");
-                caption(ui, "It keeps sewing; reconnect to follow it.");
-                connect = primary(ui, "Reconnect").clicked();
+                title(ui, "Bağlantı koptu");
+                caption(ui, "Dikmeye devam ediyor; takip etmek için yeniden bağlanın.");
+                connect = primary(ui, "Yeniden Bağlan").clicked();
             }),
             Link::Off | Link::Connected => card(ui, None, |ui| {
-                title(ui, "Connect to your Skitch");
+                title(ui, "Skitch'inize bağlanın");
                 numbered(
                     ui,
                     &[
-                        "Turn the machine on.",
-                        "Close Artspira: the Skitch talks to one app at a time.",
+                        "Makineyi açın.",
+                        "Artspira'yı kapatın: Skitch aynı anda tek uygulamayla konuşur.",
                     ],
                 );
                 ui.horizontal(|ui| {
-                    connect = primary(ui, "Connect").clicked();
+                    connect = primary(ui, "Bağlan").clicked();
                     if !ble {
-                        sim = ui.button("Use a Simulated Machine").clicked();
+                        sim = ui.button("Sanal Makine Kullan").clicked();
                     }
                 });
             }),
@@ -923,9 +923,9 @@ impl Studio {
             title(
                 ui,
                 if s.upload.is_some() {
-                    "Sending…"
+                    "Gönderiliyor…"
                 } else {
-                    "Send the design"
+                    "Tasarımı gönderin"
                 },
             );
             if s.upload.is_some() {
@@ -939,14 +939,14 @@ impl Studio {
                     &match max {
                         Some((mw, mh)) if w > mw || h > mh => {
                             format!(
-                                "Too big for this machine: it sews up to {}.",
+                                "Bu makine için çok büyük: en fazla {} diker.",
                                 crate::units::fmt_size(mw * 10.0, mh * 10.0)
                             )
                         }
                         _ if outside => {
-                            "Part of it is outside the hoop: move it in, or choose Centered.".into()
+                            "Bir kısmı kasnağın dışında: içeri taşıyın ya da Ortalanmış'ı seçin.".into()
                         }
-                        _ => "Too big for the hoop.".into(),
+                        _ => "Kasnak için çok büyük.".into(),
                     },
                 );
             }
@@ -968,18 +968,18 @@ impl Studio {
                     add(ui);
                 });
             };
-            row(ui, "Placement", &mut |ui| {
+            row(ui, "Yerleşim", &mut |ui| {
                 crate::theme::segmented(
                     ui,
                     "skitch-placement",
                     &mut self.machine.centered,
-                    &[(false, "As Placed"), (true, "Centered")],
+                    &[(false, "Yerleştirildiği Gibi"), (true, "Ortalanmış")],
                 );
             });
-            row(ui, "Trial run", &mut |ui| {
-                ui.checkbox(&mut self.machine.trace_first, "Trace the outline first")
+            row(ui, "Deneme turu", &mut |ui| {
+                ui.checkbox(&mut self.machine.trace_first, "Önce dış hattı izle")
                     .on_hover_text(
-                        "After sending, the needle goes around the design's outline without sewing, so you can check where it lands",
+                        "Gönderdikten sonra iğne dikmeden tasarımın dış hattında dolaşır; böylece nereye denk geldiğini kontrol edebilirsiniz",
                     );
             });
             ui.add_space(space::XS);
@@ -987,7 +987,7 @@ impl Studio {
                 send = ui
                     .add_sized(
                         [ui.available_width(), 30.0],
-                        egui::Button::new(RichText::new("Send Design").color(Color32::WHITE))
+                        egui::Button::new(RichText::new("Tasarımı Gönder").color(Color32::WHITE))
                             .fill(p.accent),
                     )
                     .clicked();
@@ -1014,37 +1014,37 @@ impl Studio {
         let k = self.thread_index(s).unwrap_or(0);
         let started = self.at_stitch(s) > 0;
         let st = s.status.unwrap_or(Status::Idle);
-        let note = |k: usize| format!("Thread {} of {total}", k + 1);
+        let note = |k: usize| format!("İplik {} / {total}", k + 1);
         let thread = |k: usize| threads.get(k).map(|t| self.thread(t.0));
         match st {
             Status::Idle => card(ui, None, |ui| {
-                title(ui, "Do a trial run");
+                title(ui, "Deneme turu yapın");
                 caption(
                     ui,
-                    "The needle goes around the outline without sewing, to check where it lands.",
+                    "İğne, nereye denk geldiğini kontrol etmek için dikmeden dış hatta dolaşır.",
                 );
             }),
             Status::WaitingForMaskTrace => card(ui, Some(p.accent), |ui| {
-                title(ui, "Press Accept on the machine");
-                caption(ui, "To start the trial run.");
+                title(ui, "Makinede Kabul'e basın");
+                caption(ui, "Deneme turunu başlatmak için.");
             }),
             Status::MaskTracing => card(ui, None, |ui| {
-                title(ui, "Trial run…");
+                title(ui, "Deneme turu…");
                 caption(
                     ui,
-                    "Check the needle clears the frame's magnets, seams and the brim.",
+                    "İğnenin kasnak mıknatıslarına, dikişlere ve siperliğe değmediğini kontrol edin.",
                 );
             }),
             Status::MaskTraceComplete if !started => card(ui, None, |ui| {
-                title(ui, "Put on the first thread");
+                title(ui, "İlk ipliği takın");
                 if let Some(t) = thread(0) {
                     self.thread_row(ui, &t, &note(0));
                 }
             }),
             Status::ReadyToSew => card(ui, Some(p.accent), |ui| {
-                title(ui, "Press Start on the machine");
+                title(ui, "Makinede Başlat'a basın");
                 if started {
-                    caption(ui, "To go back first, drag the bar or use Needle below.");
+                    caption(ui, "Önce geri gitmek için çubuğu sürükleyin ya da aşağıdaki İğne'yi kullanın.");
                 }
                 if let Some(t) = thread(k) {
                     self.thread_row(ui, &t, &note(k));
@@ -1054,24 +1054,24 @@ impl Studio {
                 if k > 0 && threads.get(k).map(|t| t.0) == threads.get(k - 1).map(|t| t.0) =>
             {
                 card(ui, Some(p.warning), |ui| {
-                    title(ui, "Same thread again");
+                    title(ui, "Yine aynı iplik");
                     if let Some(t) = thread(k) {
                         self.thread_row(ui, &t, &note(k));
                     }
-                    caption(ui, "Press Start on the machine.");
+                    caption(ui, "Makinede Başlat'a basın.");
                 })
             }
             Status::WaitingForColorChange => card(ui, Some(p.warning), |ui| {
-                title(ui, "Change the thread");
+                title(ui, "İpliği değiştirin");
                 if let Some(t) = thread(k) {
                     self.thread_row(ui, &t, &note(k));
                 }
                 numbered(
                     ui,
                     &[
-                        "Cut and pull out the old thread.",
-                        "Thread this one, needle too.",
-                        "Press Start on the machine.",
+                        "Eski ipliği kesip çıkarın.",
+                        "Bunu takın, iğneye de.",
+                        "Makinede Başlat'a basın.",
                     ],
                 );
             }),
@@ -1080,33 +1080,33 @@ impl Studio {
                     self.thread_row(ui, &t, &note(k));
                 }
                 if let Some(t) = thread(k + 1) {
-                    caption(ui, format!("Next: {}", t.name));
+                    caption(ui, format!("Sonraki: {}", t.name));
                 }
             }),
             Status::Stopped => card(ui, Some(p.error), |ui| {
-                title(ui, "Stopped");
-                caption(ui, "Clear the problem on the machine.");
+                title(ui, "Durdu");
+                caption(ui, "Makinedeki sorunu giderin.");
             }),
             Status::Complete => card(ui, Some(GOOD), |ui| {
-                title(ui, "Finished");
+                title(ui, "Bitti");
                 numbered(
                     ui,
                     &[
-                        "Take the hoop off and trim the jump threads.",
-                        "Press Accept on the machine.",
+                        "Kasnağı çıkarın ve atlama ipliklerini kesin.",
+                        "Makinede Kabul'e basın.",
                     ],
                 );
             }),
             _ => card(ui, Some(p.warning), |ui| {
                 // Paused or interrupted part-way.
-                title(ui, "Paused");
-                caption(ui, "Drag the bar to move the needle, then Resume.");
+                title(ui, "Duraklatıldı");
+                caption(ui, "İğneyi taşımak için çubuğu sürükleyin, sonra Devam Et.");
                 if let Some((code, back)) = s.rolled_back
                     && let Some(h) = protocol::error_help(code)
                 {
                     caption(
                         ui,
-                        format!("Moved back {back} stitches ({}).", h.title.to_lowercase()),
+                        format!("{back} dikiş geri gidildi ({}).", h.title.to_lowercase()),
                     );
                 }
                 if let Some(t) = thread(k) {
@@ -1127,9 +1127,9 @@ impl Studio {
             Status::MaskTraceComplete | Status::Paused | Status::Interrupted | Status::Complete
         ) && !busy;
         let start_label = match st {
-            Status::Paused | Status::Interrupted => "Resume",
-            Status::Complete => "Sew Again",
-            _ => "Start",
+            Status::Paused | Status::Interrupted => "Devam Et",
+            Status::Complete => "Yeniden Dik",
+            _ => "Başlat",
         };
         let can_trace = matches!(st, Status::Idle | Status::MaskTraceComplete)
             || (st == Status::ReadyToSew && !started);
@@ -1142,31 +1142,31 @@ impl Studio {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = space::XS + 2.0;
             if transport(ui, Icon::Play, start_label, can_start, can_start)
-                .on_hover_text("Readies the machine: then press Start on it")
+                .on_hover_text("Makineyi hazırlar: sonra makinede Başlat'a basın")
                 .clicked()
             {
                 ask = Some(Cmd::Sew);
             }
-            transport(ui, Icon::Pause, "Pause", false, false).on_hover_text(
-                "Pause with the Start/Stop button on the Skitch: it can't be paused over Bluetooth.",
+            transport(ui, Icon::Pause, "Duraklat", false, false).on_hover_text(
+                "Skitch'teki Başlat/Durdur düğmesiyle duraklatın: Bluetooth üzerinden duraklatılamaz.",
             );
-            let stop_btn = transport(ui, Icon::Stop, "Stop", can_stop, false).on_hover_text(
+            let stop_btn = transport(ui, Icon::Stop, "Durdur", can_stop, false).on_hover_text(
                 if can_stop {
-                    "End the job: the design comes off the machine"
+                    "İşi bitir: tasarım makineden silinir"
                 } else {
-                    "Pause it with the Start/Stop button on the Skitch first."
+                    "Önce Skitch'teki Başlat/Durdur düğmesiyle duraklatın."
                 },
             );
             egui::Popup::from_toggle_button_response(&stop_btn)
                 .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
                 .show(|ui| {
                     ui.set_min_width(220.0);
-                    ui.label(RichText::new("End this job?").strong());
+                    ui.label(RichText::new("Bu iş bitirilsin mi?").strong());
                     caption(
                         ui,
-                        "The design comes off the machine. Send it again to start over.",
+                        "Tasarım makineden silinir. Baştan başlamak için yeniden gönderin.",
                     );
-                    if ui.button("End Job").clicked() {
+                    if ui.button("İşi Bitir").clicked() {
                         stop = true;
                         ui.close();
                     }
@@ -1176,9 +1176,9 @@ impl Studio {
                     ui,
                     Icon::Target,
                     if st == Status::Idle {
-                        "Trial Run"
+                        "Deneme Turu"
                     } else {
-                        "Trial Again"
+                        "Yeniden Dene"
                     },
                     true,
                     st == Status::Idle,
@@ -1196,14 +1196,14 @@ impl Studio {
             let max = sent.pen.stitches as i64;
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = 2.0;
-                caption(ui, "Needle");
+                caption(ui, "İğne");
                 for (icon, label, d) in [
-                    (Icon::ChevronsLeft, "Back 100 stitches", -100),
-                    (Icon::ChevronLeft, "Back 10 stitches", -10),
-                    (Icon::Minus, "Back 1 stitch", -1),
-                    (Icon::Plus, "On 1 stitch", 1),
-                    (Icon::ChevronRight, "On 10 stitches", 10),
-                    (Icon::ChevronsRight, "On 100 stitches", 100),
+                    (Icon::ChevronsLeft, "100 dikiş geri", -100),
+                    (Icon::ChevronLeft, "10 dikiş geri", -10),
+                    (Icon::Minus, "1 dikiş geri", -1),
+                    (Icon::Plus, "1 dikiş ileri", 1),
+                    (Icon::ChevronRight, "10 dikiş ileri", 10),
+                    (Icon::ChevronsRight, "100 dikiş ileri", 100),
                 ] {
                     if icon_button(ui, icon, label, false, 24.0)
                         .on_hover_text(label)
@@ -1214,8 +1214,8 @@ impl Studio {
                 }
                 if let Some(b) = sent.pen.block_at(at as usize)
                     && ui
-                        .small_button("Thread Start")
-                        .on_hover_text("Back to where this thread began")
+                        .small_button("İplik Başı")
+                        .on_hover_text("Bu ipliğin başladığı yere dön")
                         .clicked()
                 {
                     ask = Some(Cmd::SetStitch(sent.pen.blocks[b].start as u16));
@@ -1247,9 +1247,9 @@ impl Studio {
             section_label(
                 ui,
                 if sewing {
-                    "Threads"
+                    "İplikler"
                 } else {
-                    "Threads to have ready"
+                    "Hazır bulundurulacak iplikler"
                 },
                 "",
             );
@@ -1298,19 +1298,19 @@ impl Studio {
         let first = self
             .job_threads(s)
             .first()
-            .map(|t| format!("Threaded with {}", self.thread(t.0).name))
-            .unwrap_or_else(|| "Threaded with the first color".into());
+            .map(|t| format!("{} takılı", self.thread(t.0).name))
+            .unwrap_or_else(|| "İlk renk takılı".into());
         let items = [
-            "Bobbin wound and in".to_string(),
+            "Masura sarılı ve takılı".to_string(),
             first,
-            "Fabric hooped smooth and tight".into(),
-            "Hoop on the machine".into(),
-            "Needle up".into(),
+            "Kumaş kasnağa düzgün ve gergin takılı".into(),
+            "Kasnak makinede".into(),
+            "İğne yukarıda".into(),
         ];
         // Open for a first stitch-out; folded by someone who knows the
         // drill, it stays folded (as every section that folds does).
         let open = self.prefs.fold_open("before-you-sew", true);
-        if crate::theme::fold_header(ui, "Before you sew", open).clicked() {
+        if crate::theme::fold_header(ui, "Dikmeden önce", open).clicked() {
             self.prefs.set_fold("before-you-sew", !open);
         }
         if open {
@@ -1326,7 +1326,7 @@ impl Studio {
     fn details(&mut self, ui: &mut egui::Ui, s: &Snapshot) {
         let Some(i) = &s.info else { return };
         let open = self.prefs.fold_open("machine-details", false);
-        if crate::theme::fold_header(ui, "Machine details", open).clicked() {
+        if crate::theme::fold_header(ui, "Makine ayrıntıları", open).clicked() {
             self.prefs.set_fold("machine-details", !open);
         }
         if open {
@@ -1337,15 +1337,15 @@ impl Studio {
                     });
                 };
                 row("Model", i.model.trim().to_string());
-                row("Serial", i.serial.clone());
-                row("Firmware", i.software_version.clone());
+                row("Seri No", i.serial.clone());
+                row("Yazılım Sürümü", i.software_version.clone());
                 row(
-                    "Sewing area",
+                    "Dikiş alanı",
                     crate::units::fmt_size(i.max_width as f64, i.max_height as f64),
                 );
                 if let Some((since, ever)) = s.counts {
-                    row("Stitches sewn", n(ever as usize));
-                    row("Since service", n(since as usize));
+                    row("Dikilen dikişler", n(ever as usize));
+                    row("Servisten beri", n(since as usize));
                 }
             });
         }
@@ -1358,7 +1358,7 @@ impl Studio {
     fn settings_probe(&mut self, ui: &mut egui::Ui, s: &Snapshot) {
         let p = pal_ui(ui);
         let open = self.prefs.fold_open("settings-bytes", false);
-        if crate::theme::fold_header(ui, "Settings bytes", open).clicked() {
+        if crate::theme::fold_header(ui, "Ayar baytları", open).clicked() {
             self.prefs.set_fold("settings-bytes", !open);
         }
         if !open {
@@ -1368,17 +1368,17 @@ impl Studio {
                 ui.spacing_mut().item_spacing.y = space::XS + 2.0;
                 caption(
                     ui,
-                    "To work out what these mean: read them, change one setting in Artspira (disconnect here first), reconnect and read again.",
+                    "Bunların ne anlama geldiğini bulmak için: okuyun, Artspira'da bir ayarı değiştirin (önce buradan bağlantıyı kesin), yeniden bağlanıp tekrar okuyun.",
                 );
                 let mut read = false;
                 ui.horizontal(|ui| {
                     ui.add(
                         egui::TextEdit::singleline(&mut self.machine.settings_label)
-                            .hint_text("What you changed in Artspira")
+                            .hint_text("Artspira'da değiştirdiğiniz")
                             .desired_width(ui.available_width() - 70.0),
                     );
                     read = ui
-                        .add_enabled(s.doing.is_none(), egui::Button::new("Read"))
+                        .add_enabled(s.doing.is_none(), egui::Button::new("Oku"))
                         .clicked();
                 });
                 if read {
@@ -1394,7 +1394,7 @@ impl Studio {
                         .map(|j| zigzag::machine::capture::changed(&reads[j].1, bytes))
                         .unwrap_or_default();
                     ui.label(
-                        RichText::new(if label.is_empty() { "(no label)" } else { label })
+                        RichText::new(if label.is_empty() { "(etiket yok)" } else { label })
                             .size(11.5)
                             .color(p.secondary),
                     );
@@ -1415,11 +1415,11 @@ impl Studio {
                     }
                     ui.label(job);
                     if !marks.is_empty() {
-                        caption(ui, format!("Changed: byte {}", join(&marks)));
+                        caption(ui, format!("Değişen: bayt {}", join(&marks)));
                     }
                 }
                 if let Some(path) = crate::machine::settings_log_path() {
-                    caption(ui, format!("Kept in {}", path.display()));
+                    caption(ui, format!("Şurada tutuluyor: {}", path.display()));
                 }
         });
     }
@@ -1462,14 +1462,14 @@ impl Studio {
                     _ => GOOD,
                 };
                 let text = match (s.upload, s.status) {
-                    (Some(f), _) => format!("Sending {:.0}%", f * 100.0),
+                    (Some(f), _) => format!("Gönderiliyor %{:.0}", f * 100.0),
                     (_, Some(Status::WaitingForColorChange)) => {
                         let next = self
                             .thread_index(&s)
                             .and_then(|k| self.job_threads(&s).get(k).map(|t| t.0))
                             .map(|c| self.thread(c).name)
                             .unwrap_or_default();
-                        format!("Change thread: {}", next.trim_start_matches("Brother "))
+                        format!("İplik değiştir: {}", next.trim_start_matches("Brother "))
                     }
                     (_, Some(st)) => match frac {
                         Some(f) if st != Status::Complete => {
@@ -1477,13 +1477,13 @@ impl Studio {
                         }
                         _ => st.label().to_string(),
                     },
-                    _ => "Connected".into(),
+                    _ => "Bağlı".into(),
                 };
                 (ink, Some(text), frac.or(s.upload))
             }
-            Link::Searching => (p.secondary, Some("Connecting…".to_string()), None),
-            Link::Lost(_) => (p.error, Some("Connection lost".to_string()), None),
-            Link::NotPaired => (p.warning, Some("Not paired".to_string()), None),
+            Link::Searching => (p.secondary, Some("Bağlanıyor…".to_string()), None),
+            Link::Lost(_) => (p.error, Some("Bağlantı koptu".to_string()), None),
+            Link::NotPaired => (p.warning, Some("Eşleştirilmedi".to_string()), None),
             _ => (p.secondary, None, None),
         };
         let galley = text.map(|t| {
@@ -1498,7 +1498,7 @@ impl Studio {
             + galley.as_ref().map(|g| g.size().x + 6.0).unwrap_or(0.0)
             + if bar_w > 0.0 { bar_w + 8.0 } else { 0.0 };
         let (r, resp) = ui.allocate_exact_size(Vec2::new(w, 22.0), Sense::click());
-        resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Skitch status"));
+        resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Skitch durumu"));
         if resp.hovered() || self.machine.open {
             ui.painter().rect_filled(r, 5.0, p.hover);
         }
@@ -1570,9 +1570,9 @@ impl Studio {
             }
         }
         let tip = match &s.link {
-            Link::Off => "Skitch: not connected. Click to connect.",
-            _ if self.machine.open => "Minimize the Skitch window",
-            _ => "Show the Skitch window",
+            Link::Off => "Skitch: bağlı değil. Bağlanmak için tıklayın.",
+            _ if self.machine.open => "Skitch penceresini küçült",
+            _ => "Skitch penceresini göster",
         };
         if resp.on_hover_text(tip).clicked() {
             self.toggle_machine_window();
@@ -1684,7 +1684,7 @@ fn stepper(ui: &mut egui::Ui, at: Step) {
 fn home_card(ui: &mut egui::Ui) {
     let help = protocol::error_help(0x72).expect("homing help");
     card(ui, None, |ui| {
-        title(ui, "Home the machine");
+        title(ui, "Makineyi konumlandırın");
         numbered(ui, help.steps);
     });
 }

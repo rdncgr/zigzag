@@ -48,11 +48,11 @@ impl Unit {
 
     pub fn label(self) -> &'static str {
         match self {
-            Unit::Mm => "Millimeters",
-            Unit::Cm => "Centimeters",
-            Unit::In => "Inches",
-            Unit::Pt => "Points",
-            Unit::Px => "Pixels",
+            Unit::Mm => "Milimetre",
+            Unit::Cm => "Santimetre",
+            Unit::In => "İnç",
+            Unit::Pt => "Punto",
+            Unit::Px => "Piksel",
         }
     }
 

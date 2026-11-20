@@ -132,7 +132,7 @@ impl Studio {
         self.hud(
             painter,
             rect,
-            "Draw a loop round points or objects to select them · Shift adds · Alt takes away",
+            "Seçmek için noktaların ya da nesnelerin çevresine bir halka çizin · Shift ekler · Alt çıkarır",
         );
     }
 
@@ -282,16 +282,16 @@ impl Studio {
                 self.path_edit.points_of = Some(self.doc.shapes[*i].uid);
                 self.path_edit.selected = points.clone();
                 self.status = format!(
-                    "{} point{} of {} selected.",
+                    "{2} için {0} nokta seçildi.{1:.0}",
                     points.len(),
                     if points.len() == 1 { "" } else { "s" },
                     self.doc.shapes[*i].label
                 );
             }
-            [] => self.status = "Nothing selected.".into(),
+            [] => self.status = "Hiçbir şey seçilmedi.".into(),
             all => {
                 self.status = format!(
-                    "{} object{} selected.",
+                    "{} nesne seçildi.{:.0}",
                     all.len(),
                     if all.len() == 1 { "" } else { "s" }
                 )

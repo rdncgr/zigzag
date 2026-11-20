@@ -102,10 +102,10 @@ impl McpUi {
 pub fn ago(t: Instant) -> String {
     let s = t.elapsed().as_secs();
     match s {
-        0..=1 => "just now".into(),
-        2..=59 => format!("{s} s ago"),
-        60..=3599 => format!("{} min ago", s / 60),
-        _ => format!("{} h ago", s / 3600),
+        0..=1 => "az önce".into(),
+        2..=59 => format!("{s} sn önce"),
+        60..=3599 => format!("{} dk önce", s / 60),
+        _ => format!("{} sa önce", s / 3600),
     }
 }
 
@@ -169,11 +169,11 @@ impl Studio {
         let p = pal_ui(ui);
         let state = self.mcp_state();
         let tip = match state {
-            State::Off => "MCP server off",
-            State::Failed => "The MCP server couldn't start",
-            State::Waiting => "MCP server running — no agents yet",
-            State::Connected => "An agent is connected over MCP",
-            State::Busy => "An agent is working over MCP",
+            State::Off => "MCP sunucusu kapalı",
+            State::Failed => "MCP sunucusu başlatılamadı",
+            State::Waiting => "MCP sunucusu çalışıyor — henüz ajan yok",
+            State::Connected => "Bir ajan MCP üzerinden bağlı",
+            State::Busy => "Bir ajan MCP üzerinden çalışıyor",
         };
         let connected = matches!(state, State::Connected | State::Busy);
         // Same grays as the machine chip; green, with a dot, once an agent is on.
@@ -234,14 +234,14 @@ impl Studio {
     fn mcp_body(&mut self, ui: &mut egui::Ui, state: State) {
         let p = pal_ui(ui);
         ui.horizontal(|ui| {
-            ui.label(egui::RichText::new("MCP Server").strong().size(13.0));
+            ui.label(egui::RichText::new("MCP Sunucusu").strong().size(13.0));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let (text, color) = match state {
-                    State::Off => ("Off", p.secondary),
-                    State::Failed => ("Not running", p.error),
-                    State::Waiting => ("Running", p.secondary),
-                    State::Connected => ("Connected", crate::sew::GOOD),
-                    State::Busy => ("Working", p.accent),
+                    State::Off => ("Kapalı", p.secondary),
+                    State::Failed => ("Çalışmıyor", p.error),
+                    State::Waiting => ("Çalışıyor", p.secondary),
+                    State::Connected => ("Bağlı", crate::sew::GOOD),
+                    State::Busy => ("Çalışıyor", p.accent),
                 };
                 ui.label(egui::RichText::new(text).size(11.5).color(color));
             });
@@ -252,7 +252,7 @@ impl Studio {
                 Some(e) => {
                     let port = self.mcp_ui.port.unwrap_or(crate::mcp::DEFAULT_PORT);
                     ui.label(
-                        egui::RichText::new(format!("Couldn't start on port {port}: {e}"))
+                        egui::RichText::new(format!("{port} portunda başlatılamadı: {e}"))
                             .size(12.0)
                             .color(p.error),
                     );
@@ -263,7 +263,7 @@ impl Studio {
                     );
                 }
                 None => {
-                    ui.label(egui::RichText::new("The MCP server is off.").size(12.0));
+                    ui.label(egui::RichText::new("MCP sunucusu kapalı.").size(12.0));
                     caption(
                         ui,
                         "The studio was started with --no-mcp. Start it without that to let \
@@ -287,7 +287,7 @@ impl Studio {
             .map(|a| a.clone())
             .unwrap_or_default();
 
-        copy_row(ui, "Address", &url);
+        copy_row(ui, "Adres", &url);
         caption(
             ui,
             "Streamable HTTP, on this Mac only. Agents edit the tab in front; every call \
@@ -295,7 +295,7 @@ impl Studio {
         );
 
         section_break(ui);
-        ui.label(egui::RichText::new("Connect").strong().size(12.0));
+        ui.label(egui::RichText::new("Bağlan").strong().size(12.0));
         ui.add_space(space::XS);
         let claude = format!("claude mcp add --transport http zigzag {url}");
         copy_block(ui, "Claude Code", &claude);
@@ -311,20 +311,20 @@ impl Studio {
         let desktop = format!(
             "{{ \"mcpServers\": {{ \"zigzag\": {{ \"command\": \"{bridge}\"{args} }} }} }}"
         );
-        copy_block(ui, "Claude Desktop and other stdio clients", &desktop);
+        copy_block(ui, "Claude Desktop ve diğer stdio istemcileri", &desktop);
 
         section_break(ui);
         ui.horizontal(|ui| {
-            ui.label(egui::RichText::new("Clients").strong().size(12.0));
+            ui.label(egui::RichText::new("İstemciler").strong().size(12.0));
             if let Some(t) = activity.last_request {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    caption(ui, format!("last heard {}", ago(t)));
+                    caption(ui, format!("son sinyal {}", ago(t)));
                 });
             }
         });
         ui.add_space(space::XS);
         if activity.clients.is_empty() {
-            caption(ui, "No agent has connected since the studio opened.");
+            caption(ui, "Stüdyo açıldığından beri hiçbir ajan bağlanmadı.");
         }
         for c in activity.clients.iter().rev() {
             ui.horizontal(|ui| {
@@ -338,7 +338,7 @@ impl Studio {
                 }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     caption(ui, ago(c.at)).on_hover_text(format!(
-                        "Connected (initialize) {}. Protocol {}.",
+                        "Bağlandı (initialize) {}. Protokol {}.",
                         ago(c.at),
                         if c.protocol.is_empty() {
                             "?"
@@ -352,7 +352,7 @@ impl Studio {
 
         section_break(ui);
         ui.horizontal(|ui| {
-            ui.label(egui::RichText::new("Activity").strong().size(12.0));
+            ui.label(egui::RichText::new("Etkinlik").strong().size(12.0));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let calls = self.mcp_ui.total;
                 let mut s = format!(
@@ -369,7 +369,7 @@ impl Studio {
         });
         ui.add_space(space::XS);
         if self.mcp_ui.calls.is_empty() {
-            caption(ui, "No tool calls yet.");
+            caption(ui, "Henüz araç çağrısı yok.");
         }
         for c in self.mcp_ui.calls.iter().rev().take(8) {
             ui.horizontal(|ui| {
@@ -397,12 +397,12 @@ impl Studio {
         ui.horizontal(|ui| {
             let file = self.agent_log.file().map(std::path::Path::to_path_buf);
             if ui
-                .add_enabled(file.is_some(), egui::Button::new("Show Log").small())
-                .on_hover_text("Every tool call agents have made: when, which tool, what it was asked and what it answered. Kept on this computer.")
+                .add_enabled(file.is_some(), egui::Button::new("Kaydı Göster").small())
+                .on_hover_text("Ajanların yaptığı tüm araç çağrıları: ne zaman, hangi araç, ne soruldu ve ne yanıtladı. Bu bilgisayarda tutulur.")
                 .on_disabled_hover_text(if self.prefs.agent_log {
-                    "Nothing has been logged yet."
+                    "Henüz hiçbir şey kaydedilmedi."
                 } else {
-                    "The log is turned off, in Settings › Agent."
+                    "Kayıt, Ayarlar › Ajan bölümünde kapalı."
                 })
                 .clicked()
                 && let Some(file) = file
@@ -414,7 +414,7 @@ impl Studio {
         section_break(ui);
         let tools = self.mcp_ui.tools().to_vec();
         let open = self.prefs.fold_open("mcp-tools", false);
-        if crate::theme::fold_header(ui, &format!("Tools ({})", tools.len()), open).clicked() {
+        if crate::theme::fold_header(ui, &format!("Araçlar ({})", tools.len()), open).clicked() {
             self.prefs.set_fold("mcp-tools", !open);
         }
         if open {
@@ -436,7 +436,7 @@ fn copy_row(ui: &mut egui::Ui, label: &str, value: &str) {
         caption(ui, label);
         ui.label(egui::RichText::new(value).size(12.0).monospace());
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui.small_button("Copy").clicked() {
+            if ui.small_button("Kopyala").clicked() {
                 ui.ctx().copy_text(value.to_string());
             }
         });
@@ -450,8 +450,8 @@ pub(crate) fn copy_block(ui: &mut egui::Ui, label: &str, text: &str) {
         caption(ui, label);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if ui
-                .small_button("Copy")
-                .on_hover_text(format!("Copy: {text}"))
+                .small_button("Kopyala")
+                .on_hover_text(format!("Kopyala: {text}"))
                 .clicked()
             {
                 ui.ctx().copy_text(text.to_string());

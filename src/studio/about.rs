@@ -25,7 +25,7 @@ impl Studio {
                 dialog::body(
                     ui,
                     &format!(
-                        "Version {} · SVG to machine embroidery",
+                        "Sürüm {} · SVG'den makine nakışına",
                         env!("CARGO_PKG_VERSION")
                     ),
                 );

@@ -314,7 +314,7 @@ fn ble_link() -> anyhow::Result<Box<dyn Transport>> {
 
 #[cfg(not(feature = "ble"))]
 fn ble_link() -> anyhow::Result<Box<dyn Transport>> {
-    anyhow::bail!("This build has no Bluetooth. Rebuild with --features gui,ble.")
+    anyhow::bail!("Bu derlemede Bluetooth yok. --features gui,ble ile yeniden derleyin.")
 }
 
 fn worker(rx: Receiver<Cmd>, shared: Arc<Mutex<Snapshot>>, ctx: eframe::egui::Context) {
@@ -380,7 +380,7 @@ fn worker(rx: Receiver<Cmd>, shared: Arc<Mutex<Snapshot>>, ctx: eframe::egui::Co
             Some(cmd) => {
                 let Some(s) = session.as_mut() else {
                     update(&mut |snap| {
-                        snap.problem = Some("Not connected to the machine.".into());
+                        snap.problem = Some("Makineye bağlı değil.".into());
                         snap.upload = None;
                     });
                     continue;
@@ -388,7 +388,7 @@ fn worker(rx: Receiver<Cmd>, shared: Arc<Mutex<Snapshot>>, ctx: eframe::egui::Co
                 let (doing, r) = match cmd {
                     Cmd::Upload(pen, layout, uuid, trace) => {
                         update(&mut |snap| {
-                            snap.doing = Some("Sending");
+                            snap.doing = Some("Gönderiliyor");
                             snap.upload = Some(0.0);
                             snap.problem = None;
                         });
@@ -410,16 +410,16 @@ fn worker(rx: Receiver<Cmd>, shared: Arc<Mutex<Snapshot>>, ctx: eframe::egui::Co
                             });
                         }
                         match r {
-                            Ok(()) if trace => ("Starting the trial run", s.mask_trace()),
-                            r => ("Sending", r),
+                            Ok(()) if trace => ("Deneme turu başlatılıyor", s.mask_trace()),
+                            r => ("Gönderiliyor", r),
                         }
                     }
-                    Cmd::Trace => ("Starting the trial run", s.mask_trace()),
+                    Cmd::Trace => ("Deneme turu başlatılıyor", s.mask_trace()),
                     Cmd::Sew => {
                         rolled_for = None;
-                        ("Starting", s.start_sewing())
+                        ("Başlatılıyor", s.start_sewing())
                     }
-                    Cmd::SetStitch(k) => ("Moving the needle", s.set_stitch(k)),
+                    Cmd::SetStitch(k) => ("İğne hareket ettiriliyor", s.set_stitch(k)),
                     Cmd::ReadSettings(label) => {
                         let r = s.settings();
                         if let Ok(bytes) = &r {
@@ -427,7 +427,7 @@ fn worker(rx: Receiver<Cmd>, shared: Arc<Mutex<Snapshot>>, ctx: eframe::egui::Co
                             let entry = (label, bytes.clone());
                             update(&mut |snap| snap.settings.push(entry.clone()));
                         }
-                        ("Reading the settings", r.map(|_| ()))
+                        ("Ayarlar okunuyor", r.map(|_| ()))
                     }
                     Cmd::Delete => {
                         let r = s.delete_pattern();
@@ -439,7 +439,7 @@ fn worker(rx: Receiver<Cmd>, shared: Arc<Mutex<Snapshot>>, ctx: eframe::egui::Co
                                 snap.rolled_back = None;
                             });
                         }
-                        ("Ending the job", r)
+                        ("İş sonlandırılıyor", r)
                     }
                     Cmd::Connect(_) | Cmd::Disconnect => unreachable!(),
                 };
@@ -449,7 +449,7 @@ fn worker(rx: Receiver<Cmd>, shared: Arc<Mutex<Snapshot>>, ctx: eframe::egui::Co
                     snap.problem = r
                         .as_ref()
                         .err()
-                        .map(|e| format!("{doing} didn't work: {e:#}"));
+                        .map(|e| format!("{doing} başarısız oldu: {e:#}"));
                 });
             }
             None => {}

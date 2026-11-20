@@ -119,9 +119,9 @@ impl Studio {
         }
         let m = rotate_about(c, deg);
         let done = if copy {
-            self.copy_selection_with(m, "Copied")
+            self.copy_selection_with(m, "kopyalandı")
         } else {
-            self.transform_selected(m, "Rotated")
+            self.transform_selected(m, "döndürüldü")
         };
         if done {
             self.keep_last_fixed();
@@ -280,7 +280,7 @@ impl Studio {
             None => None,
         };
         let Some(c) = turning.or_else(|| self.rotate_reference()) else {
-            self.hud(painter, rect, "Click an object to rotate it");
+            self.hud(painter, rect, "Döndürmek için bir nesneye tıklayın");
             return;
         };
         if self.playing {
@@ -307,7 +307,7 @@ impl Studio {
         self.hud(
             painter,
             rect,
-            "Click to set the reference point · drag to rotate · Shift: 45° steps · Option: a copy · Option-click for an exact angle",
+            "Referans noktasını belirlemek için tıklayın · döndürmek için sürükleyin · Shift: 45° adımlar · Alt: kopya · tam açı için Alt-tıklama",
         );
     }
 
@@ -338,12 +338,12 @@ impl Studio {
         use crate::dialog;
         let id = egui::Id::unique("rotate-dialog");
         dialog::show(ctx, id, dialog::Place::Top, |ui| {
-            dialog::heading(ui, "Rotate");
+            dialog::heading(ui, "Döndür");
             // (Its label at the dialog's left edge, over the checkboxes,
             // as VectorCraft's field grid has it.)
             ui.horizontal(|ui| {
                 let secondary = crate::theme::pal_ui(ui).secondary;
-                let l = ui.label(egui::RichText::new("Angle").color(secondary));
+                let l = ui.label(egui::RichText::new("Açı").color(secondary));
                 let r = ui
                     .add_sized(
                         [FIELD_W, 22.0],
@@ -354,7 +354,7 @@ impl Studio {
                             .suffix("°"),
                     )
                     .labelled_by(l.id)
-                    .on_hover_text("A positive angle turns clockwise, as in the Transform panel");
+                    .on_hover_text("Pozitif açı, Dönüştür panelindeki gibi saat yönünde döndürür");
                 // Its first field has the keyboard as it opens, as
                 // VectorCraft's does: type the angle, Return.
                 if d.fresh {
@@ -363,13 +363,13 @@ impl Studio {
                 }
             });
             ui.add_space(6.0);
-            ui.checkbox(&mut d.copy, "Copy (make a transformed copy)");
+            ui.checkbox(&mut d.copy, "Kopya (dönüştürülmüş bir kopya oluştur)");
             ui.add_space(8.0 - ui.spacing().item_spacing.y);
-            ui.checkbox(&mut d.preview, "Preview");
+            ui.checkbox(&mut d.preview, "Önizleme");
             dialog::buttons(ui, |ui| {
                 ok = dialog::primary(ui, "OK", true).clicked()
                     || ui.input(|i| i.key_pressed(Key::Enter));
-                cancel = dialog::secondary(ui, "Cancel").clicked()
+                cancel = dialog::secondary(ui, "İptal").clicked()
                     || ui.input(|i| i.key_pressed(Key::Escape));
             });
         });

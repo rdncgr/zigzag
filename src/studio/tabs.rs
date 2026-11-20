@@ -148,7 +148,7 @@ pub struct TabInfo {
 
 fn display_name(doc: &Document) -> String {
     if doc.name.is_empty() {
-        "Untitled".into()
+        "Adsız".into()
     } else {
         doc.name.clone()
     }
@@ -374,7 +374,7 @@ impl Studio {
             self.leave_tab();
             self.set_document(self.blank_document());
             self.session.forget_recovery(rec);
-            self.status = "Closed.".into();
+            self.status = "Kapatıldı.".into();
             return;
         }
         let name = self.tab_infos()[i].name.clone();
@@ -392,7 +392,7 @@ impl Studio {
             self.tabs.active -= 1;
         }
         self.session.forget_recovery(rec);
-        self.status = format!("Closed {name}.");
+        self.status = format!("{name} kapatıldı.");
     }
 
     /// Move tab `from` to `to` (both in the order as it is now).
@@ -452,14 +452,14 @@ impl Studio {
                 let left = self.tab_count() - 1;
                 if left > 0 {
                     self.status = format!(
-                        "Kept {left} {} with unsaved changes open.",
+                        "Kaydedilmemiş değişiklikleri olan {left} sekme açık bırakıldı.{:.0}",
                         if left == 1 { "tab" } else { "tabs" }
                     );
                 }
             }
             TabOp::New => {
                 self.new_tab();
-                self.status = "New document.".into();
+                self.status = "Yeni belge.".into();
             }
             TabOp::Move { from, to } => self.move_tab(from, to),
         }
@@ -555,9 +555,9 @@ impl Studio {
             let xr =
                 Rect::from_center_size(Pos2::new(x_center, draw.center().y), Vec2::splat(16.0));
             let xresp = ui.interact(xr, ui.scope_id().with(("doc-tab-x", i)), Sense::click());
-            let xresp = xresp.on_hover_text("Close Tab");
+            let xresp = xresp.on_hover_text("Sekmeyi Kapat");
             xresp.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::Role::Button, true, format!("Close {name}"))
+                egui::WidgetInfo::labeled(egui::Role::Button, true, format!("{name} kapat"))
             });
             // The × shows on the tab in front and under the pointer; an
             // unsaved tab shows a dot there otherwise (as macOS does).
@@ -616,12 +616,12 @@ impl Studio {
                 self.tabs.drag = Some((i, pt.x - r.left()));
             }
             resp.context_menu(|ui| {
-                if ui.button("Close Tab").clicked() {
+                if ui.button("Sekmeyi Kapat").clicked() {
                     op = Some(TabOp::Close(i));
                     ui.close();
                 }
                 if ui
-                    .add_enabled(infos.len() > 1, egui::Button::new("Close Other Tabs"))
+                    .add_enabled(infos.len() > 1, egui::Button::new("Diğer Sekmeleri Kapat"))
                     .clicked()
                 {
                     op = Some(TabOp::CloseOthers(i));
@@ -629,7 +629,7 @@ impl Studio {
                 }
                 if let Some(path) = &infos[i].path {
                     ui.separator();
-                    if ui.button("Copy Path").clicked() {
+                    if ui.button("Yolu Kopyala").clicked() {
                         ui.ctx().copy_text(path.display().to_string());
                         ui.close();
                     }
@@ -668,8 +668,8 @@ impl Studio {
             .shrink2(Vec2::new(3.0, 4.0));
         let presp = ui
             .interact(plus, ui.scope_id().with("doc-tab-new"), Sense::click())
-            .on_hover_text("New Document (⌘N)");
-        presp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "New Tab"));
+            .on_hover_text("Yeni Belge (Ctrl+N)");
+        presp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Yeni Sekme"));
         if presp.hovered() {
             painter.rect_filled(plus, 5.0, p.hover);
         }
@@ -691,9 +691,9 @@ impl Studio {
             .shrink2(Vec2::new(3.0, 4.0));
             let mresp = ui
                 .interact(more, ui.scope_id().with("doc-tabs-more"), Sense::click())
-                .on_hover_text("Show All Open Documents");
+                .on_hover_text("Tüm Açık Belgeleri Göster");
             mresp.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::Role::Button, true, "All open documents")
+                egui::WidgetInfo::labeled(egui::Role::Button, true, "Tüm açık belgeler")
             });
             if mresp.hovered() {
                 painter.rect_filled(more, 5.0, p.hover);
@@ -813,17 +813,17 @@ impl Studio {
                 } else {
                     display_name(&self.tabs.list[*i].doc)
                 };
-                format!("Do you want to save the changes you made to “{name}”?")
+                format!("“{name}” belgesinde yaptığınız değişiklikleri kaydetmek istiyor musunuz?")
             }
             many => format!(
-                "{} documents have changes that aren't saved. Save them before quitting?",
+                "{} belgede kaydedilmemiş değişiklik var. Çıkmadan önce kaydedilsin mi?",
                 many.len()
             ),
         };
         let save = if unsaved.len() == 1 {
-            "Save"
+            "Kaydet"
         } else {
-            "Save All"
+            "Tümünü Kaydet"
         };
         let mut choice = None;
         use crate::dialog;
@@ -835,17 +835,17 @@ impl Studio {
                 dialog::heading(ui, &heading);
                 dialog::body(
                     ui,
-                    "If you don't, nothing is lost: they come back as they are the next time you open ZigZag. Their files stay as they were until you save.",
+                    "Kaydetmezseniz hiçbir şey kaybolmaz: ZigZag'ı bir sonraki açışınızda oldukları gibi geri gelirler. Dosyaları siz kaydedene kadar olduğu gibi kalır.",
                 );
                 dialog::buttons(ui, |ui| {
                     if dialog::primary(ui, save, true).clicked() {
                         choice = Some(Close::Save);
                     }
-                    if dialog::secondary(ui, "Cancel").clicked() {
+                    if dialog::secondary(ui, "İptal").clicked() {
                         choice = Some(Close::Cancel);
                     }
                     dialog::apart(ui, |ui| {
-                        if dialog::secondary(ui, "Don't Save").clicked() {
+                        if dialog::secondary(ui, "Kaydetme").clicked() {
                             choice = Some(Close::Discard);
                         }
                     });
@@ -887,18 +887,18 @@ impl Studio {
             |ui| {
                 dialog::heading(
                     ui,
-                    &format!("Do you want to save the changes you made to “{name}”?"),
+                    &format!("“{name}” belgesinde yaptığınız değişiklikleri kaydetmek istiyor musunuz?"),
                 );
-                dialog::body(ui, "Your changes will be lost if you don't save them.");
+                dialog::body(ui, "Kaydetmezseniz değişiklikleriniz kaybolacak.");
                 dialog::buttons(ui, |ui| {
-                    if dialog::primary(ui, "Save", true).clicked() {
+                    if dialog::primary(ui, "Kaydet", true).clicked() {
                         choice = Some(Close::Save);
                     }
-                    if dialog::secondary(ui, "Cancel").clicked() {
+                    if dialog::secondary(ui, "İptal").clicked() {
                         choice = Some(Close::Cancel);
                     }
                     dialog::apart(ui, |ui| {
-                        if dialog::secondary(ui, "Don't Save").clicked() {
+                        if dialog::secondary(ui, "Kaydetme").clicked() {
                             choice = Some(Close::Discard);
                         }
                     });

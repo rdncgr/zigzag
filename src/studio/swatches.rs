@@ -31,11 +31,11 @@ impl Setting {
 
     pub fn name(self) -> &'static str {
         match self {
-            Setting::Spacing => "Spacing",
-            Setting::Length => "Stitch length",
-            Setting::Pull => "Pull compensation",
-            Setting::Width => "Satin width",
-            Setting::Angle => "Fill angle",
+            Setting::Spacing => "Aralık",
+            Setting::Length => "Dikiş uzunluğu",
+            Setting::Pull => "Çekme telafisi",
+            Setting::Width => "Saten genişliği",
+            Setting::Angle => "Dolgu açısı",
         }
     }
 
@@ -163,7 +163,7 @@ impl Studio {
         let f = self.doc.settings.fabric();
         let width = crate::app::mean_satin_width(&self.doc.shapes[i]);
         let base = self.doc.shapes[i].params.clone();
-        egui::Window::new("Test Swatches")
+        egui::Window::new("Deneme Örnekleri")
             .title_frame(crate::theme::title_frame(ctx))
             .open(&mut open)
             .resizable(false)
@@ -172,11 +172,11 @@ impl Studio {
             .show(ctx, |ui| {
                 crate::theme::caption(
                     ui,
-                    "Copies of the selection, each with one setting stepped, to stitch out and compare.",
+                    "Seçimin kopyaları; her birinde bir ayar kademeli değişir; dikip karşılaştırmak için.",
                 );
                 ui.add_space(space::S);
                 crate::theme::form(ui, "swatch-form", |fm| {
-                    fm.row("Setting", |ui, lid| {
+                    fm.row("Ayar", |ui, lid| {
                         let before = d.setting;
                         egui::ComboBox::from_id_salt("swatch-setting")
                             .selected_text(d.setting.name())
@@ -192,7 +192,7 @@ impl Studio {
                             (d.from, d.to) = d.setting.default_range(&base, &f, width);
                         }
                     });
-                    fm.row("From", |ui, lid| {
+                    fm.row("Başlangıç", |ui, lid| {
                         let r = if d.setting.is_length() {
                             ui.add(crate::units::drag_mm(&mut d.from, 0.0..=400.0, 0.01))
                         } else {
@@ -208,17 +208,17 @@ impl Studio {
                         };
                         r.labelled_by(lid);
                     });
-                    fm.row("Swatches", |ui, lid| {
+                    fm.row("Örnekler", |ui, lid| {
                         ui.add(egui::DragValue::new(&mut d.steps).range(2..=24))
                             .labelled_by(lid);
                         ui.label("in");
                         ui.add(egui::DragValue::new(&mut d.columns).range(1..=12))
-                            .on_hover_text("Columns");
+                            .on_hover_text("Sütunlar");
                         ui.label("columns");
                     });
-                    fm.row("Labels", |ui, _| {
-                        ui.checkbox(&mut d.labels, "Stitch the value under each")
-                            .on_hover_text("Small running-stitch lettering");
+                    fm.row("Etiketler", |ui, _| {
+                        ui.checkbox(&mut d.labels, "Değeri her birinin altına dik")
+                            .on_hover_text("Küçük düz dikiş yazı");
                     });
                 });
                 ui.add_space(space::S);
@@ -229,12 +229,12 @@ impl Studio {
                         let accent = crate::theme::pal_ui(ui).accent;
                         ok = ui
                             .add(
-                                egui::Button::new(egui::RichText::new("Make").color(Color32::WHITE))
+                                egui::Button::new(egui::RichText::new("Oluştur").color(Color32::WHITE))
                                     .fill(accent),
                             )
                             .clicked()
                             || ui.input(|i| i.key_pressed(Key::Enter));
-                        cancel = ui.button("Cancel").clicked()
+                        cancel = ui.button("İptal").clicked()
                             || ui.input(|i| i.key_pressed(Key::Escape));
                     },
                 );
@@ -243,13 +243,13 @@ impl Studio {
             match self.make_swatches(&d) {
                 Ok(n) => {
                     self.status = format!(
-                        "Made {n} swatches, {} from {} to {}.",
+                        "{n} deneme örneği oluşturuldu: {}, {} ile {} arası.",
                         d.setting.name().to_lowercase(),
                         d.setting.label(d.from),
                         d.setting.label(d.to)
                     )
                 }
-                Err(e) => self.status = format!("Couldn't make swatches: {e:#}"),
+                Err(e) => self.status = format!("Deneme örnekleri oluşturulamadı: {e:#}"),
             }
         } else if !(cancel || !open) {
             self.layout.swatch_dialog = Some(d);
@@ -262,7 +262,7 @@ impl Studio {
     pub fn make_swatches(&mut self, d: &SwatchDialog) -> anyhow::Result<usize> {
         let idx = self.sel_indices();
         if idx.is_empty() {
-            anyhow::bail!("select the object to test first");
+            anyhow::bail!("önce denenecek nesneyi seçin");
         }
         let mut b = zigzag::geom::Bounds::empty();
         for &i in &idx {

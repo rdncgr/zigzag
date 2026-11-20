@@ -306,7 +306,7 @@ impl Document {
     /// A blank 100 × 100 mm document whose user units are millimetres, origin at the hoop center.
     pub fn empty() -> Document {
         let mut d =
-            Document::from_svg(EMPTY_SVG, "untitled", None).expect("built-in template parses");
+            Document::from_svg(EMPTY_SVG, "adsız", None).expect("built-in template parses");
         d.offset = P::default();
         d
     }

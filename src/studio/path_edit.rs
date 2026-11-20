@@ -445,7 +445,7 @@ impl Studio {
         }
         match self.structural(|d| d.set_path(i, &path)) {
             Ok(()) => self.status = what.into(),
-            Err(e) => self.status = format!("Couldn't edit the path: {e:#}"),
+            Err(e) => self.status = format!("Yol düzenlenemedi: {e:#}"),
         }
     }
 
@@ -743,10 +743,10 @@ impl Studio {
         }
         if d.path != d.base_path {
             let what = match d.grab {
-                Grab::Anchors => "Moved points.",
-                Grab::Handle { .. } | Grab::Segment { .. } => "Reshaped the curve.",
-                Grab::Corner => "Rounded the corners.",
-                Grab::Pull { .. } => "Made a smooth point.",
+                Grab::Anchors => "Noktalar taşındı.",
+                Grab::Handle { .. } | Grab::Segment { .. } => "Eğri yeniden şekillendirildi.",
+                Grab::Corner => "Köşeler yuvarlatıldı.",
+                Grab::Pull { .. } => "Yumuşak nokta yapıldı.",
             };
             self.commit_path(d.path, what);
         }
@@ -764,13 +764,13 @@ impl Studio {
         match self.structural(|d| d.set_live_corners(i, &live)) {
             Ok(()) => {
                 self.status = if sharp {
-                    "Made the corners sharp.".into()
+                    "Köşeler keskinleştirildi.".into()
                 } else {
-                    "Rounded the corners.".into()
+                    "Köşeler yuvarlatıldı.".into()
                 }
             }
             Err(e) => {
-                self.status = format!("Couldn't round the corners: {e:#}");
+                self.status = format!("Köşeler yuvarlatılamadı: {e:#}");
                 return;
             }
         }
@@ -868,9 +868,9 @@ impl Studio {
             self.path_edit.picks_at = self.doc.rev();
             let picked = &self.path_edit.selected;
             self.status = match picked.len() {
-                0 => "Drag a corner's circle to round every corner.".into(),
-                1 => "Drag to round just this corner. Shift-click picks more; click it again for all of them.".into(),
-                n => format!("Drag to round these {n} corners."),
+                0 => "Tüm köşeleri yuvarlatmak için bir köşenin dairesini sürükleyin.".into(),
+                1 => "Yalnızca bu köşeyi yuvarlatmak için sürükleyin. Shift-tıklama daha fazlasını seçer; hepsi için yeniden tıklayın.".into(),
+                n => format!("Bu {n} köşeyi yuvarlatmak için sürükleyin."),
             };
             return true;
         }
@@ -1148,9 +1148,9 @@ impl Studio {
                     if a.has_handles() {
                         a.h_in = a.p;
                         a.h_out = a.p;
-                        self.commit_path(path, "Made a corner point.");
+                        self.commit_path(path, "Köşe noktası yapıldı.");
                     } else {
-                        self.status = "Already a corner: drag from it to pull out handles.".into();
+                        self.status = "Zaten köşe: tutamaçları çekmek için ondan sürükleyin.".into();
                     }
                 }
                 Hit::Handle((s, k), out) => {
@@ -1162,7 +1162,7 @@ impl Studio {
                     } else {
                         a.h_in = a.p;
                     }
-                    self.commit_path(path, "Took the handle in.");
+                    self.commit_path(path, "Tutamaç içeri alındı.");
                 }
                 Hit::Object(i) => {
                     self.set_selection(&[i]);
@@ -1228,11 +1228,11 @@ impl Studio {
         }
         let Some(mut path) = path else {
             self.status = if self.sel_index().is_some() {
-                "This object has no points to edit.".into()
+                "Bu nesnede düzenlenecek nokta yok.".into()
             } else if add {
-                "Click a path's outline to add a point.".into()
+                "Nokta eklemek için yolun dış hattına tıklayın.".into()
             } else {
-                "Click a path's point to delete it.".into()
+                "Silmek için yolun bir noktasına tıklayın.".into()
             };
             return;
         };
@@ -1240,16 +1240,16 @@ impl Studio {
             if let Some((s, a, t)) = bezier::hit_segment(&path, q, tol) {
                 let r = bezier::split(&mut path, s, a, t);
                 self.path_edit.selected = vec![r];
-                self.commit_path(path, "Added a point.");
+                self.commit_path(path, "Nokta eklendi.");
             } else {
-                self.status = "Click on the outline to add a point there.".into();
+                self.status = "Oraya nokta eklemek için dış hatta tıklayın.".into();
             }
         } else if let Some(a) = bezier::hit_anchor(&path, q, tol) {
             bezier::delete(&mut path, &[a]);
             self.path_edit.selected.clear();
-            self.commit_path(path, "Deleted a point.");
+            self.commit_path(path, "Nokta silindi.");
         } else {
-            self.status = "Click on a point to delete it.".into();
+            self.status = "Silmek için bir noktaya tıklayın.".into();
         }
     }
 
@@ -1314,7 +1314,7 @@ impl Studio {
                 } else {
                     a.h_in = a.p;
                 }
-                self.commit_path(path, "Took the handle in.");
+                self.commit_path(path, "Tutamaç içeri alındı.");
             }
             return;
         }
@@ -1454,7 +1454,7 @@ impl Studio {
             crate::view_tools::label(
                 painter,
                 pos + Vec2::new(14.0, 14.0),
-                format!("Radius {}", crate::units::fmt(r)),
+                format!("Yarıçap {}", crate::units::fmt(r)),
             );
         }
     }
@@ -1499,7 +1499,7 @@ impl Studio {
             let n = self.path_edit.selected.len();
             bezier::delete(&mut path, &self.path_edit.selected);
             self.path_edit.selected.clear();
-            self.commit_path(path, &format!("Deleted {n} point(s)."));
+            self.commit_path(path, &format!("{n} nokta silindi."));
             return true;
         }
         if nudge.len() > 0.0 {
@@ -1509,7 +1509,7 @@ impl Studio {
                 a.h_in = a.h_in + nudge;
                 a.h_out = a.h_out + nudge;
             }
-            self.commit_path(path, "Nudged points.");
+            self.commit_path(path, "Noktalar kaydırıldı.");
             return true;
         }
         false
@@ -1531,18 +1531,18 @@ impl Studio {
                 } else {
                     bezier::auto_smooth(&mut path[s], k);
                 }
-                self.commit_path(path, "Converted the point.");
+                self.commit_path(path, "Nokta dönüştürüldü.");
             } else {
                 bezier::delete(&mut path, &[(s, k)]);
                 self.path_edit.selected.clear();
-                self.commit_path(path, "Deleted a point.");
+                self.commit_path(path, "Nokta silindi.");
             }
             return true;
         }
         if !alt && let Some((s, a, t)) = bezier::hit_segment(&path, q, tol) {
             let r = bezier::split(&mut path, s, a, t);
             self.path_edit.selected = vec![r];
-            self.commit_path(path, "Added a point.");
+            self.commit_path(path, "Nokta eklendi.");
             return true;
         }
         false

@@ -293,9 +293,9 @@ pub fn check(
             Some(shape),
             Level::Info,
             format!(
-                "The thread crosses {rows} rows of stitches already sewn on its way from one part of this object to the next, and shows on top of them.{}",
+                "İplik, bu nesnenin bir parçasından diğerine giderken önceden dikilmiş {rows} dikiş sırasının üzerinden geçiyor ve üstte görünüyor.{}",
                 if opt.over_sewn {
-                    " Turn off Sew over fill (Document panel) to cut it there instead."
+                    " Bunun yerine orada kesmek için Dolgu üzerinden dik seçeneğini kapatın (Belge paneli)."
                 } else {
                     ""
                 }
@@ -310,7 +310,7 @@ pub fn check(
                 None,
                 Level::Error,
                 format!(
-                    "Design is {:.1} × {:.1} mm; the hoop sews {:.0} × {:.0} mm.",
+                    "Tasarım {:.1} × {:.1} mm; kasnak {:.0} × {:.0} mm dikebilir.",
                     b.width() / 10.0,
                     b.height() / 10.0,
                     w,
@@ -323,7 +323,7 @@ pub fn check(
             add(
                 None,
                 Level::Warning,
-                "Design fits the hoop but isn't centered in it.".into(),
+                "Tasarım kasnağa sığıyor ama ortalanmamış.".into(),
             );
         }
     }
@@ -351,7 +351,7 @@ pub fn check(
                     add(
                         Some(i),
                         Level::Info,
-                        "Completely covered by objects sewn on top; it won't be stitched.".into(),
+                        "Üstüne dikilen nesnelerle tamamen kaplı; dikilmeyecek.".into(),
                     );
                     continue;
                 }
@@ -362,7 +362,7 @@ pub fn check(
                         Some(i),
                         Level::Warning,
                         format!(
-                            "Only {:.1} mm across: too small to fill. Make it bigger or use Run.",
+                            "Yalnızca {:.1} mm genişliğinde: dolgu için çok küçük. Büyütün ya da Düz Dikiş kullanın.",
                             w.max(h)
                         ),
                     );
@@ -393,7 +393,7 @@ pub fn check(
                     add(
                         Some(i),
                         Level::Warning,
-                        "Looks like small lettering (under 4 mm tall). Fill won't read at this size: use Satin and keep letters at least 5 mm tall."
+                        "Küçük yazıya benziyor (4 mm'den kısa). Bu boyutta dolgu okunmaz: Saten kullanın ve harfleri en az 5 mm yüksekliğinde tutun."
                             .into(),
                     );
                 } else if w.min(h) < 2.5 {
@@ -401,7 +401,7 @@ pub fn check(
                         Some(i),
                         Level::Warning,
                         format!(
-                            "Only {:.1} mm wide: Satin looks cleaner than Fill on narrow shapes.",
+                            "Yalnızca {:.1} mm genişliğinde: dar şekillerde Saten, Dolgu'dan daha temiz görünür.",
                             w.min(h)
                         ),
                     );
@@ -410,7 +410,7 @@ pub fn check(
                     add(
                         Some(i),
                         Level::Warning,
-                        "Has a gap under 1 mm wide; thread will close it up.".into(),
+                        "1 mm'den dar bir boşluk var; iplik onu kapatacak.".into(),
                     );
                 }
             }
@@ -437,14 +437,14 @@ pub fn check(
                         Some(i),
                         Level::Info,
                         format!(
-                            "Satin up to {max:.1} mm wide: stitches longer than {split:.1} mm are split so they don't snag."
+                            "Saten {max:.1} mm genişliğe kadar: takılmasınlar diye {split:.1} mm'den uzun dikişler bölünür."
                         ),
                     ),
                     None if max > 7.0 => add(
                         Some(i),
                         Level::Warning,
                         format!(
-                            "Satin up to {max:.1} mm wide: stitches over ~7 mm get loose and snag. Turn on auto split or use Fill."
+                            "Saten {max:.1} mm genişliğe kadar: ~7 mm'yi aşan dikişler gevşer ve takılır. Otomatik bölmeyi açın ya da Dolgu kullanın."
                         ),
                     ),
                     _ => {}
@@ -454,7 +454,7 @@ pub fn check(
                         Some(i),
                         Level::Warning,
                         format!(
-                            "Satin only {mean:.1} mm wide on average: too narrow to look smooth. Use Run."
+                            "Saten ortalamada yalnızca {mean:.1} mm genişliğinde: düzgün görünmek için çok dar. Düz Dikiş kullanın."
                         ),
                     );
                 }

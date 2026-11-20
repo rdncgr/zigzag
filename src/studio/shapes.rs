@@ -34,11 +34,11 @@ pub const KINDS: [ShapeKind; 5] = [
 impl ShapeKind {
     pub fn name(self) -> &'static str {
         match self {
-            ShapeKind::Rect => "Rectangle",
-            ShapeKind::Ellipse => "Ellipse",
-            ShapeKind::Polygon => "Polygon",
-            ShapeKind::Star => "Star",
-            ShapeKind::Line => "Line",
+            ShapeKind::Rect => "Dikdörtgen",
+            ShapeKind::Ellipse => "Elips",
+            ShapeKind::Polygon => "Çokgen",
+            ShapeKind::Star => "Yıldız",
+            ShapeKind::Line => "Çizgi",
         }
     }
     pub fn icon(self) -> Icon {
@@ -283,7 +283,7 @@ impl Studio {
         self.hud(
             painter,
             rect,
-            "Drag to draw · Option: from the center · Shift: square, circle, upright or 45° · arrow keys while dragging: sides or points · click to type a size",
+            "Çizmek için sürükleyin · Alt: merkezden · Shift: kare, daire, dik ya da 45° · sürüklerken ok tuşları: kenar ya da köşe sayısı · boyut yazmak için tıklayın",
         );
         self.shape_options(ui.ctx(), ui.make_persistent_id("shape-options"), rect);
     }
@@ -336,9 +336,9 @@ impl Studio {
                 } else {
                     "a"
                 };
-                self.status = format!("Drew {a} {name} ({what}).");
+                self.status = format!("{name} çizildi ({what}).{a:.0}");
             }
-            Err(e) => self.status = format!("Couldn't add the shape: {e:#}"),
+            Err(e) => self.status = format!("Şekil eklenemedi: {e:#}"),
         }
     }
 
@@ -380,24 +380,24 @@ impl Studio {
                             match s.kind {
                                 ShapeKind::Rect => field(
                                     ui,
-                                    "Corners",
+                                    "Köşeler",
                                     crate::units::drag_mm(&mut s.corner_mm, 0.0..=50.0, 0.1),
                                 ),
                                 ShapeKind::Polygon => field(
                                     ui,
-                                    "Sides",
+                                    "Kenarlar",
                                     egui::DragValue::new(&mut s.sides).range(3..=24),
                                 ),
                                 ShapeKind::Star => {
                                     field(
                                         ui,
-                                        "Points",
+                                        "Uçlar",
                                         egui::DragValue::new(&mut s.points).range(3..=24),
                                     );
                                     let mut pct = s.inner * 100.0;
                                     field(
                                         ui,
-                                        "Inner",
+                                        "İç",
                                         egui::DragValue::new(&mut pct)
                                             .range(10.0..=95.0)
                                             .speed(1.0)
@@ -452,13 +452,13 @@ impl Studio {
                 };
                 match d.kind {
                     ShapeKind::Rect | ShapeKind::Ellipse => {
-                        num(ui, &mut d.a, "Width", " mm");
-                        num(ui, &mut d.b, "Height", " mm");
+                        num(ui, &mut d.a, "Genişlik", " mm");
+                        num(ui, &mut d.b, "Yükseklik", " mm");
                     }
-                    ShapeKind::Polygon | ShapeKind::Star => num(ui, &mut d.a, "Radius", " mm"),
+                    ShapeKind::Polygon | ShapeKind::Star => num(ui, &mut d.a, "Yarıçap", " mm"),
                     ShapeKind::Line => {
-                        num(ui, &mut d.a, "Length", " mm");
-                        num(ui, &mut d.b, "Angle", "°");
+                        num(ui, &mut d.a, "Uzunluk", " mm");
+                        num(ui, &mut d.b, "Açı", "°");
                     }
                 }
                 ui.add_space(space::S);
@@ -474,7 +474,7 @@ impl Studio {
                             )
                             .clicked()
                             || ui.input(|i| i.key_pressed(Key::Enter));
-                        cancel = ui.button("Cancel").clicked()
+                        cancel = ui.button("İptal").clicked()
                             || ui.input(|i| i.key_pressed(Key::Escape));
                     },
                 );

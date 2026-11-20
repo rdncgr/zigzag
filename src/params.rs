@@ -203,8 +203,8 @@ pub struct Fabric {
 pub const FABRICS: [Fabric; 4] = [
     Fabric {
         id: "standard",
-        name: "Standard (twill, denim, patches)",
-        about: "Stable woven fabric. Classic densities.",
+        name: "Standart (dimi, kot, arma)",
+        about: "Sabit dokuma kumaş. Klasik yoğunluklar.",
         fill_spacing: 0.25,
         fill_len: 3.0,
         fill_pull: 0.0,
@@ -216,8 +216,8 @@ pub const FABRICS: [Fabric; 4] = [
     },
     Fabric {
         id: "thin-cap",
-        name: "Thin cotton cap (unstructured)",
-        about: "Light, flexible crown. Lighter fill, more pull compensation, edge walk to keep shapes flat.",
+        name: "İnce pamuklu şapka (yapısız)",
+        about: "Hafif, esnek tepe. Daha hafif dolgu, daha fazla çekme telafisi, şekilleri düz tutmak için kenar yürüyüşü.",
         fill_spacing: 0.35,
         fill_len: 3.0,
         fill_pull: 0.2,
@@ -229,8 +229,8 @@ pub const FABRICS: [Fabric; 4] = [
     },
     Fabric {
         id: "structured-cap",
-        name: "Structured cap (buckram front)",
-        about: "Stiff front panel. Medium density.",
+        name: "Yapılı şapka (tela destekli ön)",
+        about: "Sert ön panel. Orta yoğunluk.",
         fill_spacing: 0.3,
         fill_len: 3.5,
         fill_pull: 0.15,
@@ -242,8 +242,8 @@ pub const FABRICS: [Fabric; 4] = [
     },
     Fabric {
         id: "knit",
-        name: "Knit (beanie, jersey)",
-        about: "Stretchy. Strong underlay and pull compensation so stitches don't sink.",
+        name: "Örme (bere, süprem)",
+        about: "Esnek. Dikişler gömülmesin diye güçlü alt dikiş ve çekme telafisi.",
         fill_spacing: 0.3,
         fill_len: 2.8,
         fill_pull: 0.3,

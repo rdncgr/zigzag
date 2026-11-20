@@ -163,7 +163,7 @@ mod imp {
             me._menu.append(&app)?;
             for (title, entries) in menus() {
                 let sub = Submenu::new(title, true);
-                if title == "Window" {
+                if title == "Pencere" {
                     sub.append_items(&[
                         &PredefinedMenuItem::minimize(None),
                         &PredefinedMenuItem::maximize(None),
@@ -174,7 +174,7 @@ mod imp {
                 me.fill(&sub, &entries, studio)?;
                 // (File › Close, ⌘W, closes the tab in front, or the window
                 // once the last tab is empty.)
-                if title == "Window" {
+                if title == "Pencere" {
                     sub.append_items(&[
                         &PredefinedMenuItem::separator(),
                         &PredefinedMenuItem::bring_all_to_front(None),
@@ -184,7 +184,7 @@ mod imp {
                 }
                 // (The Mac puts its search of the menus at the top of Help.)
                 #[cfg(target_os = "macos")]
-                if title == "Help" {
+                if title == "Yardım" {
                     sub.set_as_help_menu_for_nsapp();
                 }
                 me._menu.append(&sub)?;

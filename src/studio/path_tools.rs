@@ -213,11 +213,11 @@ impl Studio {
         }
         let msg = match tool {
             Tool::Smooth => {
-                "Drag along a selected path to smooth it: fewer points, smoother curves · drag again for more"
+                "Yumuşatmak için seçili yol boyunca sürükleyin: daha az nokta, daha yumuşak eğriler · daha fazlası için yeniden sürükleyin"
             }
-            Tool::PathEraser => "Drag across a selected path to erase that part of it",
+            Tool::PathEraser => "Seçili yolun bir kısmını silmek için üzerinden sürükleyin",
             _ => {
-                "Scrub between two open ends to join them (selected paths, or any) · an open path's own ends close it"
+                "Birleştirmek için iki açık uç arasında sürükleyin (seçili yollar ya da herhangi biri) · açık bir yolun kendi uçları onu kapatır"
             }
         };
         self.hud(painter, rect, msg);
@@ -240,14 +240,14 @@ impl Studio {
                             ui.spacing_mut().item_spacing.x = space::S;
                             let p = crate::theme::pal_ui(ui);
                             ui.label(
-                                egui::RichText::new("Smoothness").size(12.0).color(p.secondary),
+                                egui::RichText::new("Yumuşaklık").size(12.0).color(p.secondary),
                             );
                             ui.add(
                                 egui::Slider::new(&mut self.brush.smooth_tool, 0.0..=100.0)
                                     .show_value(false),
                             )
                             .on_hover_text(
-                                "How far a stroke may move the path to smooth it: right for smoother, left to stay closer",
+                                "Yumuşatırken yolun ne kadar oynayabileceği: daha yumuşak için sağa, aslına yakın kalmak için sola",
                             );
                         });
                     });
@@ -258,7 +258,7 @@ impl Studio {
     fn finish_brushing(&mut self, tool: Tool, trail: &[P], px: f64) {
         let idx = self.sel_indices();
         if idx.is_empty() {
-            self.status = "Select a path first (or start the drag on one).".into();
+            self.status = "Önce bir yol seçin (ya da sürüklemeyi bir yolun üzerinde başlatın).".into();
             return;
         }
         let uids: Vec<usize> = idx.iter().map(|&i| self.doc.shapes[i].uid).collect();
@@ -286,23 +286,23 @@ impl Studio {
             Ok(()) if result == (0, 0) => {
                 self.undo.pop();
                 self.status = if tool == Tool::Smooth {
-                    "Already smooth there.".into()
+                    "Orası zaten yumuşak.".into()
                 } else {
-                    "Nothing of the selected paths under the eraser.".into()
+                    "Silginin altında seçili yollardan hiçbir şey yok.".into()
                 };
             }
             Ok(()) => {
                 self.restore_selection(&uids);
                 let (changed, gone) = result;
                 self.status = match (tool, gone) {
-                    (Tool::Smooth, _) => format!("Smoothed {changed} path(s)."),
-                    (_, 0) => format!("Erased part of {changed} path(s)."),
-                    _ => format!("Erased {gone} path(s) entirely."),
+                    (Tool::Smooth, _) => format!("{changed} yol yumuşatıldı."),
+                    (_, 0) => format!("{changed} yolun bir kısmı silindi."),
+                    _ => format!("{gone} yol tamamen silindi."),
                 };
             }
             Err(e) => {
                 self.undo.pop();
-                self.status = format!("Couldn't change the path: {e:#}");
+                self.status = format!("Yol değiştirilemedi: {e:#}");
             }
         }
     }
@@ -366,7 +366,7 @@ impl Studio {
         let pick = self.join_pick(JOIN_REACH / px);
         self.gesture = Gesture::default();
         let [(ua, ea, _), (ub, eb, _)] = pick[..] else {
-            self.status = "Scrub from one open end to another to join them.".into();
+            self.status = "Birleştirmek için bir açık uçtan diğerine sürükleyin.".into();
             return;
         };
         let find = |s: &Studio, uid| s.doc.shapes.iter().position(|x| x.uid == uid);
@@ -381,14 +381,14 @@ impl Studio {
             Ok(()) => {
                 self.set_selection(&[joined]);
                 self.status = if ua == ub && ea.0 == eb.0 {
-                    "Closed the path.".into()
+                    "Yol kapatıldı.".into()
                 } else {
-                    "Joined.".into()
+                    "Birleştirildi.".into()
                 };
             }
             Err(e) => {
                 self.undo.pop();
-                self.status = format!("Couldn't join: {e:#}");
+                self.status = format!("Birleştirilemedi: {e:#}");
             }
         }
     }
@@ -437,11 +437,11 @@ impl Studio {
         use crate::dialog;
         let id = egui::Id::unique("simplify");
         dialog::show(ctx, id, dialog::Place::Top, |ui| {
-            dialog::heading(ui, "Simplify");
+            dialog::heading(ui, "Sadeleştir");
             ui.horizontal(|ui| {
                 let p = crate::theme::pal_ui(ui);
                 ui.label(
-                    egui::RichText::new("Fewer points")
+                    egui::RichText::new("Daha az nokta")
                         .size(12.0)
                         .color(p.secondary),
                 );
@@ -451,19 +451,19 @@ impl Studio {
                             .show_value(false)
                             .step_by(1.0),
                     )
-                    .on_hover_text("Left for fewer points, right to keep closer to the original");
+                    .on_hover_text("Daha az nokta için sola, aslına yakın kalmak için sağa");
                 if r.changed() {
                     d.auto = false;
                 }
                 ui.label(
-                    egui::RichText::new("More detail")
+                    egui::RichText::new("Daha fazla ayrıntı")
                         .size(12.0)
                         .color(p.secondary),
                 );
             });
             if ui
-                .checkbox(&mut d.auto, "Auto-Simplify")
-                .on_hover_text("The level for the selection's size")
+                .checkbox(&mut d.auto, "Otomatik Sadeleştir")
+                .on_hover_text("Seçimin boyutuna uygun düzey")
                 .changed()
                 && d.auto
             {
@@ -472,15 +472,15 @@ impl Studio {
             crate::theme::caption(
                 ui,
                 &if d.after < d.before {
-                    format!("{} points, {} after simplifying.", d.before, d.after)
+                    format!("{} nokta, sadeleştirince {}.", d.before, d.after)
                 } else {
-                    format!("{} points: already as simple as this level gets.", d.before)
+                    format!("{} nokta: bu düzeyde zaten olabildiğince sade.", d.before)
                 },
             );
             dialog::buttons(ui, |ui| {
                 ok = dialog::primary(ui, "OK", true).clicked()
                     || ui.input(|i| i.key_pressed(Key::Enter));
-                cancel = dialog::secondary(ui, "Cancel").clicked()
+                cancel = dialog::secondary(ui, "İptal").clicked()
                     || ui.input(|i| i.key_pressed(Key::Escape));
             });
         });
@@ -506,7 +506,7 @@ impl Studio {
                     *doc = after;
                     Ok(())
                 });
-                self.status = format!("Simplified: {} points, {} before.", d.after, d.before);
+                self.status = format!("Sadeleştirildi: {} nokta, önceden {}.", d.after, d.before);
             }
             self.restore_selection(&uids);
             self.dirty = true;
@@ -557,7 +557,7 @@ impl Studio {
         let found = d.found.map(|f| f.1).unwrap_or_default();
         let (mut ok, mut cancel) = (false, false);
         let mut open = true;
-        egui::Window::new("Clean Up")
+        egui::Window::new("Temizle")
             .title_frame(crate::theme::title_frame(ctx))
             .open(&mut open)
             .resizable(false)
@@ -566,19 +566,19 @@ impl Studio {
             .show(ctx, |ui| {
                 let count = |n: usize| {
                     if n == 0 {
-                        " (none)".to_string()
+                        " (yok)".to_string()
                     } else {
                         format!(" ({n})")
                     }
                 };
                 ui.checkbox(
                     &mut d.opt.stray,
-                    format!("Stray points{}", count(found.stray)),
+                    format!("Başıboş noktalar{}", count(found.stray)),
                 )
-                .on_hover_text("Objects with only one point, or no size at all");
+                .on_hover_text("Tek noktalı ya da hiç boyutu olmayan nesneler");
                 ui.horizontal(|ui| {
-                    ui.checkbox(&mut d.opt.specks, "Objects smaller than")
-                        .on_hover_text("Too small to sew: they stitch as a knot");
+                    ui.checkbox(&mut d.opt.specks, "Şundan küçük nesneler:")
+                        .on_hover_text("Dikilemeyecek kadar küçük: düğüm gibi dikilir");
                     let mut mm = d.opt.speck / 10.0;
                     if ui
                         .add_enabled(
@@ -593,10 +593,10 @@ impl Studio {
                 });
                 ui.checkbox(
                     &mut d.opt.points,
-                    format!("Extra points{}", count(found.points)),
+                    format!("Fazla noktalar{}", count(found.points)),
                 )
                 .on_hover_text(
-                    "Points on top of each other, and points in the middle of straight lines",
+                    "Üst üste binen noktalar ve düz çizgilerin ortasındaki noktalar",
                 );
                 ui.add_space(space::S);
                 ui.allocate_ui_with_layout(
@@ -612,7 +612,7 @@ impl Studio {
                             )
                             .clicked()
                             || (found.total() > 0 && ui.input(|i| i.key_pressed(Key::Enter)));
-                        cancel = ui.button("Cancel").clicked()
+                        cancel = ui.button("İptal").clicked()
                             || ui.input(|i| i.key_pressed(Key::Escape));
                     },
                 );
@@ -630,7 +630,7 @@ impl Studio {
                 }
                 Err(e) => {
                     self.undo.pop();
-                    self.status = format!("Couldn't clean up: {e:#}");
+                    self.status = format!("Temizlenemedi: {e:#}");
                 }
             }
         } else if !(cancel || !open) {
@@ -643,18 +643,18 @@ impl Studio {
 pub fn cleanup_summary(r: &CleanUpReport) -> String {
     let mut parts = Vec::new();
     if r.stray > 0 {
-        parts.push(format!("{} stray point(s)", r.stray));
+        parts.push(format!("{} başıboş nokta", r.stray));
     }
     if r.specks > 0 {
-        parts.push(format!("{} tiny object(s)", r.specks));
+        parts.push(format!("{} küçük nesne", r.specks));
     }
     if r.points > 0 {
-        parts.push(format!("{} extra point(s)", r.points));
+        parts.push(format!("{} fazla nokta", r.points));
     }
     if parts.is_empty() {
-        "Nothing to clean up.".into()
+        "Temizlenecek bir şey yok.".into()
     } else {
-        format!("Removed {}.", parts.join(", "))
+        format!("Kaldırıldı: {}.", parts.join(", "))
     }
 }
 

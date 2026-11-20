@@ -21,7 +21,7 @@ Settings can also be preset in SVG element ids, e.g. id=\"logo_fill_a=45\" or id
 An object is named for its id without the settings (id=\"Face_mask_fill\" is \"Face mask\"); name it to a tool by that name, by the id, or by its index. \
 list_machines and set_document's machine set a document up for a machine: its hoop, the file it reads, its shortest stitch and its lock stitches. \
 Hat designs are small (about 50 × 50 mm on the front of a cap): keep satin columns under 7 mm wide, letters at least 5 mm tall, and details at least 1.5 mm. \
-open_file also opens machine files (pes, pec, dst, exp, jef) as manual stitches. \
+open_file also opens machine files (pes, pec, dst, exp, jef, vp3) as manual stitches. \
 trace_image turns a logo (PNG, JPEG, WebP, GIF, BMP or TIFF) into shapes (snap colors to Brother or Janome threads with `threads`). simplify_design makes the whole design quicker to sew (fewer threads, no details too small to sew, fewer trims; try it with dry_run first to see what it comes to). add_outline gives a filled shape an outline (a running stitch, or satin) that is an object of its own, named \"<shape> (outline)\", with its own thread and stitch type. round_corners softens sharp corners, which stitch more cleanly; simplify takes extra points out of outlines (traced ones especially) and clean_up removes stray points, objects too small to sew and extra points across the design. \
 Use batch to make several changes in one call: it is all or nothing and one undo step, each step is {\"tool\": name, \"arguments\": {…}}, and later steps can use earlier results (\"$0.added.0.name\"). \
 Tools that change the design return the whole object or document; pass terse: true (on a tool, or on a batch for all its steps) for a short answer instead: ok, the names of objects added, and new_problems, the design problems that weren't there before.";
@@ -299,7 +299,7 @@ pub fn tool_specs() -> Value {
         }),
         json!({
             "name": "open_file",
-            "description": "Open a file in a new tab (or the empty tab in front), which becomes the document the other tools work on: an SVG, or a machine file (pes, pec, dst, exp, jef) which opens as manual stitches you can move, scale and recolor. A file that's already open comes to the front instead, keeping its unsaved changes.",
+            "description": "Open a file in a new tab (or the empty tab in front), which becomes the document the other tools work on: an SVG, or a machine file (pes, pec, dst, exp, jef, vp3) which opens as manual stitches you can move, scale and recolor. A file that's already open comes to the front instead, keeping its unsaved changes.",
             "inputSchema": { "type": "object", "properties": { "path": { "type": "string", "description": "Absolute path." } }, "required": ["path"] }
         }),
         json!({
@@ -1650,7 +1650,7 @@ impl Studio {
             let mut doc = self.doc.clone();
             let r = doc.clean_up(&opt, true).map_err(|e| format!("{e:#}"))?;
             return Ok(ToolResult::text(
-                crate::path_tools::cleanup_summary(&r).replacen("Removed", "Would remove", 1),
+                crate::path_tools::cleanup_summary(&r).replacen("Kaldırıldı", "Kaldırılacak", 1),
             ));
         }
         let mut r = zigzag::document::CleanUpReport::default();
@@ -2132,7 +2132,7 @@ impl Studio {
             _ => P::default(),
         };
         m = affine_mul(translation(shift), m);
-        if !self.transform_selected(m, "Transformed") && m != zigzag::geom::IDENTITY {
+        if !self.transform_selected(m, "dönüştürüldü") && m != zigzag::geom::IDENTITY {
             return Err(self.status.clone());
         }
         self.replan_soon();

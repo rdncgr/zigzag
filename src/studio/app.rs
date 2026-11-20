@@ -17,10 +17,10 @@ use zigzag::svg::{self, Geometry, Shape};
 /// agents write it.
 pub const HOOPS: [(&str, &str, f64, f64); 10] = [
     ("20x60", "1×2.5 in (20 × 60 mm)", 20.0, 60.0),
-    ("70x70", "70 × 70 mm · Skitch small frame", 70.0, 70.0),
+    ("70x70", "70 × 70 mm · Skitch küçük kasnak", 70.0, 70.0),
     (
         "100x100",
-        "4×4 in (100 × 100 mm) · Skitch / PE",
+        "4×4 inç (100 × 100 mm) · Skitch / PE",
         100.0,
         100.0,
     ),
@@ -385,7 +385,7 @@ impl Studio {
         {
             match crate::gpu::StitchGpu::new(gl) {
                 Ok(g) => s.gpu = Some(std::cell::RefCell::new(g)),
-                Err(e) => s.status = format!("Stitches drawn by the CPU ({e}).",),
+                Err(e) => s.status = format!("Dikişler CPU ile çiziliyor ({e}).",),
             }
         }
         if resume && !s.machine.open {
@@ -398,12 +398,12 @@ impl Studio {
                 .as_ref()
                 .map(|x| x.design.name.clone())
                 .unwrap_or_default();
-            s.status = format!("{} · Picking up the job on the Skitch: {name}.", s.status);
+            s.status = format!("{} · Skitch'teki iş devralınıyor: {name}.", s.status);
         }
         #[cfg(target_os = "macos")]
         match crate::native_menu::NativeMenu::new(cc.egui_ctx.clone(), &s) {
             Ok(m) => s.native_menu = Some(m),
-            Err(e) => s.status = format!("Menu bar unavailable: {e}"),
+            Err(e) => s.status = format!("Menü çubuğu kullanılamıyor: {e}"),
         }
         s.mcp_ui.port = mcp_port;
         if let Some(port) = mcp_port {
@@ -419,7 +419,7 @@ impl Studio {
                 Ok(server) => s.mcp = Some(server),
                 Err(e) => {
                     s.status = format!(
-                        "{} · MCP server couldn't start on port {port}: {e}",
+                        "{} · MCP sunucusu {port} portunda başlatılamadı: {e}",
                         s.status
                     );
                     s.mcp_ui.start_error = Some(e.to_string());
@@ -502,7 +502,7 @@ impl Studio {
             editing: false,
             pending_history: None,
             file_dialog: None,
-            status: "Open an SVG (or drop one on the window).".into(),
+            status: "Bir SVG açın (ya da pencereye sürükleyip bırakın).".into(),
             title: String::new(),
             mcp: None,
             mcp_ui: Default::default(),
@@ -545,7 +545,7 @@ impl Studio {
             && i != self.active_tab()
         {
             self.switch_tab(i);
-            self.status = format!("{} is open in this tab.", path.display());
+            self.status = format!("{} bu sekmede açık.", path.display());
             return;
         }
         match Document::open(path) {
@@ -553,12 +553,12 @@ impl Studio {
                 let n = doc.shapes.len();
                 if !self.open_document(doc) {
                     self.status = format!(
-                        "{} is already open, with unsaved changes (kept).",
+                        "{} zaten açık, kaydedilmemiş değişikliklerle (korundu).",
                         path.display()
                     );
                     return;
                 }
-                self.status = format!("Opened {} ({n} objects).", path.display());
+                self.status = format!("{} açıldı ({n} nesne).", path.display());
                 // Artwork too big for the hoop is scaled down to fit (one
                 // undo step). Stitch files keep their size.
                 let svg = path
@@ -566,13 +566,13 @@ impl Studio {
                     .is_some_and(|e| e.eq_ignore_ascii_case("svg"));
                 if svg && let Some(s) = self.fit_to_hoop(true) {
                     self.status = format!(
-                        "Opened {}. It was bigger than the hoop, so it's scaled to {:.0}%. Undo puts it back to full size.",
+                        "{} açıldı. Kasnaktan büyük olduğu için %{:.0} oranına ölçeklendi. Geri Al tam boyutuna döndürür.",
                         path.display(),
                         s * 100.0
                     );
                 }
             }
-            Err(e) => self.status = format!("Couldn't open {}: {e:#}", path.display()),
+            Err(e) => self.status = format!("{} açılamadı: {e:#}", path.display()),
         }
     }
 
@@ -627,7 +627,7 @@ impl Studio {
             }
             Err(e) => {
                 self.status = format!(
-                    "Couldn't update the stitches ({}); showing the last plan.",
+                    "Dikişler güncellenemedi ({}); son plan gösteriliyor.",
                     crate::planner::panic_text(&e)
                 );
                 self.dirty = false;
@@ -833,8 +833,8 @@ impl Studio {
         self.dirty = true;
         self.modified = true;
         self.status = match h {
-            History::Undo => "Undone.".into(),
-            History::Redo => "Redone.".into(),
+            History::Undo => "Geri alındı.".into(),
+            History::Redo => "Yinelendi.".into(),
         };
         true
     }
@@ -852,7 +852,7 @@ impl Studio {
     pub fn set_units(&mut self, u: crate::units::Unit) {
         self.dock.units = u;
         crate::units::set_current(u);
-        self.status = format!("Showing lengths in {}.", u.label().to_lowercase());
+        self.status = format!("Uzunluklar şu birimde gösteriliyor: {}.", u.label().to_lowercase());
     }
 
     /// The density map of the current plan, worked out once per plan.
@@ -917,7 +917,7 @@ impl Studio {
         match (standard_hoop((w, h)), self.machine()) {
             (Some(x), _) => x.1.to_string(),
             (None, Some(p)) if p.has_hoop((w, h)) => format!("{} · {}", size(), p.name),
-            _ => format!("Custom · {}", size()),
+            _ => format!("Özel · {}", size()),
         }
     }
 
@@ -935,12 +935,12 @@ impl Studio {
                 self.stable = self.doc.clone();
                 self.modified = false;
                 self.status = format!(
-                    "Saved {} (settings are stored in the object names)",
+                    "{} kaydedildi (ayarlar nesne adlarında saklanır)",
                     p.display()
                 );
                 self.dirty = true;
             }
-            Err(e) => self.status = format!("Couldn't save: {e:#}"),
+            Err(e) => self.status = format!("Kaydedilemedi: {e:#}"),
         }
     }
 
@@ -1047,7 +1047,7 @@ impl Studio {
             }
             Ok(())
         });
-        self.status = format!("Pasted stitch settings onto {n} object(s).");
+        self.status = format!("Dikiş ayarları {n} nesneye yapıştırıldı.");
     }
 
     /// Edit › Select Same Stitch Type.
@@ -1060,7 +1060,7 @@ impl Studio {
         let n = same.len();
         self.set_selection(&same);
         self.status = format!(
-            "{n} {} object(s) selected.",
+            "{n} {} nesnesi seçildi.",
             crate::widgets::kind_name(kind).to_lowercase()
         );
     }
@@ -1079,8 +1079,8 @@ impl Studio {
             Ok(())
         });
         self.status = match r {
-            Ok(()) => "Reversed: it sews from the other end now.".into(),
-            Err(e) => format!("Couldn't reverse: {e:#}"),
+            Ok(()) => "Ters çevrildi: artık diğer uçtan dikiliyor.".into(),
+            Err(e) => format!("Ters çevrilemedi: {e:#}"),
         };
     }
 
@@ -1113,7 +1113,7 @@ impl Studio {
         }
         let label = match moving.as_slice() {
             [i] => self.names.get(*i).cloned().unwrap_or_default(),
-            many => format!("{} layers", many.len()),
+            many => format!("{} katman", many.len()),
         };
         let done = self.structural(|d| {
             let mut old: Vec<Option<zigzag::svg::Shape>> = std::mem::take(&mut d.shapes)
@@ -1124,7 +1124,7 @@ impl Studio {
             Ok(())
         });
         if done.is_ok() {
-            self.status = format!("Moved {label} in the sewing order.");
+            self.status = format!("{label} dikiş sırasında taşındı.");
         }
         done.is_ok()
     }
@@ -1150,11 +1150,29 @@ impl Studio {
             self.open_image(path, crate::trace_ui::Target::Place);
             return;
         }
-        let text = match std::fs::read_to_string(path) {
-            Ok(t) => t,
-            Err(e) => {
-                self.status = format!("Couldn't read {}: {e}", path.display());
-                return;
+        let ext = path
+            .extension()
+            .map(|e| e.to_string_lossy().to_ascii_lowercase())
+            .unwrap_or_default();
+        let text = if zigzag::formats::READABLE_FORMATS.contains(&ext.as_str()) {
+            // A machine file comes in as manual stitches, one object per run.
+            match std::fs::read(path)
+                .map_err(anyhow::Error::from)
+                .and_then(|b| zigzag::formats::read::read_stitch_file(&b, &ext))
+            {
+                Ok(f) => zigzag::formats::read::to_svg(&f),
+                Err(e) => {
+                    self.status = format!("{} okunamadı: {e:#}", path.display());
+                    return;
+                }
+            }
+        } else {
+            match std::fs::read_to_string(path) {
+                Ok(t) => t,
+                Err(e) => {
+                    self.status = format!("{} okunamadı: {e}", path.display());
+                    return;
+                }
             }
         };
         let mut added = Vec::new();
@@ -1164,16 +1182,16 @@ impl Studio {
         }) {
             Ok(()) => {
                 self.set_selection(&added);
-                self.status = format!("Placed {} ({} objects).", path.display(), added.len());
+                self.status = format!("{} yerleştirildi ({} nesne).", path.display(), added.len());
                 if let Some(s) = self.fit_to_hoop(true) {
                     self.status = format!(
-                        "Placed {}. It was bigger than the hoop, so it's scaled to {:.0}%. Undo puts it back to full size.",
+                        "{} yerleştirildi. Kasnaktan büyük olduğu için %{:.0} oranına ölçeklendi. Geri Al tam boyutuna döndürür.",
                         path.display(),
                         s * 100.0
                     );
                 }
             }
-            Err(e) => self.status = format!("Couldn't place {}: {e:#}", path.display()),
+            Err(e) => self.status = format!("{} yerleştirilemedi: {e:#}", path.display()),
         }
     }
 }
@@ -1442,7 +1460,7 @@ impl Studio {
 
     fn update_title(&mut self, ctx: &egui::Context) {
         let name = if self.doc.name.is_empty() {
-            "untitled"
+            "adsız"
         } else {
             &self.doc.name
         };
@@ -1470,7 +1488,7 @@ impl Studio {
             self.layout.cleanup_dialog = None;
             self.shapes.dialog = None;
             if self.trace.take().is_some() {
-                self.status = "Trace canceled.".into();
+                self.status = "İzleme iptal edildi.".into();
             }
             self.dock_ui.flyout = None;
             return;
@@ -1705,15 +1723,15 @@ impl Studio {
                         ui.horizontal(|ui| {
                             ui.spacing_mut().item_spacing.x = crate::theme::space::XS;
                             if ui
-                                .add(egui::Button::new("Exit Group").small())
-                                .on_hover_text("Leave this group (Esc)")
+                                .add(egui::Button::new("Gruptan Çık").small())
+                                .on_hover_text("Bu gruptan çık (Esc)")
                                 .clicked()
                             {
                                 go_to = Some(self.layout.isolated.len() - 1);
                             }
                             ui.add_space(crate::theme::space::XS);
                             let n = self.layout.isolated.len();
-                            let crumbs: Vec<String> = std::iter::once("Document".to_string())
+                            let crumbs: Vec<String> = std::iter::once("Belge".to_string())
                                 .chain(self.layout.isolated.iter().map(|g| Self::group_label(g)))
                                 .collect();
                             for (k, name) in crumbs.iter().enumerate() {
@@ -2088,11 +2106,11 @@ impl Studio {
                 use crate::flyout::RowIcon;
                 use crate::icons::Icon;
                 for (a, label, icon) in [
-                    (A::Paste, "Paste", RowIcon::None),
-                    (A::SelectAll, "Select All", RowIcon::Icon(Icon::Select)),
-                    (A::AddText, "Add Text…", RowIcon::Icon(Icon::Text)),
-                    (A::Place, "Place SVG…", RowIcon::Icon(Icon::Plus)),
-                    (A::ZoomFit, "Zoom to Fit", RowIcon::Icon(Icon::ZoomFit)),
+                    (A::Paste, "Yapıştır", RowIcon::None),
+                    (A::SelectAll, "Tümünü Seç", RowIcon::Icon(Icon::Select)),
+                    (A::AddText, "Metin Ekle…", RowIcon::Icon(Icon::Text)),
+                    (A::Place, "Yerleştir (SVG, VP3…)…", RowIcon::Icon(Icon::Plus)),
+                    (A::ZoomFit, "Sığacak Şekilde Yakınlaştır", RowIcon::Icon(Icon::ZoomFit)),
                 ] {
                     self.action_row(ui, a, label, icon);
                 }
@@ -2275,9 +2293,9 @@ impl Studio {
                 rect,
                 match (self.sel_index().is_some(), add) {
                     (_, true) => {
-                        "Click a path's outline to add a point · Option deletes points instead"
+                        "Nokta eklemek için yolun dış hattına tıklayın · Alt ile nokta silinir"
                     }
-                    (_, false) => "Click a point to delete it · Option adds points instead",
+                    (_, false) => "Silmek için bir noktaya tıklayın · Alt ile nokta eklenir",
                 },
             );
         }
@@ -2286,9 +2304,9 @@ impl Studio {
                 &painter,
                 rect,
                 if self.sel_index().is_none() {
-                    "Click a shape to edit its points"
+                    "Noktalarını düzenlemek için bir şekle tıklayın"
                 } else {
-                    "Click a smooth point for a corner · drag from a point for smooth handles · drag a handle to move it alone, click its end to take it in · drag a curve to bend it"
+                    "Köşe için yumuşak noktaya tıklayın · yumuşak tutamaçlar için noktadan sürükleyin · tek başına taşımak için tutamacı sürükleyin, içeri almak için ucuna tıklayın · bükmek için eğriyi sürükleyin"
                 },
             );
         }
@@ -2299,7 +2317,7 @@ impl Studio {
                 self.hud(
                     &painter,
                     rect,
-                    "Lettering is edited with its text settings, not point by point.",
+                    "Yazı, nokta nokta değil, metin ayarlarıyla düzenlenir.",
                 );
             }
         }
@@ -2322,9 +2340,9 @@ impl Studio {
         }
         if self.tool == Tool::Angle {
             let msg = if self.selected_fill().is_some() {
-                "Drag across the fill to set the stitch direction · Shift snaps to 15° · Esc to finish"
+                "Dikiş yönünü belirlemek için dolgunun üzerinden sürükleyin · Shift 15°'ye kenetler · bitirmek için Esc"
             } else {
-                "Select a Fill object, then drag to set its stitch direction"
+                "Bir Dolgu nesnesi seçin, sonra dikiş yönünü belirlemek için sürükleyin"
             };
             self.hud(&painter, rect, msg);
         }

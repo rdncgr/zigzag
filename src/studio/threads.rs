@@ -347,17 +347,17 @@ impl Studio {
         ui.horizontal(|ui| {
             ui.label(
                 egui::RichText::new(if for_outline {
-                    "Outline Thread Color"
+                    "Dış Hat İplik Rengi"
                 } else {
-                    "Thread Color"
+                    "İplik Rengi"
                 })
                 .size(13.0)
                 .strong()
                 .color(p.text),
             );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if crate::theme::icon_button(ui, crate::icons::Icon::Close, "Close", false, 20.0)
-                    .on_hover_text("Close (Esc)")
+                if crate::theme::icon_button(ui, crate::icons::Icon::Close, "Kapat", false, 20.0)
+                    .on_hover_text("Kapat (Esc)")
                     .clicked()
                 {
                     self.close_picker();
@@ -365,7 +365,7 @@ impl Studio {
             });
         });
         let Some(&first) = sel.first() else {
-            crate::theme::caption(ui, "Select objects to choose their thread.");
+            crate::theme::caption(ui, "İpliklerini seçmek için nesne seçin.");
             return;
         };
         let mut c = self.doc.shapes[first].color;
@@ -388,13 +388,13 @@ impl Studio {
                 ui.add_space(space::XS / 2.0);
                 if mixed {
                     ui.label(
-                        egui::RichText::new("Several threads")
+                        egui::RichText::new("Birkaç iplik")
                             .size(13.0)
                             .color(p.text),
                     );
                     caption(
                         ui,
-                        format!("Pick one for all {} selected layers", sel.len()),
+                        format!("{} seçili katmanın tümü için birini seçin", sel.len()),
                     );
                     return;
                 }
@@ -423,7 +423,7 @@ impl Studio {
         let open = self.palettes.custom_open;
         let (r, resp) =
             ui.allocate_exact_size(Vec2::new(ui.available_width(), 20.0), Sense::click());
-        resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Custom Color"));
+        resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Özel Renk"));
         let chev = egui::Rect::from_center_size(
             egui::pos2(r.left() + 5.0, r.center().y),
             Vec2::splat(9.0),
@@ -441,7 +441,7 @@ impl Studio {
         ui.painter().text(
             egui::pos2(r.left() + 16.0, r.center().y),
             egui::Align2::LEFT_CENTER,
-            "Custom Color",
+            "Özel Renk",
             egui::FontId::proportional(12.0),
             if resp.hovered() { p.text } else { p.secondary },
         );
@@ -463,7 +463,7 @@ impl Studio {
             .any(|&i| self.doc.shapes[i].color != self.doc.shapes[i].paint)
         {
             section(ui);
-            if ui.button("Use the SVG's Color").clicked() {
+            if ui.button("SVG'nin Rengini Kullan").clicked() {
                 for &i in &sel {
                     self.doc.shapes[i].color = self.doc.shapes[i].paint;
                 }
@@ -516,7 +516,7 @@ impl Studio {
         let brand = self.view_tools.brand;
         let threads = self.design_threads();
         if threads.is_empty() {
-            caption(ui, "No threads yet.");
+            caption(ui, "Henüz iplik yok.");
         }
         let selected: Vec<usize> = self.sel_indices();
         let mut select = None;
@@ -579,7 +579,7 @@ impl Studio {
                 egui::WidgetInfo::labeled(egui::Role::Button, true, label(name, number))
             });
             if swr
-                .on_hover_text("Change this thread everywhere it's used")
+                .on_hover_text("Bu ipliği kullanıldığı her yerde değiştir")
                 .clicked()
             {
                 select = Some(objects.clone());
@@ -591,7 +591,7 @@ impl Studio {
                 ));
             } else if resp
                 .on_hover_text(format!(
-                    "Select the {} object(s) sewn in this thread",
+                    "Bu iplikle dikilen {} nesneyi seç",
                     objects.len()
                 ))
                 .clicked()
@@ -616,7 +616,7 @@ impl Studio {
             ui,
             "thread-view",
             &mut self.view_tools.thread_order,
-            &[(true, "Sewing Order"), (false, "By Color")],
+            &[(true, "Dikiş Sırası"), (false, "Renge Göre")],
         );
         ui.add_space(crate::theme::space::XS);
         if self.view_tools.thread_order {
@@ -628,15 +628,15 @@ impl Studio {
         ui.add_space(crate::theme::space::S);
         ui.horizontal(|ui| {
             if ui
-                .button("Group Colors")
-                .on_hover_text("Fewer thread changes, without breaking layering")
+                .button("Renkleri Grupla")
+                .on_hover_text("Katman düzenini bozmadan daha az iplik değişimi")
                 .clicked()
             {
                 self.group_colors();
             }
             if ui
-                .button("Simplify…")
-                .on_hover_text("Fewer threads, small details and trims (Object › Simplify Design…)")
+                .button("Sadeleştir…")
+                .on_hover_text("Daha az iplik, küçük ayrıntı ve kesim (Nesne › Tasarımı Sadeleştir…)")
                 .clicked()
             {
                 self.open_design_dialog();
@@ -644,7 +644,7 @@ impl Studio {
             caption(
                 ui,
                 format!(
-                    "{} changes · {} trims",
+                    "{} değişim · {} kesim",
                     self.design.blocks.len().saturating_sub(1),
                     self.design.trim_count()
                 ),
@@ -666,12 +666,12 @@ impl Studio {
                     self.doc.shapes[i].color = c;
                 }
             } else {
-                self.status = "Select objects first, then click a thread to use it.".into();
+                self.status = "Önce nesneleri seçin, sonra kullanmak için bir ipliğe tıklayın.".into();
             }
         }
         if ui
-            .add(egui::Button::new("Match All to Palette").small())
-            .on_hover_text("Change every color in the design to the nearest one in this palette")
+            .add(egui::Button::new("Tümünü Palete Eşle").small())
+            .on_hover_text("Tasarımdaki her rengi bu paletteki en yakın renge değiştir")
             .clicked()
         {
             self.match_all_to_palette();
@@ -690,11 +690,11 @@ impl Studio {
         let n = self.match_to_palette(&colors);
         let name = self.palettes.name(src);
         self.status = if colors.is_empty() {
-            format!("{name} has no colors yet.")
+            format!("{name} paletinde henüz renk yok.")
         } else if n == 0 {
-            format!("Every color is already in {name}.")
+            format!("Tüm renkler zaten {name} paletinde.")
         } else {
-            format!("Matched {n} object(s) to {name}.")
+            format!("{n} nesne {name} paletine eşlendi.")
         };
     }
 }

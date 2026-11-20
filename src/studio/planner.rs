@@ -40,7 +40,7 @@ pub(crate) fn panic_text(e: &Box<dyn std::any::Any + Send>) -> String {
     e.downcast_ref::<String>()
         .cloned()
         .or_else(|| e.downcast_ref::<&str>().map(|s| s.to_string()))
-        .unwrap_or_else(|| "internal error".into())
+        .unwrap_or_else(|| "iç hata".into())
 }
 
 #[derive(Default)]

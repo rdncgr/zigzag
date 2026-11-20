@@ -30,9 +30,9 @@ impl Appearance {
 
     pub fn label(self) -> &'static str {
         match self {
-            Appearance::System => "Match System",
-            Appearance::Light => "Light",
-            Appearance::Dark => "Dark",
+            Appearance::System => "Sistemle Aynı",
+            Appearance::Light => "Açık",
+            Appearance::Dark => "Koyu",
         }
     }
 
@@ -210,9 +210,9 @@ impl Section {
 
     fn label(self) -> &'static str {
         match self {
-            Section::Machines => "Machines",
-            Section::General => "General",
-            Section::Agent => "Agent",
+            Section::Machines => "Makineler",
+            Section::General => "Genel",
+            Section::Agent => "Ajan",
         }
     }
 }
@@ -327,9 +327,9 @@ fn value(ui: &mut egui::Ui, text: &str) -> egui::Response {
 
 fn lock_name(s: LockStyle) -> &'static str {
     match s {
-        LockStyle::Back => "Back and forth",
-        LockStyle::Triangle => "Triangle",
-        LockStyle::None => "None",
+        LockStyle::Back => "İleri geri",
+        LockStyle::Triangle => "Üçgen",
+        LockStyle::None => "Yok",
     }
 }
 
@@ -396,7 +396,7 @@ impl Studio {
             dialog::Place::Center,
             |ui| {
                 ui.set_width(WIDTH);
-                dialog::heading(ui, "Settings");
+                dialog::heading(ui, "Ayarlar");
                 ui.horizontal_top(|ui| {
                     ui.spacing_mut().item_spacing.x = GUTTER;
                     let p = pal_ui(ui);
@@ -433,7 +433,7 @@ impl Studio {
                         ui.allocate_ui_with_layout(
                             Vec2::new(PANE_W, dialog::BUTTON_H),
                             egui::Layout::right_to_left(egui::Align::Center),
-                            |ui| done = dialog::primary(ui, "Done", true).clicked(),
+                            |ui| done = dialog::primary(ui, "Bitti", true).clicked(),
                         );
                     });
                 });
@@ -461,18 +461,18 @@ impl Studio {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = space::XS;
             egui::ComboBox::from_id_salt("settings-machines")
-                .selected_text(shown.as_ref().map_or("No machine", |p| p.name.as_str()))
+                .selected_text(shown.as_ref().map_or("Makine yok", |p| p.name.as_str()))
                 .width(FIELD_W)
                 .height(360.0)
                 .show_ui(ui, |ui| {
                     // ZigZag's, then yours.
                     for (k, p) in self.machines.all().enumerate() {
                         if k == 0 {
-                            caption(ui, "Comes with ZigZag");
+                            caption(ui, "ZigZag ile gelir");
                         }
                         if k == profile::builtin().len() {
                             ui.separator();
-                            caption(ui, "Yours");
+                            caption(ui, "Sizin");
                         }
                         let on = selected.as_deref() == Some(p.id.as_str());
                         if ui.selectable_label(on, &p.name).clicked() {
@@ -482,32 +482,32 @@ impl Studio {
                 })
                 .response
                 .on_hover_text(if mine {
-                    "One of your machines. A change reaches the document in front, if it's set up for this machine."
+                    "Makinelerinizden biri. Değişiklik, bu makine için ayarlanmışsa öndeki belgeye de yansır."
                 } else {
-                    "Comes with ZigZag, and stays as it is. Duplicate it for one of your own to change."
+                    "ZigZag ile gelir ve olduğu gibi kalır. Değiştirmek için çoğaltıp kendinize ait yapın."
                 });
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 copy = ui
-                    .add_enabled(shown.is_some(), egui::Button::new("Duplicate"))
-                    .on_hover_text("A machine of your own that starts as a copy of this one")
+                    .add_enabled(shown.is_some(), egui::Button::new("Çoğalt"))
+                    .on_hover_text("Bunun kopyası olarak başlayan size ait bir makine")
                     .clicked();
                 ui.add_space(space::XS);
                 delete = ui
                     .add_enabled_ui(mine, |ui| {
-                        icon_button(ui, Icon::Minus, "Delete Machine", false, ROW_H)
+                        icon_button(ui, Icon::Minus, "Makineyi Sil", false, ROW_H)
                             .on_hover_text(
-                                "Forget this machine. Designs set up for it keep their hoop.",
+                                "Bu makineyi unut. Bunun için ayarlanmış tasarımlar kasnaklarını korur.",
                             )
                             .clicked()
                     })
                     .inner;
-                add = icon_button(ui, Icon::Plus, "New Machine", false, ROW_H)
-                    .on_hover_text("A machine of your own, starting with this document's hoop")
+                add = icon_button(ui, Icon::Plus, "Yeni Makine", false, ROW_H)
+                    .on_hover_text("Bu belgenin kasnağıyla başlayan size ait bir makine")
                     .clicked();
             });
         });
         if shown.is_none() {
-            caption(ui, "Choose a machine, or add one of your own.");
+            caption(ui, "Bir makine seçin ya da kendinizinkini ekleyin.");
         }
         hline(ui);
         if let Some(p) = shown {
@@ -528,7 +528,7 @@ impl Studio {
         if add {
             let id = self
                 .machines
-                .add_from("New Machine", &self.doc.settings.clone());
+                .add_from("Yeni Makine", &self.doc.settings.clone());
             self.settings_ui.machine = Some(id);
         }
         if copy && let Some(id) = selected.as_deref() {
@@ -559,35 +559,35 @@ impl Studio {
                 .iter()
                 .find(|(ext, _)| *ext == f)
                 .map_or_else(|| f.to_uppercase(), |(_, label)| label.to_string()),
-            None => "Not set".to_string(),
+            None => "Ayarlanmadı".to_string(),
         };
 
-        group(ui, "Machine", true);
-        row(ui, "Name", |ui, lid| {
+        group(ui, "Makine", true);
+        row(ui, "Ad", |ui, lid| {
             if mine {
                 ui.add(egui::TextEdit::singleline(&mut p.name).desired_width(FIELD_W))
                     .labelled_by(lid)
                     .widget_info(|| {
-                        egui::WidgetInfo::labeled(egui::Role::TextInput, true, "Machine name")
+                        egui::WidgetInfo::labeled(egui::Role::TextInput, true, "Makine adı")
                     });
             } else {
                 value(ui, &p.name).labelled_by(lid);
             }
         });
-        row(ui, "File format", |ui, lid| {
+        row(ui, "Dosya biçimi", |ui, lid| {
             if mine {
                 egui::ComboBox::from_id_salt("settings-format")
                     .selected_text(format_name(p.format))
                     .width(FIELD_W)
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut p.format, None, "Not set");
+                        ui.selectable_value(&mut p.format, None, "Ayarlanmadı");
                         for (ext, label) in MACHINE_FORMATS {
                             ui.selectable_value(&mut p.format, Some(ext), label);
                         }
                     })
                     .response
                     .labelled_by(lid)
-                    .on_hover_text("The file this machine reads: Export offers it first");
+                    .on_hover_text("Bu makinenin okuduğu dosya: Dışa Aktar önce bunu önerir");
             } else {
                 value(ui, &format_name(p.format)).labelled_by(lid);
             }
@@ -596,9 +596,9 @@ impl Studio {
         // (which is what puts Send in the toolbar and the File menu).
         let link_name = |l: Option<&'static str>| {
             l.and_then(|l| profile::LINKS.iter().find(|k| k.0 == l))
-                .map_or("By file", |k| k.1)
+                .map_or("Dosyayla", |k| k.1)
         };
-        row(ui, "Connection", |ui, lid| {
+        row(ui, "Bağlantı", |ui, lid| {
             if mine {
                 egui::ComboBox::from_id_salt("settings-link")
                     .selected_text(link_name(p.link))
@@ -611,19 +611,19 @@ impl Studio {
                     })
                     .response
                     .labelled_by(lid)
-                    .on_hover_text("How a design gets to this machine. One ZigZag connects to has Send in the toolbar and the File menu; the rest take an exported file.");
+                    .on_hover_text("Tasarımın bu makineye nasıl ulaştığı. ZigZag'ın bağlandığı makinelerde araç çubuğunda ve Dosya menüsünde Gönder bulunur; diğerleri dışa aktarılan dosyayı alır.");
             } else {
                 value(ui, link_name(p.link)).labelled_by(lid);
             }
         });
-        row(ui, "New documents", |ui, _| {
-            ui.checkbox(&mut yours, "Start on this machine").on_hover_text(
-                "New documents begin in this machine's hoop, with its shortest stitch and locks",
+        row(ui, "Yeni belgeler", |ui, _| {
+            ui.checkbox(&mut yours, "Bu makineyle başla").on_hover_text(
+                "Yeni belgeler bu makinenin kasnağı, en kısa dikişi ve kilit dikişleriyle başlar",
             );
         });
 
-        group(ui, "Hoops", false);
-        row(ui, "Sizes", |ui, _| {
+        group(ui, "Kasnaklar", false);
+        row(ui, "Boyutlar", |ui, _| {
             ui.vertical(|ui| {
                 ui.spacing_mut().item_spacing.y = 0.0;
                 let mut drop: Option<usize> = None;
@@ -634,7 +634,7 @@ impl Studio {
                         if !mine {
                             value(ui, &hoop_name(h));
                             if first && p.hoops.len() > 1 {
-                                caption(ui, "new documents start in this one");
+                                caption(ui, "yeni belgeler bununla başlar");
                             }
                             return;
                         }
@@ -645,7 +645,7 @@ impl Studio {
                                 ui.set_min_width(HOOP_W);
                                 if ui
                                     .radio(first, hoop_name(h))
-                                    .on_hover_text("The hoop a new document starts in")
+                                    .on_hover_text("Yeni belgenin başladığı kasnak")
                                     .clicked()
                                 {
                                     p.default_hoop = h;
@@ -653,7 +653,7 @@ impl Studio {
                             },
                         );
                         if p.hoops.len() > 1
-                            && icon_button(ui, Icon::Close, "Remove Hoop", false, 20.0).clicked()
+                            && icon_button(ui, Icon::Close, "Kasnağı Kaldır", false, 20.0).clicked()
                         {
                             drop = Some(k);
                         }
@@ -669,22 +669,22 @@ impl Studio {
         });
         if mine {
             if p.hoops.len() > 1 {
-                note(ui, "New documents start in the chosen hoop.");
+                note(ui, "Yeni belgeler seçilen kasnakla başlar.");
             }
-            row(ui, "Add", |ui, _| {
+            row(ui, "Ekle", |ui, _| {
                 ui.add(crate::units::drag_mm(&mut new_hoop.0, HOOP_SIDE_MM, 1.0))
-                    .on_hover_text("Width of the hoop's sewing field")
+                    .on_hover_text("Kasnağın dikiş alanı genişliği")
                     .widget_info(|| {
-                        egui::WidgetInfo::labeled(egui::Role::SpinButton, true, "New hoop width")
+                        egui::WidgetInfo::labeled(egui::Role::SpinButton, true, "Yeni kasnak genişliği")
                     });
                 ui.label("×");
                 ui.add(crate::units::drag_mm(&mut new_hoop.1, HOOP_SIDE_MM, 1.0))
-                    .on_hover_text("Height of the hoop's sewing field")
+                    .on_hover_text("Kasnağın dikiş alanı yüksekliği")
                     .widget_info(|| {
-                        egui::WidgetInfo::labeled(egui::Role::SpinButton, true, "New hoop height")
+                        egui::WidgetInfo::labeled(egui::Role::SpinButton, true, "Yeni kasnak yüksekliği")
                     });
                 if ui
-                    .add_enabled(!p.has_hoop(new_hoop), egui::Button::new("Add Hoop"))
+                    .add_enabled(!p.has_hoop(new_hoop), egui::Button::new("Kasnak Ekle"))
                     .clicked()
                 {
                     p.hoops.push(new_hoop);
@@ -692,19 +692,19 @@ impl Studio {
             });
         }
 
-        group(ui, "Stitches", false);
-        row(ui, "Min stitch", |ui, lid| {
+        group(ui, "Dikişler", false);
+        row(ui, "En kısa dikiş", |ui, lid| {
             let mut v = p.min_stitch_mm.unwrap_or(DEFAULT_MIN_STITCH_MM);
             if mine {
                 ui.add(crate::units::drag_mm(&mut v, MIN_STITCH_MM, 0.01))
                     .labelled_by(lid)
-                    .on_hover_text("No stitch shorter than this, for machines that drop short stitches. Fill rows closer together than this are sewn every second row and then the rows between, and other short stitches are merged into their neighbours.");
+                    .on_hover_text("Kısa dikişleri atlayan makineler için bundan kısa dikiş olmaz. Bundan daha sık dolgu sıraları önce bir atlayarak, sonra aradaki sıralar dikilir; diğer kısa dikişler komşularıyla birleştirilir.");
                 p.min_stitch_mm = (v != DEFAULT_MIN_STITCH_MM).then_some(v);
             } else {
                 value(ui, &format!("{} mm", zigzag::params::fmt_num(v))).labelled_by(lid);
             }
         });
-        row(ui, "Locks", |ui, lid| {
+        row(ui, "Kilit dikişleri", |ui, lid| {
             let mut lock = p.lock.unwrap_or_default();
             if mine {
                 egui::ComboBox::from_id_salt("settings-lock")
@@ -717,17 +717,17 @@ impl Studio {
                     })
                     .response
                     .labelled_by(lid)
-                    .on_hover_text("The small stitches that hold the thread where sewing starts and before each cut, in the files you export. (The Skitch has locks of its own.)");
+                    .on_hover_text("Dışa aktardığınız dosyalarda, dikişin başladığı yerde ve her kesimden önce ipliği tutan küçük dikişler. (Skitch'in kendi kilit dikişleri vardır.)");
                 if lock.style != LockStyle::None {
                     ui.add(crate::units::drag_mm(&mut lock.len_mm, Lock::LEN_MM, 0.01))
                         .on_hover_text(
-                            "How long each lock stitch is (never shorter than the shortest stitch)",
+                            "Her kilit dikişinin uzunluğu (en kısa dikişten kısa olamaz)",
                         )
                         .widget_info(|| {
                             egui::WidgetInfo::labeled(
                                 egui::Role::SpinButton,
                                 true,
-                                "Lock stitch length",
+                                "Kilit dikişi uzunluğu",
                             )
                         });
                     ui.label("×");
@@ -737,10 +737,10 @@ impl Studio {
                             .speed(0.05),
                     )
                     .on_hover_text(
-                        "How many lock stitches: twos back and forth, threes round a triangle",
+                        "Kaç kilit dikişi: ileri geri ikişer, üçgen boyunca üçer",
                     )
                     .widget_info(|| {
-                        egui::WidgetInfo::labeled(egui::Role::SpinButton, true, "Lock stitches")
+                        egui::WidgetInfo::labeled(egui::Role::SpinButton, true, "Kilit dikişleri")
                     });
                 }
                 let lock = Lock::new(lock.style, lock.len_mm, lock.count);
@@ -749,7 +749,7 @@ impl Studio {
                 value(
                     ui,
                     &match lock.style {
-                        LockStyle::None => "None".to_string(),
+                        LockStyle::None => "Yok".to_string(),
                         s => format!(
                             "{}, {} × {} mm",
                             lock_name(s),
@@ -781,8 +781,8 @@ impl Studio {
         let mut units = self.dock.units;
         let gpu = self.gpu.is_some();
 
-        group(ui, "Measurements", true);
-        row(ui, "Units", |ui, lid| {
+        group(ui, "Ölçüler", true);
+        row(ui, "Birimler", |ui, lid| {
             egui::ComboBox::from_id_salt("settings-units")
                 .selected_text(units.label())
                 .width(160.0)
@@ -793,16 +793,16 @@ impl Studio {
                 })
                 .response
                 .labelled_by(lid)
-                .on_hover_text("What lengths are shown and typed in");
+                .on_hover_text("Uzunlukların hangi birimde gösterilip girileceği");
         });
 
-        group(ui, "Appearance", false);
-        row(ui, "Theme", |ui, _| {
+        group(ui, "Görünüm", false);
+        row(ui, "Tema", |ui, _| {
             let options = Appearance::ALL.map(|a| (a, a.label()));
             crate::theme::segmented(ui, "settings-appearance", &mut prefs.appearance, &options);
         });
         let monitor = self.ui_scale.monitor;
-        row(ui, "Interface size", |ui, lid| {
+        row(ui, "Arayüz boyutu", |ui, lid| {
             egui::ComboBox::from_id_salt("settings-interface-size")
                 .selected_text(format!("{}%", prefs.ui_size))
                 .width(160.0)
@@ -817,49 +817,49 @@ impl Studio {
                             ui.selectable_value(&mut prefs.ui_size, size, format!("{size}%"))
                         })
                         .response
-                        .on_disabled_hover_text("This display doesn't have room for it.");
+                        .on_disabled_hover_text("Bu ekranda buna yer yok.");
                     }
                 })
                 .response
                 .labelled_by(lid)
-                .on_hover_text("How large everything in the window is drawn");
+                .on_hover_text("Penceredeki her şeyin ne kadar büyük çizildiği");
         });
         let in_use = self.ui_size_in_use();
         note(
             ui,
             &if in_use < prefs.ui_size {
                 format!(
-                    "Shown at {in_use}%, the most this display has room for. Panels, text, buttons and the handles on the canvas; your design stays the size it is."
+                    "%{in_use} olarak gösteriliyor; bu ekranın sığdırabildiği en büyük değer. Paneller, metin, düğmeler ve tuvaldeki tutamaçlar; tasarımınız aynı boyutta kalır."
                 )
             } else {
-                "Panels, text, buttons and the handles on the canvas. Your design stays the size it is.".to_string()
+                "Paneller, metin, düğmeler ve tuvaldeki tutamaçlar. Tasarımınız aynı boyutta kalır.".to_string()
             },
         );
 
-        group(ui, "Performance", false);
-        row(ui, "Stitches", |ui, _| {
+        group(ui, "Performans", false);
+        row(ui, "Dikişler", |ui, _| {
             ui.add_enabled(
                 gpu,
-                egui::Checkbox::new(&mut prefs.gpu, "Draw stitches on the GPU"),
+                egui::Checkbox::new(&mut prefs.gpu, "Dikişleri GPU ile çiz"),
             )
             .on_disabled_hover_text(
-                "This computer's graphics can't draw them: they're drawn by the CPU.",
+                "Bu bilgisayarın grafik birimi bunları çizemiyor: CPU ile çiziliyor.",
             );
         });
         note(
             ui,
-            "Faster for big designs. Turn it off if stitches don't show, or show wrongly, on this computer.",
+            "Büyük tasarımlar için daha hızlı. Bu bilgisayarda dikişler görünmüyor ya da yanlış görünüyorsa kapatın.",
         );
 
-        group(ui, "Updates", false);
+        group(ui, "Güncellemeler", false);
         let mut check = false;
-        row(ui, "Automatic", |ui, _| {
-            ui.checkbox(&mut prefs.auto_update, "Look for updates when ZigZag opens")
-                .on_hover_text("Asks GitHub for ZigZag's latest release, when it opens and once a day. Nothing about you or your designs is sent.");
+        row(ui, "Otomatik", |ui, _| {
+            ui.checkbox(&mut prefs.auto_update, "ZigZag açılırken güncellemeleri denetle")
+                .on_hover_text("Açılışta ve günde bir kez GitHub'a ZigZag'ın son sürümünü sorar. Sizinle ya da tasarımlarınızla ilgili hiçbir şey gönderilmez.");
         });
-        row(ui, "This version", |ui, lid| {
+        row(ui, "Bu sürüm", |ui, lid| {
             value(ui, env!("CARGO_PKG_VERSION")).labelled_by(lid);
-            check = ui.button("Check Now").clicked();
+            check = ui.button("Şimdi Denetle").clicked();
         });
         if check {
             let ctx = ui.ctx().clone();
@@ -883,23 +883,23 @@ impl Studio {
         let mut prefs = self.prefs.clone();
         let mut kind = self.agent.kind;
 
-        group(ui, "Agent Panel", true);
-        row(ui, "Runs", |ui, _| {
+        group(ui, "Ajan Paneli", true);
+        row(ui, "Çalıştırılan", |ui, _| {
             let options = AgentKind::ALL.map(|k| (k, k.name()));
             crate::theme::segmented(ui, "settings-agent-kind", &mut kind, &options);
         });
         note(
             ui,
-            "The agent the Agent panel talks to. Changing it starts a new chat.",
+            "Ajan panelinin konuştuğu ajan. Değiştirmek yeni bir sohbet başlatır.",
         );
 
-        group(ui, "Agent Server", false);
-        row(ui, "Connections", |ui, _| {
-            ui.checkbox(&mut prefs.agent_server, "Let agents connect");
+        group(ui, "Ajan Sunucusu", false);
+        row(ui, "Bağlantılar", |ui, _| {
+            ui.checkbox(&mut prefs.agent_server, "Ajanların bağlanmasına izin ver");
         });
         note(
             ui,
-            "For Claude Code, Claude Desktop, Codex and other agents on this computer (MCP). It listens to this computer only.",
+            "Bu bilgisayardaki Claude Code, Claude Desktop, Codex ve diğer ajanlar için (MCP). Yalnızca bu bilgisayarı dinler.",
         );
         row(ui, "Port", |ui, lid| {
             ui.add_enabled(
@@ -910,35 +910,35 @@ impl Studio {
             )
             .labelled_by(lid);
         });
-        row(ui, "Status", |ui, lid| {
+        row(ui, "Durum", |ui, lid| {
             value(
                 ui,
                 &match (&self.mcp_ui.start_error, self.mcp_ui.port) {
-                    (Some(e), _) => format!("Not running ({e})"),
-                    (None, Some(port)) => format!("Listening on port {port}"),
-                    (None, None) => "Off".to_string(),
+                    (Some(e), _) => format!("Çalışmıyor ({e})"),
+                    (None, Some(port)) => format!("{port} portunda dinliyor"),
+                    (None, None) => "Kapalı".to_string(),
                 },
             )
             .labelled_by(lid);
         });
         note(
             ui,
-            "A change to the server takes effect the next time ZigZag opens.",
+            "Sunucudaki değişiklik ZigZag bir sonraki açılışında geçerli olur.",
         );
 
-        group(ui, "Log", false);
+        group(ui, "Kayıt", false);
         let mut show = false;
-        row(ui, "Tool calls", |ui, _| {
-            ui.checkbox(&mut prefs.agent_log, "Keep a log of what agents do");
+        row(ui, "Araç çağrıları", |ui, _| {
+            ui.checkbox(&mut prefs.agent_log, "Ajanların yaptıklarının kaydını tut");
             let file = self.agent_log.file().is_some();
             show = ui
-                .add_enabled(file, egui::Button::new("Show Log"))
-                .on_disabled_hover_text("Nothing has been logged yet.")
+                .add_enabled(file, egui::Button::new("Kaydı Göster"))
+                .on_disabled_hover_text("Henüz hiçbir şey kaydedilmedi.")
                 .clicked();
         });
         note(
             ui,
-            "Every tool call: when, which tool, what it was asked and what it answered. Kept on this computer, in ZigZag's settings folder.",
+            "Tüm araç çağrıları: ne zaman, hangi araç, ne soruldu ve ne yanıtladı. Bu bilgisayarda, ZigZag'ın ayarlar klasöründe tutulur.",
         );
         if show && let Some(file) = self.agent_log.file() {
             crate::agent_log::open_text(file);

@@ -202,38 +202,38 @@ pub fn menus() -> Vec<(&'static str, Vec<Entry>)> {
     export.push(Sep);
     export.push(Item(
         Action::Export("html"),
-        "Production Worksheet (HTML)…",
+        "Üretim Föyü (HTML)…",
         None,
     ));
     let kinds = vec![
-        Item(Action::Kind(Kind::Fill), "Fill", plain(Key::F)),
-        Item(Action::Kind(Kind::Satin), "Satin", plain(Key::S)),
-        Item(Action::Kind(Kind::Run), "Run", plain(Key::R)),
-        Item(Action::Kind(Kind::Contour), "Contour Fill", plain(Key::C)),
-        Item(Action::Kind(Kind::Blanket), "Blanket", None),
-        Item(Action::Kind(Kind::Applique), "Appliqué", None),
-        Item(Action::Kind(Kind::Meander), "Meander Fill", None),
-        Item(Action::Kind(Kind::Ripple), "Ripple Fill", None),
-        Item(Action::Kind(Kind::Cross), "Cross-Stitch", None),
-        Item(Action::Kind(Kind::Tartan), "Tartan", None),
-        Item(Action::Kind(Kind::Manual), "Manual Stitches", None),
+        Item(Action::Kind(Kind::Fill), "Dolgu", plain(Key::F)),
+        Item(Action::Kind(Kind::Satin), "Saten", plain(Key::S)),
+        Item(Action::Kind(Kind::Run), "Düz Dikiş", plain(Key::R)),
+        Item(Action::Kind(Kind::Contour), "Kontur Dolgu", plain(Key::C)),
+        Item(Action::Kind(Kind::Blanket), "Battaniye Dikişi", None),
+        Item(Action::Kind(Kind::Applique), "Aplike", None),
+        Item(Action::Kind(Kind::Meander), "Kıvrımlı Dolgu", None),
+        Item(Action::Kind(Kind::Ripple), "Dalga Dolgu", None),
+        Item(Action::Kind(Kind::Cross), "Kanaviçe", None),
+        Item(Action::Kind(Kind::Tartan), "Tartan (Ekose)", None),
+        Item(Action::Kind(Kind::Manual), "Elle Dikişler", None),
         Sep,
-        Item(Action::Kind(Kind::Skip), "Don't Stitch", plain(Key::X)),
+        Item(Action::Kind(Kind::Skip), "Dikme", plain(Key::X)),
     ];
     vec![
         (
-            "File",
+            "Dosya",
             vec![
-                Item(Action::New, "New", cmd(Key::N)),
-                Item(Action::Open, "Open…", cmd(Key::O)),
-                Item(Action::Place, "Place SVG…", cmd_shift(Key::P)),
+                Item(Action::New, "Yeni", cmd(Key::N)),
+                Item(Action::Open, "Aç…", cmd(Key::O)),
+                Item(Action::Place, "Yerleştir (SVG, VP3…)…", cmd_shift(Key::P)),
                 Sep,
-                Item(Action::CloseTab, "Close", cmd(Key::W)),
-                Item(Action::Save, "Save", cmd(Key::S)),
-                Item(Action::SaveAs, "Save As…", cmd_shift(Key::S)),
+                Item(Action::CloseTab, "Kapat", cmd(Key::W)),
+                Item(Action::Save, "Kaydet", cmd(Key::S)),
+                Item(Action::SaveAs, "Farklı Kaydet…", cmd_shift(Key::S)),
                 Sep,
-                Sub("Export", export),
-                Item(Action::SendToSkitch, "Send to Skitch…", None),
+                Sub("Dışa Aktar", export),
+                Item(Action::SendToSkitch, "Skitch'e Gönder…", None),
             ]
             .into_iter()
             // (On a Mac, Quit is in the ZigZag menu: see `native_menu`.)
@@ -245,22 +245,22 @@ pub fn menus() -> Vec<(&'static str, Vec<Entry>)> {
             .collect(),
         ),
         (
-            "Edit",
+            "Düzen",
             vec![
-                Item(Action::Undo, "Undo", cmd(Key::Z)),
-                Item(Action::Redo, "Redo", cmd_shift(Key::Z)),
+                Item(Action::Undo, "Geri Al", cmd(Key::Z)),
+                Item(Action::Redo, "Yinele", cmd_shift(Key::Z)),
                 Sep,
-                Item(Action::Copy, "Copy", cmd(Key::C)),
-                Item(Action::Paste, "Paste", cmd(Key::V)),
-                Item(Action::Duplicate, "Duplicate", None),
-                Item(Action::Delete, "Delete", plain(Key::Backspace)),
+                Item(Action::Copy, "Kopyala", cmd(Key::C)),
+                Item(Action::Paste, "Yapıştır", cmd(Key::V)),
+                Item(Action::Duplicate, "Çoğalt", None),
+                Item(Action::Delete, "Sil", plain(Key::Backspace)),
                 Sep,
-                Item(Action::CopySettings, "Copy Stitch Settings", None),
-                Item(Action::PasteSettings, "Paste Stitch Settings", None),
+                Item(Action::CopySettings, "Dikiş Ayarlarını Kopyala", None),
+                Item(Action::PasteSettings, "Dikiş Ayarlarını Yapıştır", None),
                 Sep,
-                Item(Action::SelectAll, "Select All", cmd(Key::A)),
-                Item(Action::Deselect, "Deselect All", cmd_shift(Key::A)),
-                Item(Action::SelectSameKind, "Select Same Stitch Type", None),
+                Item(Action::SelectAll, "Tümünü Seç", cmd(Key::A)),
+                Item(Action::Deselect, "Seçimi Kaldır", cmd_shift(Key::A)),
+                Item(Action::SelectSameKind, "Aynı Dikiş Türünü Seç", None),
             ]
             .into_iter()
             // (On a Mac, Settings is in the ZigZag menu: see `native_menu`.)
@@ -272,178 +272,178 @@ pub fn menus() -> Vec<(&'static str, Vec<Entry>)> {
             .collect(),
         ),
         (
-            "Object",
+            "Nesne",
             vec![
-                Sub("Stitch Type", kinds),
+                Sub("Dikiş Türü", kinds),
                 Sep,
-                Item(Action::TransformAgain, "Transform Again", cmd(Key::D)),
+                Item(Action::TransformAgain, "Dönüştürmeyi Yinele", cmd(Key::D)),
                 // (R alone is the Run stitch.)
-                Item(Action::Tool(Tool::Rotate), "Rotate Tool", shift(Key::R)),
-                Item(Action::RotateDialog, "Rotate…", None),
-                Item(Action::FlipH, "Flip Horizontal", None),
-                Item(Action::FlipV, "Flip Vertical", None),
-                Item(Action::RotateLeft, "Rotate Left 90°", None),
-                Item(Action::RotateRight, "Rotate Right 90°", None),
-                Item(Action::CenterInHoop, "Center in Hoop", None),
-                Item(Action::FitToHoop, "Fit to Hoop", None),
+                Item(Action::Tool(Tool::Rotate), "Döndürme Aracı", shift(Key::R)),
+                Item(Action::RotateDialog, "Döndür…", None),
+                Item(Action::FlipH, "Yatay Çevir", None),
+                Item(Action::FlipV, "Dikey Çevir", None),
+                Item(Action::RotateLeft, "Sola 90° Döndür", None),
+                Item(Action::RotateRight, "Sağa 90° Döndür", None),
+                Item(Action::CenterInHoop, "Kasnakta Ortala", None),
+                Item(Action::FitToHoop, "Kasnağa Sığdır", None),
                 Sep,
-                Item(Action::Lock, "Lock", cmd(Key::Num2)),
-                Item(Action::UnlockAll, "Unlock All", None),
-                Item(Action::Hide, "Hide", cmd(Key::Num3)),
-                Item(Action::ShowAll, "Show All", None),
+                Item(Action::Lock, "Kilitle", cmd(Key::Num2)),
+                Item(Action::UnlockAll, "Tüm Kilitleri Aç", None),
+                Item(Action::Hide, "Gizle", cmd(Key::Num3)),
+                Item(Action::ShowAll, "Tümünü Göster", None),
                 Sep,
                 Sub(
-                    "Path",
+                    "Yol",
                     vec![
-                        Item(Action::OffsetPath, "Offset Path…", None),
-                        Item(Action::AddOutline, "Add Outline", None),
-                        Item(Action::RemoveOutline, "Remove Outline", None),
-                        Item(Action::OutlineStroke, "Outline Stroke", None),
-                        Item(Action::ReleaseCompound, "Release Compound Path", None),
-                        Item(Action::SimplifyPath, "Simplify…", None),
-                        Item(Action::RoundCorners, "Round Corners…", None),
-                        Item(Action::ReversePath, "Reverse Direction", None),
+                        Item(Action::OffsetPath, "Yolu Kaydır…", None),
+                        Item(Action::AddOutline, "Dış Hat Ekle", None),
+                        Item(Action::RemoveOutline, "Dış Hattı Kaldır", None),
+                        Item(Action::OutlineStroke, "Konturu Dış Hatta Çevir", None),
+                        Item(Action::ReleaseCompound, "Bileşik Yolu Ayır", None),
+                        Item(Action::SimplifyPath, "Sadeleştir…", None),
+                        Item(Action::RoundCorners, "Köşeleri Yuvarla…", None),
+                        Item(Action::ReversePath, "Yönü Ters Çevir", None),
                         Sep,
-                        Item(Action::CleanUp, "Clean Up…", None),
+                        Item(Action::CleanUp, "Temizle…", None),
                     ],
                 ),
                 Sub(
-                    "Pathfinder",
+                    "Yol Bulucu",
                     vec![
-                        Item(Action::Pathfinder(PathOp::Unite), "Unite", None),
-                        Item(Action::Pathfinder(PathOp::MinusFront), "Minus Front", None),
-                        Item(Action::Pathfinder(PathOp::Intersect), "Intersect", None),
-                        Item(Action::Pathfinder(PathOp::Exclude), "Exclude", None),
+                        Item(Action::Pathfinder(PathOp::Unite), "Birleştir", None),
+                        Item(Action::Pathfinder(PathOp::MinusFront), "Öndekini Çıkar", None),
+                        Item(Action::Pathfinder(PathOp::Intersect), "Kesiştir", None),
+                        Item(Action::Pathfinder(PathOp::Exclude), "Hariç Tut", None),
                     ],
                 ),
                 Sep,
                 Sub(
-                    "Sewing Order",
+                    "Dikiş Sırası",
                     vec![
                         Item(
                             Action::BringToFront,
-                            "Sew Last (on Top)",
+                            "En Son Dik (Üstte)",
                             cmd_shift(Key::CloseBracket),
                         ),
-                        Item(Action::BringForward, "Sew Later", cmd(Key::CloseBracket)),
-                        Item(Action::SendBackward, "Sew Earlier", cmd(Key::OpenBracket)),
-                        Item(Action::SendToBack, "Sew First", cmd_shift(Key::OpenBracket)),
+                        Item(Action::BringForward, "Daha Sonra Dik", cmd(Key::CloseBracket)),
+                        Item(Action::SendBackward, "Daha Önce Dik", cmd(Key::OpenBracket)),
+                        Item(Action::SendToBack, "İlk Dik", cmd_shift(Key::OpenBracket)),
                         Sep,
-                        Item(Action::GroupColors, "Group Colors", None),
+                        Item(Action::GroupColors, "Renkleri Grupla", None),
                     ],
                 ),
-                Item(Action::SimplifyDesign, "Simplify Design…", None),
+                Item(Action::SimplifyDesign, "Tasarımı Sadeleştir…", None),
                 Sep,
-                Item(Action::TestSwatches, "Test Swatches…", None),
+                Item(Action::TestSwatches, "Deneme Örnekleri…", None),
             ],
         ),
         (
-            "Type",
+            "Yazı",
             vec![
-                Item(Action::AddText, "Add Text…", None),
-                Item(Action::TypeOnPath, "Type on a Path", None),
+                Item(Action::AddText, "Metin Ekle…", None),
+                Item(Action::TypeOnPath, "Yol Üzerine Yaz", None),
                 Sep,
                 Sub(
-                    "Change Case",
+                    "Büyük/Küçük Harf",
                     vec![
                         Item(
                             Action::ChangeCase(zigzag::document::Case::Upper),
-                            "UPPERCASE",
+                            "BÜYÜK HARF",
                             None,
                         ),
                         Item(
                             Action::ChangeCase(zigzag::document::Case::Lower),
-                            "lowercase",
+                            "küçük harf",
                             None,
                         ),
                         Item(
                             Action::ChangeCase(zigzag::document::Case::Title),
-                            "Title Case",
+                            "Baş Harfler Büyük",
                             None,
                         ),
                         Item(
                             Action::ChangeCase(zigzag::document::Case::AsTyped),
-                            "As Typed",
+                            "Yazıldığı Gibi",
                             None,
                         ),
                     ],
                 ),
                 Sub(
-                    "Align",
+                    "Hizala",
                     vec![
                         Item(
                             Action::AlignText(zigzag::document::Align::Left),
-                            "Left",
+                            "Sola",
                             None,
                         ),
                         Item(
                             Action::AlignText(zigzag::document::Align::Center),
-                            "Center",
+                            "Ortaya",
                             None,
                         ),
                         Item(
                             Action::AlignText(zigzag::document::Align::Right),
-                            "Right",
+                            "Sağa",
                             None,
                         ),
                     ],
                 ),
                 Sep,
-                Item(Action::CreateOutlines, "Create Outlines", cmd_shift(Key::O)),
-                Item(Action::ConvertToText, "Convert to Text", None),
+                Item(Action::CreateOutlines, "Dış Hatlar Oluştur", cmd_shift(Key::O)),
+                Item(Action::ConvertToText, "Metne Dönüştür", None),
             ],
         ),
         (
-            "View",
+            "Görünüm",
             vec![
-                Item(Action::ZoomIn, "Zoom In", cmd(Key::Equals)),
-                Item(Action::ZoomOut, "Zoom Out", cmd(Key::Minus)),
-                Item(Action::ZoomFit, "Zoom to Fit", cmd(Key::Num0)),
+                Item(Action::ZoomIn, "Yakınlaştır", cmd(Key::Equals)),
+                Item(Action::ZoomOut, "Uzaklaştır", cmd(Key::Minus)),
+                Item(Action::ZoomFit, "Sığacak Şekilde Yakınlaştır", cmd(Key::Num0)),
                 Sep,
-                Item(Action::ToggleStitchLines, "Stitch Lines", cmd(Key::Y)),
-                Item(Action::ToggleGrid, "Grid", cmd(Key::Quote)),
-                Item(Action::ToggleSmartGuides, "Smart Guides", cmd(Key::U)),
+                Item(Action::ToggleStitchLines, "Dikiş Çizgileri", cmd(Key::Y)),
+                Item(Action::ToggleGrid, "Izgara", cmd(Key::Quote)),
+                Item(Action::ToggleSmartGuides, "Akıllı Kılavuzlar", cmd(Key::U)),
                 Sub(
-                    "Units",
+                    "Birimler",
                     crate::units::Unit::ALL
                         .iter()
                         .map(|&u| Item(Action::Units(u), u.label(), None))
                         .collect(),
                 ),
-                Item(Action::ToggleTaskBar, "Contextual Task Bar", None),
-                Item(Action::TogglePoints, "Needle Points", None),
-                Item(Action::ToggleJumps, "Jump Stitches", None),
-                Item(Action::ToggleDensity, "Density Map", None),
-                Item(Action::ToggleOrder, "Sewing Order", None),
+                Item(Action::ToggleTaskBar, "Bağlamsal Görev Çubuğu", None),
+                Item(Action::TogglePoints, "İğne Noktaları", None),
+                Item(Action::ToggleJumps, "Atlama Dikişleri", None),
+                Item(Action::ToggleDensity, "Yoğunluk Haritası", None),
+                Item(Action::ToggleOrder, "Dikiş Sırası", None),
                 Sep,
-                Item(Action::PlayPause, "Play Stitch-Out", plain(Key::Space)),
+                Item(Action::PlayPause, "Dikiş Animasyonunu Oynat", plain(Key::Space)),
             ],
         ),
         (
-            "Window",
+            "Pencere",
             vec![
-                Item(Action::ToggleLeftDock, "Left Dock", None),
-                Item(Action::ToggleRightDock, "Panels", None),
-                Item(Action::IconicPanels, "Collapse Panels to Icons", None),
-                Item(Action::ResetPanels, "Reset Panels", None),
-                Item(Action::AskAgent, "Ask Agent…", cmd(Key::K)),
+                Item(Action::ToggleLeftDock, "Sol Panel", None),
+                Item(Action::ToggleRightDock, "Paneller", None),
+                Item(Action::IconicPanels, "Panelleri Simgelere Daralt", None),
+                Item(Action::ResetPanels, "Panelleri Sıfırla", None),
+                Item(Action::AskAgent, "Ajana Sor…", cmd(Key::K)),
                 Sep,
                 // (Also ⌃Tab and ⌃⇧Tab.)
-                Item(Action::NextTab, "Next Document", None),
-                Item(Action::PreviousTab, "Previous Document", None),
+                Item(Action::NextTab, "Sonraki Belge", None),
+                Item(Action::PreviousTab, "Önceki Belge", None),
                 Sep,
-                Item(Action::Panel(PanelId::Objects), "Layers", None),
-                Item(Action::ShowIssues, "Issues", None),
-                Item(Action::Panel(PanelId::Stitch), "Stitch", None),
-                Item(Action::Panel(PanelId::Transform), "Transform", None),
-                Item(Action::Panel(PanelId::Lettering), "Lettering", None),
-                Item(Action::Panel(PanelId::Threads), "Threads", None),
-                Item(Action::Panel(PanelId::Document), "Document", None),
-                Item(Action::Panel(PanelId::Agent), "Agent", None),
+                Item(Action::Panel(PanelId::Objects), "Katmanlar", None),
+                Item(Action::ShowIssues, "Sorunlar", None),
+                Item(Action::Panel(PanelId::Stitch), "Dikiş", None),
+                Item(Action::Panel(PanelId::Transform), "Dönüştür", None),
+                Item(Action::Panel(PanelId::Lettering), "Yazı", None),
+                Item(Action::Panel(PanelId::Threads), "İplikler", None),
+                Item(Action::Panel(PanelId::Document), "Belge", None),
+                Item(Action::Panel(PanelId::Agent), "Ajan", None),
             ],
         ),
         (
-            "Help",
+            "Yardım",
             // (On a Mac, Check for Updates is in the ZigZag menu: see
             // `native_menu`.)
             {
@@ -453,9 +453,9 @@ pub fn menus() -> Vec<(&'static str, Vec<Entry>)> {
                     vec![UPDATES_ITEM, Sep]
                 };
                 help.extend([
-                    Item(Action::GitHub, "ZigZag on GitHub", None),
-                    Item(Action::ReportIssue, "Report an Issue…", None),
-                    Item(Action::CrashLogs, "Show Crash Logs", None),
+                    Item(Action::GitHub, "GitHub'da ZigZag", None),
+                    Item(Action::ReportIssue, "Sorun Bildir…", None),
+                    Item(Action::CrashLogs, "Çökme Kayıtlarını Göster", None),
                 ]);
                 // (On a Mac, About is in the ZigZag menu too.)
                 if !cfg!(target_os = "macos") {
@@ -496,19 +496,19 @@ pub fn issue_url() -> String {
 
 /// Tools, with their single-key shortcuts (handled with the rest).
 pub const TOOLS: [(Tool, &str, Key); 12] = [
-    (Tool::Select, "Select", Key::V),
-    (Tool::Direct, "Direct Selection", Key::A),
-    (Tool::Hand, "Hand", Key::H),
-    (Tool::Pen, "Pen", Key::P),
-    (Tool::Brush, "Brush", Key::B),
-    (Tool::Shape, "Shape", Key::M),
-    (Tool::Angle, "Fill Angle", Key::G),
-    (Tool::Measure, "Measure", Key::I),
-    (Tool::Text, "Type", Key::T),
+    (Tool::Select, "Seçim", Key::V),
+    (Tool::Direct, "Doğrudan Seçim", Key::A),
+    (Tool::Hand, "El", Key::H),
+    (Tool::Pen, "Kalem", Key::P),
+    (Tool::Brush, "Fırça", Key::B),
+    (Tool::Shape, "Şekil", Key::M),
+    (Tool::Angle, "Dolgu Açısı", Key::G),
+    (Tool::Measure, "Ölçü", Key::I),
+    (Tool::Text, "Yazı", Key::T),
     // (In groups: the tool strip shows them in their group's slot.)
-    (Tool::Lasso, "Lasso", Key::Q),
-    (Tool::Knife, "Knife", Key::K),
-    (Tool::Eyedropper, "Eyedropper", Key::E),
+    (Tool::Lasso, "Kement", Key::Q),
+    (Tool::Knife, "Bıçak", Key::K),
+    (Tool::Eyedropper, "Damlalık", Key::E),
 ];
 
 fn walk(entries: &[Entry], out: &mut Vec<(Action, &'static str, Option<Sc>)>) {
@@ -538,16 +538,16 @@ pub fn all_actions() -> Vec<(Action, &'static str, Option<Sc>)> {
 }
 
 /// About ZigZag: the app menu's on a Mac, the foot of Help elsewhere.
-pub const ABOUT_ITEM: Entry = Item(Action::About, "About ZigZag", None);
+pub const ABOUT_ITEM: Entry = Item(Action::About, "ZigZag Hakkında", None);
 
 /// Check for Updates…: the app menu's on a Mac, the head of Help elsewhere.
-pub const UPDATES_ITEM: Entry = Item(Action::CheckForUpdates, "Check for Updates…", None);
+pub const UPDATES_ITEM: Entry = Item(Action::CheckForUpdates, "Güncellemeleri Denetle…", None);
 
 /// Settings…, ⌘, : the app menu's on a Mac, at the foot of Edit elsewhere.
-pub const SETTINGS_ITEM: Entry = Item(Action::Settings, "Settings…", cmd(Key::Comma));
+pub const SETTINGS_ITEM: Entry = Item(Action::Settings, "Ayarlar…", cmd(Key::Comma));
 
 /// Quit ZigZag, ⌘Q: the app menu's on a Mac, at the foot of File elsewhere.
-pub const QUIT_ITEM: Entry = Item(Action::Quit, "Quit ZigZag", cmd(Key::Q));
+pub const QUIT_ITEM: Entry = Item(Action::Quit, "ZigZag'dan Çık", cmd(Key::Q));
 
 /// Locked, or hidden: the Layers list's two columns.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -702,7 +702,7 @@ impl Studio {
         match a {
             Action::New => {
                 self.new_tab();
-                self.status = "New document.".into();
+                self.status = "Yeni belge.".into();
             }
             Action::CloseTab => {
                 // The last, empty tab: ⌘W closes the window, as on macOS.
@@ -728,16 +728,19 @@ impl Studio {
                 exts.extend(zigzag::formats::READABLE_FORMATS);
                 exts.extend(zigzag::trace::IMAGE_FORMATS);
                 let req = crate::file_dialog::Request::open()
-                    .filter("Designs", &exts)
-                    .filter("SVG artwork", &["svg"])
-                    .filter("Images to trace", &zigzag::trace::IMAGE_FORMATS)
-                    .filter("Machine files", &zigzag::formats::READABLE_FORMATS);
+                    .filter("Tasarımlar", &exts)
+                    .filter("SVG çizimler", &["svg"])
+                    .filter("İzlenecek görseller", &zigzag::trace::IMAGE_FORMATS)
+                    .filter("Makine dosyaları", &zigzag::formats::READABLE_FORMATS);
                 self.file_dialog(req, crate::file_dialog::Then::Open);
             }
             Action::Place => {
                 let mut exts = vec!["svg"];
                 exts.extend(zigzag::trace::IMAGE_FORMATS);
-                let req = crate::file_dialog::Request::open().filter("Artwork", &exts);
+                exts.extend(zigzag::formats::READABLE_FORMATS);
+                let req = crate::file_dialog::Request::open()
+                    .filter("Çizim ve nakış dosyaları", &exts)
+                    .filter("Nakış dosyaları", &zigzag::formats::READABLE_FORMATS);
                 self.file_dialog(req, crate::file_dialog::Then::Place);
             }
             Action::Save => {
@@ -767,22 +770,22 @@ impl Studio {
             Action::Deselect => self.set_selection(&[]),
             Action::Kind(k) => self.set_kind_selected(k),
             Action::FlipH => {
-                self.transform_selected(scale_about(c, -1.0, 1.0), "Flipped");
+                self.transform_selected(scale_about(c, -1.0, 1.0), "çevrildi");
             }
             Action::FlipV => {
-                self.transform_selected(scale_about(c, 1.0, -1.0), "Flipped");
+                self.transform_selected(scale_about(c, 1.0, -1.0), "çevrildi");
             }
             Action::RotateLeft => {
-                self.transform_selected(rotate_about(c, -90.0), "Rotated");
+                self.transform_selected(rotate_about(c, -90.0), "döndürüldü");
             }
             Action::RotateRight => {
-                self.transform_selected(rotate_about(c, 90.0), "Rotated");
+                self.transform_selected(rotate_about(c, 90.0), "döndürüldü");
             }
             Action::FitToHoop => {
                 self.fit_to_hoop(false);
             }
             Action::CenterInHoop => {
-                self.transform_selected(translation(zigzag::geom::P::default() - c), "Centered");
+                self.transform_selected(translation(zigzag::geom::P::default() - c), "ortalandı");
             }
             Action::BringToFront => self.move_selected_to(false),
             Action::SendToBack => self.move_selected_to(true),
@@ -822,7 +825,7 @@ impl Studio {
                 if let Some(i) = self.sel_index() {
                     self.layout.settings_clip = Some(self.doc.shapes[i].params.clone());
                     self.status =
-                        "Stitch settings copied. Select other objects and Paste Stitch Settings."
+                        "Dikiş ayarları kopyalandı. Başka nesneler seçip Dikiş Ayarlarını Yapıştır'ı kullanın."
                             .into();
                 }
             }
@@ -877,10 +880,10 @@ impl Studio {
                 if self.view_tools.density {
                     let m = self.density_map();
                     self.status = if m.heavy_cells() == 0 {
-                        format!("No heavy spots: at most {:.1} stitches per mm².", m.peak())
+                        format!("Yoğun bölge yok: mm² başına en fazla {:.1} dikiş.", m.peak())
                     } else {
                         format!(
-                            "Yellow to red: {} to {} stitches per mm² and up (peak {:.1}). Two fills on top of each other, or dense satin over fill, get there.",
+                            "Sarıdan kırmızıya: mm² başına {} ile {} ve üzeri dikiş (en yüksek {:.1}). Üst üste iki dolgu ya da dolgu üzerinde sık saten bu seviyeye çıkar.",
                             crate::density::HEAVY,
                             crate::density::TOO_HEAVY,
                             m.peak()

@@ -17,16 +17,16 @@ use crate::geom::{Bounds, P};
 /// Machine formats ZigZag writes: (extension, description).
 pub const MACHINE_FORMATS: [(&str, &str); 7] = [
     ("pes", "PES (Brother, Baby Lock: PE800, PE900, Skitch USB)"),
-    ("dst", "DST (Tajima: most commercial machines)"),
+    ("dst", "DST (Tajima: çoğu ticari makine)"),
     ("exp", "EXP (Melco, Bernina)"),
     ("jef", "JEF (Janome, Elna)"),
     ("vp3", "VP3 (Husqvarna Viking, Pfaff)"),
-    ("pec", "PEC (Brother, stitches only)"),
-    ("pen", "PEN (Brother Skitch over Bluetooth)"),
+    ("pec", "PEC (Brother, yalnızca dikişler)"),
+    ("pen", "PEN (Bluetooth ile Brother Skitch)"),
 ];
 
 /// Machine files ZigZag can open.
-pub const READABLE_FORMATS: [&str; 5] = ["pes", "pec", "dst", "exp", "jef"];
+pub const READABLE_FORMATS: [&str; 6] = ["pes", "pec", "dst", "exp", "jef", "vp3"];
 
 /// Encode a design in the machine format for `ext` (no preview formats),
 /// with the usual locks and no shortest stitch.

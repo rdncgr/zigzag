@@ -257,9 +257,9 @@ impl Studio {
             painter,
             rect,
             if self.sel_indices().is_empty() {
-                "Draw a cut right across a filled shape · Alt for a straight cut (Shift: 45° steps)"
+                "Dolgulu bir şeklin tam ortasından kesik çizin · düz kesik için Alt (Shift: 45° adımlar)"
             } else {
-                "Draw a cut right across the selected shapes · Alt for a straight cut (Shift: 45° steps)"
+                "Seçili şekillerin tam ortasından kesik çizin · düz kesik için Alt (Shift: 45° adımlar)"
             },
         );
     }
@@ -282,9 +282,9 @@ impl Studio {
         }) {
             Ok(()) => {
                 self.set_selection(&pieces);
-                self.status = format!("Cut into {} pieces.", pieces.len());
+                self.status = format!("{} parçaya kesildi.", pieces.len());
             }
-            Err(e) => self.status = format!("Nothing cut: {e:#}."),
+            Err(e) => self.status = format!("Hiçbir şey kesilmedi: {e:#}."),
         }
     }
 
@@ -334,7 +334,7 @@ impl Studio {
         self.hud(
             painter,
             rect,
-            "Paint a filled shape: it joins the fills in the same thread that it touches · [ and ] size the brush",
+            "Dolgulu şekil boyayın: dokunduğu aynı iplikteki dolgularla birleşir · [ ve ] fırça boyutunu ayarlar",
         );
         self.blob_options(ui.ctx(), ui.make_persistent_id("blob-options"), rect);
     }
@@ -379,12 +379,12 @@ impl Studio {
             Ok(()) => {
                 self.set_selection(&[idx]);
                 self.status = if joined {
-                    "Painted onto the fill it touched.".into()
+                    "Dokunduğu dolgunun üzerine boyandı.".into()
                 } else {
-                    "Painted a new fill.".into()
+                    "Yeni bir dolgu boyandı.".into()
                 };
             }
-            Err(e) => self.status = format!("Couldn't paint that: {e:#}"),
+            Err(e) => self.status = format!("Boyanamadı: {e:#}"),
         }
     }
 
@@ -405,7 +405,7 @@ impl Studio {
                                 ui.label(egui::RichText::new(t).size(12.0).color(p.secondary));
                             };
                             let b = &mut self.view_tools.build;
-                            label(ui, "Size");
+                            label(ui, "Boyut");
                             ui.add(
                                 egui::DragValue::new(&mut b.blob_mm)
                                     .range(BLOB_MM)
@@ -413,13 +413,13 @@ impl Studio {
                                     .fixed_decimals(1)
                                     .suffix(" mm"),
                             )
-                            .on_hover_text("How wide the brush paints. [ and ] change it too.");
-                            label(ui, "Smoothness");
+                            .on_hover_text("Fırçanın ne kadar geniş boyadığı. [ ve ] tuşları da değiştirir.");
+                            label(ui, "Yumuşaklık");
                             ui.add(
                                 egui::Slider::new(&mut b.blob_smooth, 0.0..=100.0)
                                     .show_value(false),
                             )
-                            .on_hover_text("How much of the hand's wobble is taken out");
+                            .on_hover_text("El titremesinin ne kadarının giderileceği");
                         });
                     });
             });
@@ -467,7 +467,7 @@ impl Studio {
             self.hud(
                 painter,
                 rect,
-                "Select overlapping shapes first (V), then drag across their parts here",
+                "Önce üst üste binen şekilleri seçin (V), sonra burada parçalarının üzerinden sürükleyin",
             );
             return;
         }
@@ -524,7 +524,7 @@ impl Studio {
         self.hud(
             painter,
             rect,
-            "Drag across parts to make one shape of them · click a part to make it a shape of its own · Alt takes parts away",
+            "Parçaları tek şekil yapmak için üzerlerinden sürükleyin · bir parçayı ayrı şekil yapmak için tıklayın · Alt parçaları çıkarır",
         );
     }
 
@@ -549,9 +549,9 @@ impl Studio {
             out.extend(self.uid_indices(&others));
             self.set_selection(&out);
             self.status = if erase {
-                "Took those parts away.".into()
+                "Bu parçalar çıkarıldı.".into()
             } else {
-                "Made one shape of those parts.".into()
+                "Bu parçalardan tek şekil yapıldı.".into()
             };
         }
     }

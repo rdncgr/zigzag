@@ -19,29 +19,29 @@ type Entry = (Tool, &'static str, &'static str, Icon);
 
 /// The tools that select parts of things: points, by hand or by a loop.
 pub const DIRECT_GROUP: [Entry; 2] = [
-    (Tool::Direct, "Direct Selection Tool", "A", Icon::Direct),
-    (Tool::Lasso, "Lasso Tool", "Q", Icon::Lasso),
+    (Tool::Direct, "Doğrudan Seçim Aracı", "A", Icon::Direct),
+    (Tool::Lasso, "Kement Aracı", "Q", Icon::Lasso),
 ];
 
 /// Illustrator's Pen group, and its Curvature tool.
 pub const PEN_GROUP: [Entry; 5] = [
-    (Tool::Pen, "Pen Tool", "P", Icon::Pen),
+    (Tool::Pen, "Kalem Aracı", "P", Icon::Pen),
     (
         Tool::Curvature,
-        "Curvature Tool",
+        "Eğrilik Aracı",
         "Shift+`",
         Icon::Curvature,
     ),
-    (Tool::AddAnchor, "Add Anchor Point Tool", "+", Icon::PenAdd),
+    (Tool::AddAnchor, "Bağlantı Noktası Ekleme Aracı", "+", Icon::PenAdd),
     (
         Tool::DeleteAnchor,
-        "Delete Anchor Point Tool",
+        "Bağlantı Noktası Silme Aracı",
         "-",
         Icon::PenDelete,
     ),
     (
         Tool::Anchor,
-        "Anchor Point Tool",
+        "Bağlantı Noktası Aracı",
         "Shift+C",
         Icon::AnchorPoint,
     ),
@@ -49,11 +49,11 @@ pub const PEN_GROUP: [Entry; 5] = [
 
 /// VectorCraft's Brush group: the brushes and the path clean-up tools.
 pub const BRUSH_GROUP: [Entry; 5] = [
-    (Tool::Brush, "Brush Tool", "B", Icon::Brush),
-    (Tool::Blob, "Blob Brush Tool", "Shift+B", Icon::BlobBrush),
-    (Tool::Smooth, "Smooth Tool", "", Icon::Smooth),
-    (Tool::PathEraser, "Path Eraser Tool", "", Icon::PathEraser),
-    (Tool::Join, "Join Tool", "", Icon::Join),
+    (Tool::Brush, "Fırça Aracı", "B", Icon::Brush),
+    (Tool::Blob, "Kabarcık Fırça Aracı", "Shift+B", Icon::BlobBrush),
+    (Tool::Smooth, "Yumuşatma Aracı", "", Icon::Smooth),
+    (Tool::PathEraser, "Yol Silgisi Aracı", "", Icon::PathEraser),
+    (Tool::Join, "Birleştirme Aracı", "", Icon::Join),
 ];
 
 /// The tools that make shapes out of shapes: joining their parts, and
@@ -61,17 +61,17 @@ pub const BRUSH_GROUP: [Entry; 5] = [
 pub const BUILD_GROUP: [Entry; 2] = [
     (
         Tool::ShapeBuilder,
-        "Shape Builder Tool",
+        "Şekil Oluşturucu Aracı",
         "Shift+M",
         Icon::ShapeBuilder,
     ),
-    (Tool::Knife, "Knife Tool", "K", Icon::Knife),
+    (Tool::Knife, "Bıçak Aracı", "K", Icon::Knife),
 ];
 
 /// Illustrator's Eyedropper group: the tools that read the design.
 pub const SAMPLE_GROUP: [Entry; 2] = [
-    (Tool::Eyedropper, "Eyedropper Tool", "E", Icon::Eyedropper),
-    (Tool::Measure, "Measure Tool", "I", Icon::Measure),
+    (Tool::Eyedropper, "Damlalık Aracı", "E", Icon::Eyedropper),
+    (Tool::Measure, "Ölçü Aracı", "I", Icon::Measure),
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -96,12 +96,12 @@ impl Group {
 
     fn title(self) -> &'static str {
         match self {
-            Group::Direct => "Direct Selection Tools",
-            Group::Pen => "Pen Tools",
-            Group::Shape => "Shape Tools",
-            Group::Brush => "Brush Tools",
-            Group::Build => "Shape Builder Tools",
-            Group::Sample => "Eyedropper Tools",
+            Group::Direct => "Doğrudan Seçim Araçları",
+            Group::Pen => "Kalem Araçları",
+            Group::Shape => "Şekil Araçları",
+            Group::Brush => "Fırça Araçları",
+            Group::Build => "Şekil Oluşturucu Araçları",
+            Group::Sample => "Damlalık Araçları",
         }
     }
 
@@ -178,7 +178,7 @@ impl Studio {
                 .iter()
                 .map(|&k| Item {
                     icon: k.icon(),
-                    name: format!("{} Tool", k.name()),
+                    name: format!("{} Aracı", k.name()),
                     key: k.key(),
                     in_slot: self.shapes.kind == k,
                     active: self.tool == Tool::Shape && self.shapes.kind == k,
@@ -224,11 +224,11 @@ impl Studio {
         let items = self.group_items(g);
         let k = self.slot_index(g);
         let item = &items[k];
-        let label = item.name.trim_end_matches(" Tool").to_string();
+        let label = item.name.trim_end_matches(" Aracı").to_string();
         let tip = if item.key.is_empty() {
-            format!("{label} · hold or right-click for the group")
+            format!("{label} · grup için basılı tutun ya da sağ tıklayın")
         } else {
-            format!("{label} ({}) · hold or right-click for the group", item.key)
+            format!("{label} ({}) · grup için basılı tutun ya da sağ tıklayın", item.key)
         };
         let r = icon_button(ui, item.icon, &label, item.active, 30.0).on_hover_text(tip);
         // Illustrator's mark for a tool group: a small triangle at the corner.
@@ -369,7 +369,7 @@ impl Studio {
                                 Sense::click(),
                             );
                             resp.widget_info(|| {
-                                egui::WidgetInfo::labeled(egui::Role::Button, true, "Tear Off")
+                                egui::WidgetInfo::labeled(egui::Role::Button, true, "Ayır")
                             });
                             let over = pointer.is_some_and(|q| r.contains(q));
                             ui.painter().rect_filled(
@@ -388,7 +388,7 @@ impl Studio {
                                 Stroke::NONE,
                             ));
                             if resp
-                                .on_hover_text("Tear off: the group as a toolbar of its own")
+                                .on_hover_text("Ayır: grubu ayrı bir araç çubuğu yap")
                                 .clicked()
                                 || (by_hold && released && over)
                             {
@@ -477,7 +477,7 @@ impl Studio {
                                 egui::WidgetInfo::labeled(
                                     egui::Role::Button,
                                     true,
-                                    format!("Close {}", g.title()),
+                                    format!("{} kapat", g.title()),
                                 )
                             });
                             icons::paint(
@@ -491,7 +491,7 @@ impl Studio {
                             }
                             ui.horizontal(|ui| {
                                 for (k, it) in items.iter().enumerate() {
-                                    let label = it.name.trim_end_matches(" Tool");
+                                    let label = it.name.trim_end_matches(" Aracı");
                                     let tip = if it.key.is_empty() {
                                         it.name.clone()
                                     } else {

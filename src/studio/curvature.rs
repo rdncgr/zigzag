@@ -205,9 +205,9 @@ impl Studio {
             painter,
             rect,
             if d.pts.is_empty() {
-                "Click points: the curve runs through them · Alt-click for a corner"
+                "Noktalara tıklayın: eğri bunlardan geçer · köşe için Alt-tıklama"
             } else {
-                "Click for the next point (Alt-click: a corner) · drag a point to move it · double-click one to turn it between smooth and corner · click the first to close · Enter ends the line"
+                "Sonraki nokta için tıklayın (Alt-tıklama: köşe) · taşımak için noktayı sürükleyin · yumuşak/köşe arasında geçiş için çift tıklayın · kapatmak için ilk noktaya tıklayın · Enter çizgiyi bitirir"
             },
         );
     }
@@ -267,11 +267,11 @@ impl Studio {
             Ok(()) => {
                 self.set_selection(&[idx]);
                 self.status = format!(
-                    "Drew a {} through {n} points.",
-                    if closed { "shape" } else { "line" }
+                    "{n} noktadan geçen bir {} çizildi.",
+                    if closed { "şekil" } else { "çizgi" }
                 );
             }
-            Err(e) => self.status = format!("Couldn't add the drawing: {e:#}"),
+            Err(e) => self.status = format!("Çizim eklenemedi: {e:#}"),
         }
     }
 }

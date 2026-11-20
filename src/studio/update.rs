@@ -161,7 +161,7 @@ pub enum Status {
 /// Why an update can't be installed from here, when it's nothing going
 /// wrong: said with the release, and the download offered instead.
 fn by_hand(why: &str) -> String {
-    format!("{why} Download it from GitHub instead.")
+    format!("{why} Bunun yerine GitHub'dan indirin.")
 }
 
 fn run(cmd: &mut Command) -> Result<String, String> {
@@ -197,11 +197,11 @@ fn fetch(feed: &str) -> Result<Release, String> {
         .args(["--max-time", "30"])
         .args(["--header", "Accept: application/vnd.github+json"])
         .arg(feed))
-    .map_err(|e| format!("Couldn't reach GitHub to look for updates ({e})."))?;
+    .map_err(|e| format!("Güncellemeleri denetlemek için GitHub'a ulaşılamadı ({e})."))?;
     let v: Value = serde_json::from_str(&text)
-        .map_err(|_| "GitHub's answer about the latest release couldn't be read.".to_string())?;
+        .map_err(|_| "GitHub'ın son sürümle ilgili yanıtı okunamadı.".to_string())?;
     release_from_json(&v, std::env::consts::OS)
-        .ok_or_else(|| "The latest release on GitHub isn't one ZigZag can update to.".to_string())
+        .ok_or_else(|| "GitHub'daki son sürüm, ZigZag'ın güncelleyebileceği bir sürüm değil.".to_string())
 }
 
 /// The `.app` this is running from.
@@ -278,7 +278,7 @@ pub fn install_mac(
     let name = version_name(release.version);
     let (Some(asset), Some(sums)) = (&release.asset, &release.sums) else {
         return Err(by_hand(
-            "This release doesn't have a download ZigZag can install by itself.",
+            "Bu sürümde ZigZag'ın kendi kendine kurabileceği bir indirme yok.",
         ));
     };
     let shown = app.to_string_lossy();
@@ -333,7 +333,7 @@ pub fn install_mac(
         if cancelled() {
             let _ = child.kill();
             let _ = child.wait();
-            return Err("Cancelled.".into());
+            return Err("İptal edildi.".into());
         }
         match child.try_wait() {
             Ok(Some(status)) => break status,
@@ -341,7 +341,7 @@ pub fn install_mac(
                 got(std::fs::metadata(&dmg).map_or(0, |m| m.len()));
                 std::thread::sleep(std::time::Duration::from_millis(150));
             }
-            Err(e) => return Err(format!("The download stopped ({e}).")),
+            Err(e) => return Err(format!("İndirme durdu ({e}).")),
         }
     };
     if !status.success() {
@@ -350,7 +350,7 @@ pub fn install_mac(
             let _ = std::io::Read::read_to_string(&mut e, &mut why);
         }
         return Err(format!(
-            "The download didn't finish ({}).",
+            "İndirme tamamlanmadı ({}).",
             why.trim().trim_start_matches("curl: ")
         ));
     }
@@ -363,10 +363,10 @@ pub fn install_mac(
         .and_then(|out| out.split_whitespace().next().map(str::to_ascii_lowercase))
         .ok_or("The download couldn't be checked.")?;
     if sum != listed {
-        return Err("The download doesn't match the release's checksum. Nothing was changed; try again later.".into());
+        return Err("İndirilen dosya sürümün sağlama toplamıyla eşleşmiyor. Hiçbir şey değiştirilmedi; daha sonra yeniden deneyin.".into());
     }
     if cancelled() {
-        return Err("Cancelled.".into());
+        return Err("İptal edildi.".into());
     }
 
     // 2. Open the disk image, and check the app in it is ZigZag's: signed,
@@ -413,7 +413,7 @@ pub fn install_mac(
         .map_err(|e| format!("Couldn't copy the update into place ({e})."))?;
     genuine(&new)?;
     if cancelled() {
-        return Err("Cancelled.".into());
+        return Err("İptal edildi.".into());
     }
 
     // 4. The two change places. From here the old app is kept (in the
@@ -583,7 +583,7 @@ impl Updater {
             };
             let to = match running_app() {
                 None => failed(by_hand(
-                    "ZigZag isn't running as an app here, so it can't replace itself.",
+                    "ZigZag burada uygulama olarak çalışmıyor, bu yüzden kendini güncelleyemez.",
                 )),
                 Some(app) => {
                     let total = release.asset.as_ref().map_or(0, |a| a.size);
@@ -615,7 +615,7 @@ impl Updater {
                 Status::Failed {
                     release: Some(r),
                     why,
-                } if why == "Cancelled." => Status::Available(r),
+                } if why == "İptal edildi." => Status::Available(r),
                 to => to,
             };
             Self::set(&status, to, &ctx);
@@ -710,8 +710,8 @@ impl crate::app::Studio {
         };
         let p = crate::theme::pal_ui(ui);
         let label = match self.updater.status() {
-            Status::Downloading { .. } | Status::Installing(_) => "Updating…",
-            _ => "Update",
+            Status::Downloading { .. } | Status::Installing(_) => "Güncelleniyor…",
+            _ => "Güncelle",
         };
         let b = ui
             .add(
@@ -725,11 +725,11 @@ impl crate::app::Studio {
                 .min_size(egui::Vec2::new(0.0, 22.0)),
             )
             .on_hover_text(format!(
-                "ZigZag {} is available (you have {})",
+                "ZigZag {} mevcut (sizdeki: {})",
                 version_name(release.version),
                 env!("CARGO_PKG_VERSION")
             ));
-        b.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Update ZigZag"));
+        b.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "ZigZag'ı Güncelle"));
         if b.clicked() {
             self.updater.open = true;
         }
@@ -765,18 +765,18 @@ impl crate::app::Studio {
                 ui.set_width(NOTES_W);
                 match &status {
                     Status::Idle | Status::Checking => {
-                        dialog::heading(ui, "Looking for updates…");
+                        dialog::heading(ui, "Güncellemeler denetleniyor…");
                         ui.horizontal(|ui| {
                             ui.spinner();
-                            dialog::body(ui, "Asking GitHub for ZigZag's latest release.");
+                            dialog::body(ui, "GitHub'dan ZigZag'ın son sürümü soruluyor.");
                         });
                         dialog::buttons(ui, |ui| {
-                            close = dialog::secondary(ui, "Cancel").clicked();
+                            close = dialog::secondary(ui, "İptal").clicked();
                         });
                     }
                     Status::UpToDate => {
-                        dialog::heading(ui, "ZigZag is up to date");
-                        dialog::body(ui, &format!("{here} is the newest version."));
+                        dialog::heading(ui, "ZigZag güncel");
+                        dialog::body(ui, &format!("{here} en yeni sürüm."));
                         dialog::buttons(ui, |ui| {
                             close = dialog::primary(ui, "OK", true).clicked();
                         });
@@ -784,27 +784,27 @@ impl crate::app::Studio {
                     Status::Available(r) => {
                         dialog::heading(
                             ui,
-                            &format!("ZigZag {} is available", version_name(r.version)),
+                            &format!("ZigZag {} mevcut", version_name(r.version)),
                         );
-                        dialog::body(ui, &format!("You have {here}."));
+                        dialog::body(ui, &format!("Sizdeki: {here}."));
                         notes(ui, &r.notes);
                         dialog::buttons(ui, |ui| {
                             if can_install && r.asset.is_some() {
-                                install = dialog::primary(ui, "Install and Relaunch", true)
-                                    .on_hover_text("Downloads it, checks it's signed by ZigZag's developer, puts it in place of this one and opens it. Your open documents come back.")
+                                install = dialog::primary(ui, "Kur ve Yeniden Başlat", true)
+                                    .on_hover_text("İndirir, ZigZag geliştiricisi tarafından imzalandığını denetler, bunun yerine koyar ve açar. Açık belgeleriniz geri gelir.")
                                     .clicked();
                             } else {
-                                download = dialog::primary(ui, "Download", true)
-                                    .on_hover_text("Opens the release on GitHub in your browser")
+                                download = dialog::primary(ui, "İndir", true)
+                                    .on_hover_text("Sürümü tarayıcınızda GitHub'da açar")
                                     .clicked();
                             }
-                            close = dialog::secondary(ui, "Later").clicked();
+                            close = dialog::secondary(ui, "Daha Sonra").clicked();
                         });
                     }
                     Status::Downloading { release, got } => {
                         dialog::heading(
                             ui,
-                            &format!("Downloading ZigZag {}…", version_name(release.version)),
+                            &format!("ZigZag {} indiriliyor…", version_name(release.version)),
                         );
                         let of = release.asset.as_ref().map_or(0, |a| a.size);
                         ui.add(
@@ -818,24 +818,24 @@ impl crate::app::Studio {
                         );
                         dialog::body(ui, &megabytes(*got, of));
                         dialog::buttons(ui, |ui| {
-                            cancel = dialog::secondary(ui, "Cancel").clicked();
+                            cancel = dialog::secondary(ui, "İptal").clicked();
                         });
                     }
                     Status::Installing(r) => {
                         dialog::heading(
                             ui,
-                            &format!("Installing ZigZag {}…", version_name(r.version)),
+                            &format!("ZigZag {} kuruluyor…", version_name(r.version)),
                         );
                         ui.horizontal(|ui| {
                             ui.spinner();
                             dialog::body(
                                 ui,
-                                "Checking it and putting it in place. ZigZag will reopen.",
+                                "Denetleniyor ve yerine konuyor. ZigZag yeniden açılacak.",
                             );
                         });
                     }
                     Status::Relaunch => {
-                        dialog::heading(ui, "Reopening ZigZag…");
+                        dialog::heading(ui, "ZigZag yeniden açılıyor…");
                     }
                     Status::Failed {
                         release: Some(r),
@@ -843,27 +843,27 @@ impl crate::app::Studio {
                     } => {
                         dialog::heading(
                             ui,
-                            &format!("ZigZag {} wasn't installed", version_name(r.version)),
+                            &format!("ZigZag {} kurulmadı", version_name(r.version)),
                         );
                         dialog::body(ui, why);
                         dialog::buttons(ui, |ui| {
-                            download = dialog::primary(ui, "Download", true)
-                                .on_hover_text("Opens the release on GitHub in your browser")
+                            download = dialog::primary(ui, "İndir", true)
+                                .on_hover_text("Sürümü tarayıcınızda GitHub'da açar")
                                 .clicked();
-                            close = dialog::secondary(ui, "Close").clicked();
+                            close = dialog::secondary(ui, "Kapat").clicked();
                             if can_install && r.asset.is_some() {
                                 again = dialog::apart(ui, |ui| {
-                                    dialog::secondary(ui, "Try Again").clicked()
+                                    dialog::secondary(ui, "Yeniden Dene").clicked()
                                 });
                             }
                         });
                     }
                     Status::Failed { release: None, why } => {
-                        dialog::heading(ui, "Couldn't look for updates");
+                        dialog::heading(ui, "Güncellemeler denetlenemedi");
                         dialog::body(ui, why);
                         dialog::buttons(ui, |ui| {
                             close = dialog::primary(ui, "OK", true).clicked();
-                            again = dialog::secondary(ui, "Try Again").clicked();
+                            again = dialog::secondary(ui, "Yeniden Dene").clicked();
                         });
                     }
                 }

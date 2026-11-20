@@ -377,7 +377,7 @@ impl Studio {
             self.session.saved_meta = None;
             self.status = match kept.as_slice() {
                 [] => format!(
-                    "The app went down last time while reopening {what}, so it wasn't reopened."
+                    "Uygulama geçen sefer {what} yeniden açılırken kapandı, bu yüzden yeniden açılmadı."
                 ),
                 [one] => format!(
                     "The app went down last time while reopening {what}, so it wasn't reopened. \
@@ -418,12 +418,12 @@ impl Studio {
                 if k == front {
                     front_tab = Some(self.tabs.active);
                 }
-                if self.status.contains("Couldn't") {
+                if self.status.contains("amadı") || self.status.contains("emedi") || self.status.contains("Couldn't") {
                     notes.push(self.status.clone());
                 }
             } else if opened > 0 {
                 // Nothing to show in the tab made for it.
-                if self.status.contains("Couldn't") {
+                if self.status.contains("amadı") || self.status.contains("emedi") || self.status.contains("Couldn't") {
                     notes.push(self.status.clone());
                 }
                 self.discard_tab(self.tabs.active);
@@ -440,7 +440,7 @@ impl Studio {
             self.switch_tab(i);
         }
         if opened > 1 && notes.is_empty() {
-            self.status = format!("Picked up where you left off: {opened} documents.");
+            self.status = format!("Kaldığınız yerden devam: {opened} belge.");
         } else if let Some(n) = notes.into_iter().next() {
             self.status = n;
         }
@@ -468,7 +468,7 @@ impl Studio {
                     let kept = aside(f, "unreadable");
                     let _ = std::fs::rename(f, &kept);
                     unreadable = Some(format!(
-                        "Couldn't read the unsaved changes to {name} ({e:#}); they're kept in {}.",
+                        "{name} belgesindeki kaydedilmemiş değişiklikler okunamadı ({e:#}); şurada saklanıyor: {}.",
                         kept.display()
                     ));
                     None
@@ -479,13 +479,13 @@ impl Studio {
             self.set_document(doc);
             self.modified = true;
             self.status =
-                format!("Picked up where you left off: {name}, with its unsaved changes.");
+                format!("Kaldığınız yerden devam: {name}, kaydedilmemiş değişiklikleriyle.");
             true
         } else if let Some(p) = path.filter(|p| p.exists()) {
             self.load(&p);
             self.status = unreadable
                 .take()
-                .unwrap_or_else(|| format!("Picked up where you left off: {name}."));
+                .unwrap_or_else(|| format!("Kaldığınız yerden devam: {name}."));
             !self.tab_is_blank() || self.doc.path.is_some()
         } else {
             false

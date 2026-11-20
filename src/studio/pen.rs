@@ -496,7 +496,7 @@ impl Studio {
                             }
                             _ => bezier::auto_smooth(&mut path[s], k),
                         }
-                        self.commit_pen_edit(path, "Converted the point.");
+                        self.commit_pen_edit(path, "Nokta dönüştürüldü.");
                     }
                 }
                 _ => {}
@@ -647,7 +647,7 @@ impl Studio {
         let Some(i) = self.sel_index() else { return };
         match self.structural(|d| d.set_path(i, &path)) {
             Ok(()) => self.status = what.into(),
-            Err(e) => self.status = format!("Couldn't edit the path: {e:#}"),
+            Err(e) => self.status = format!("Yol düzenlenemedi: {e:#}"),
         }
     }
 
@@ -715,12 +715,12 @@ impl Studio {
                         self.set_selection(&[i]);
                     }
                     self.status = if closed {
-                        "Closed the path.".into()
+                        "Yol kapatıldı.".into()
                     } else {
-                        format!("Extended the path ({n} points).")
+                        format!("Yol uzatıldı ({n} nokta).")
                     };
                 }
-                Err(e) => self.status = format!("Couldn't extend the path: {e:#}"),
+                Err(e) => self.status = format!("Yol uzatılamadı: {e:#}"),
             }
             return;
         }
@@ -739,12 +739,12 @@ impl Studio {
             Ok(()) => {
                 self.set_selection(&[idx]);
                 self.status = format!(
-                    "Drew a {} ({} points).",
-                    if closed { "shape" } else { "line" },
+                    "Bir {} çizildi ({} nokta).",
+                    if closed { "şekil" } else { "çizgi" },
                     n
                 );
             }
-            Err(e) => self.status = format!("Couldn't add the drawing: {e:#}"),
+            Err(e) => self.status = format!("Çizim eklenemedi: {e:#}"),
         }
     }
 
@@ -806,9 +806,9 @@ impl Studio {
                 if let Some(i) = self.doc.shapes.iter().position(|x| x.uid == keep_uid) {
                     self.set_selection(&[i]);
                 }
-                self.status = format!("Joined the paths ({n} points).");
+                self.status = format!("Yollar birleştirildi ({n} nokta).");
             }
-            Err(e) => self.status = format!("Couldn't join the paths: {e:#}"),
+            Err(e) => self.status = format!("Yollar birleştirilemedi: {e:#}"),
         }
     }
 

@@ -111,14 +111,14 @@ impl Studio {
         let bytes = match std::fs::read(path) {
             Ok(b) => b,
             Err(e) => {
-                self.status = format!("Couldn't read {}: {e}", path.display());
+                self.status = format!("{} okunamadı: {e}", path.display());
                 return;
             }
         };
         let image = match Image::decode(&bytes) {
             Ok(i) => i,
             Err(e) => {
-                self.status = format!("Couldn't open {}: {e:#}", path.display());
+                self.status = format!("{} açılamadı: {e:#}", path.display());
                 return;
             }
         };
@@ -151,7 +151,7 @@ impl Studio {
             shown: 0,
             traced: None,
         });
-        self.status = format!("Tracing {}…", path.display());
+        self.status = format!("İzleniyor: {}…", path.display());
     }
 
     fn trace_threads(&self) -> Vec<[u8; 3]> {
@@ -212,7 +212,7 @@ impl Studio {
             let r = zigzag::trace::trace(&image, &opts)
                 .map_err(|e| format!("{e:#}"))
                 .and_then(|t| {
-                    let img = rasterize(&t.svg, PREVIEW).ok_or("couldn't draw the preview")?;
+                    let img = rasterize(&t.svg, PREVIEW).ok_or("önizleme çizilemedi")?;
                     Ok((t, img))
                 });
             let _ = tx.send((n, r));
@@ -243,7 +243,7 @@ impl Studio {
         let mut open = true;
         let (mut ok, mut cancel) = (false, false);
         let busy = t.running.is_some();
-        egui::Window::new("Trace Image")
+        egui::Window::new("Görseli İzle")
             .title_frame(crate::theme::title_frame(ctx))
             .open(&mut open)
             .resizable(false)
@@ -258,7 +258,7 @@ impl Studio {
                             ui,
                             "trace-view",
                             &mut t.show_original,
-                            &[(false, "Traced"), (true, "Original")],
+                            &[(false, "İzlenmiş"), (true, "Orijinal")],
                         );
                         ui.add_space(space::S);
                         let (r, _) = ui.allocate_exact_size(PREVIEW, egui::Sense::hover());
@@ -294,7 +294,7 @@ impl Studio {
                                 r.method
                             ),
                             Some(Err(e)) => e.clone(),
-                            None => "Tracing…".into(),
+                            None => "İzleniyor…".into(),
                         };
                         theme::caption(ui, line);
                         // The thread colors (a row kept even while tracing, so nothing moves).
@@ -315,8 +315,8 @@ impl Studio {
                         ui.set_width(280.0);
                         let o = &mut t.opts;
                         theme::form(ui, "trace-form", |f| {
-                            f.row("Colors", |ui, l| {
-                                let label = |n: u32| if n == 0 { "Auto".to_string() } else { n.to_string() };
+                            f.row("Renkler", |ui, l| {
+                                let label = |n: u32| if n == 0 { "Otomatik".to_string() } else { n.to_string() };
                                 egui::ComboBox::from_id_salt("trace-colors")
                                     .width(80.0)
                                     .selected_text(label(o.colors))
@@ -328,28 +328,28 @@ impl Studio {
                                     .response
                                     .labelled_by(l);
                             });
-                            f.row("Width", |ui, l| {
+                            f.row("Genişlik", |ui, l| {
                                 ui.add(crate::units::drag_mm(&mut o.width_mm, 5.0..=400.0, 0.5))
                                     .labelled_by(l);
                                 theme::caption(ui, format!("× {}", crate::units::fmt_mm(o.width_mm * t.aspect)));
                             });
-                            f.row("Detail", |ui, l| {
+                            f.row("Ayrıntı", |ui, l| {
                                 ui.add(egui::Slider::new(&mut o.detail, 0.0..=100.0).show_value(false)).labelled_by(l);
                             });
-                            f.row("Ignore specks", |ui, l| {
+                            f.row("Lekeleri yok say", |ui, l| {
                                 ui.add(crate::units::drag_mm(&mut o.speckle_mm, 0.0..=10.0, 0.05))
                                     .labelled_by(l);
                             });
                         });
                         ui.add_space(space::S);
                         ui.spacing_mut().item_spacing.y = space::S;
-                        ui.checkbox(&mut o.remove_background, "Remove white background");
-                        ui.checkbox(&mut t.use_threads, format!("Use {palette_name} thread colors"));
-                        ui.checkbox(&mut o.lines, "Sew thin lines as lines");
+                        ui.checkbox(&mut o.remove_background, "Beyaz arka planı kaldır");
+                        ui.checkbox(&mut t.use_threads, format!("{palette_name} iplik renklerini kullan"));
+                        ui.checkbox(&mut o.lines, "İnce çizgileri çizgi olarak dik");
                         theme::form(ui, "trace-lines", |f| {
                             if o.lines {
                                 f.row("Up to", |ui, l| {
-                                    ui.add(egui::DragValue::new(&mut o.line_width_mm).range(0.3..=5.0).speed(0.05).fixed_decimals(1).suffix(" mm wide"))
+                                    ui.add(egui::DragValue::new(&mut o.line_width_mm).range(0.3..=5.0).speed(0.05).fixed_decimals(1).suffix(" mm genişlik"))
                                         .labelled_by(l);
                                 });
                             }
@@ -357,7 +357,7 @@ impl Studio {
                         ui.add_space(space::S);
                         theme::caption(
                             ui,
-                            "Flat logos trace best: a few solid colors, crisp edges. Photos are posterized.",
+                            "En iyi sonucu düz logolar verir: birkaç düz renk, keskin kenarlar. Fotoğraflar posterleştirilir.",
                         );
                     });
                 });
@@ -369,8 +369,8 @@ impl Studio {
                         let accent = theme::pal_ui(ui).accent;
                         let ready = matches!(t.result, Some(Ok(_))) && !busy;
                         let label = match t.target {
-                            Target::Open => "Open",
-                            Target::Place => "Place",
+                            Target::Open => "Aç",
+                            Target::Place => "Yerleştir",
                         };
                         ok = ui
                             .add_enabled(
@@ -379,7 +379,7 @@ impl Studio {
                             )
                             .clicked()
                             || (ready && ui.input(|i| i.key_pressed(Key::Enter)));
-                        cancel = ui.button("Cancel").clicked();
+                        cancel = ui.button("İptal").clicked();
                     },
                 );
             });
@@ -397,13 +397,13 @@ impl Studio {
             }
         } else if cancel || !open {
             self.trace = None;
-            self.status = "Trace canceled.".into();
+            self.status = "İzleme iptal edildi.".into();
         }
     }
 
     fn finish_trace(&mut self, r: &Traced, path: &Path, name: &str, target: Target) {
         let what = format!(
-            "{} ({} colors, {} objects)",
+            "{} ({} renk, {} nesne)",
             path.display(),
             r.colors.len(),
             r.shapes + r.lines
@@ -412,9 +412,9 @@ impl Studio {
             Target::Open => match zigzag::document::Document::from_svg(&r.svg, name, None) {
                 Ok(doc) => {
                     self.open_document(doc);
-                    self.status = format!("Traced {what}. Save to keep it as SVG.");
+                    self.status = format!("İzlendi: {what}. SVG olarak saklamak için kaydedin.");
                 }
-                Err(e) => self.status = format!("Couldn't open the trace: {e:#}"),
+                Err(e) => self.status = format!("İzleme açılamadı: {e:#}"),
             },
             Target::Place => {
                 let mut added = Vec::new();
@@ -424,9 +424,9 @@ impl Studio {
                 }) {
                     Ok(()) => {
                         self.set_selection(&added);
-                        self.status = format!("Placed traced {what}.");
+                        self.status = format!("İzlenen görsel yerleştirildi: {what}.");
                     }
-                    Err(e) => self.status = format!("Couldn't place the trace: {e:#}"),
+                    Err(e) => self.status = format!("İzleme yerleştirilemedi: {e:#}"),
                 }
             }
         }

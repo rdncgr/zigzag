@@ -266,19 +266,19 @@ impl Studio {
         let mut parts: Vec<String> = Vec::new();
         if s.min_stitch_mm != DEFAULT_MIN_STITCH_MM {
             parts.push(format!(
-                "no stitch under {} mm",
+                "{} mm altında dikiş yok",
                 zigzag::params::fmt_num(s.min_stitch_mm)
             ));
         }
         if s.lock != Lock::default() {
             parts.push(match s.lock.style {
-                LockStyle::None => "no locks".into(),
+                LockStyle::None => "kilit dikişi yok".into(),
                 LockStyle::Back => format!(
-                    "{} × {} mm locks",
+                    "{} × {} mm kilit dikişi",
                     s.lock.count,
                     zigzag::params::fmt_num(s.lock.len_mm)
                 ),
-                LockStyle::Triangle => "triangle locks".into(),
+                LockStyle::Triangle => "üçgen kilit dikişi".into(),
             });
         }
         (!parts.is_empty()).then(|| parts.join(", "))
@@ -292,24 +292,24 @@ impl Studio {
         let here = self.doc.settings.machine.clone();
         let mut choose: Option<Option<String>> = None;
         let mut settings = false;
-        fm.row("Machine", |ui, lid| {
+        fm.row("Makine", |ui, lid| {
             let about = match self.machine() {
-                Some(p) if p.tested => format!("{} Sewn from ZigZag.", p.source),
+                Some(p) if p.tested => format!("{} ZigZag'dan dikildi.", p.source),
                 Some(p) if !p.source.is_empty() => {
-                    format!("{} Not yet sewn from ZigZag.", p.source)
+                    format!("{} Henüz ZigZag'dan dikilmedi.", p.source)
                 }
-                Some(_) => "One of your machines.".to_string(),
+                Some(_) => "Makinelerinizden biri.".to_string(),
                 None if here.is_some() => {
-                    "This design was set up for a machine this computer doesn't have.".to_string()
+                    "Bu tasarım, bu bilgisayarda tanımlı olmayan bir makine için ayarlanmış.".to_string()
                 }
-                None => "The machine this design is for: its hoops, the file it reads and what it asks of the stitches. New documents start with the one you choose.".to_string(),
+                None => "Bu tasarımın makinesi: kasnakları, okuduğu dosya ve dikişlerden beklentileri. Yeni belgeler seçtiğiniz makineyle başlar.".to_string(),
             };
             egui::ComboBox::from_id_salt("machine")
-                .selected_text(self.machine_label().unwrap_or("Any machine".into()))
+                .selected_text(self.machine_label().unwrap_or("Herhangi bir makine".into()))
                 .width(142.0)
                 .height(400.0)
                 .show_ui(ui, |ui| {
-                    if ui.selectable_label(here.is_none(), "Any machine").clicked() {
+                    if ui.selectable_label(here.is_none(), "Herhangi bir makine").clicked() {
                         choose = Some(None);
                     }
                     ui.separator();
@@ -324,8 +324,8 @@ impl Studio {
                     }
                     ui.separator();
                     if ui
-                        .selectable_label(false, "Machine Settings…")
-                        .on_hover_text("Add a machine of your own, or change one")
+                        .selectable_label(false, "Makine Ayarları…")
+                        .on_hover_text("Kendi makinenizi ekleyin ya da birini değiştirin")
                         .clicked()
                     {
                         settings = true;
@@ -334,8 +334,8 @@ impl Studio {
                 .response
                 .labelled_by(lid)
                 .on_hover_text(about);
-            if crate::theme::icon_button(ui, crate::icons::Icon::Gear, "Machine Settings", false, 22.0)
-                .on_hover_text("Hoops, file format, shortest stitch and locks for your machines")
+            if crate::theme::icon_button(ui, crate::icons::Icon::Gear, "Makine Ayarları", false, 22.0)
+                .on_hover_text("Makineleriniz için kasnaklar, dosya biçimi, en kısa dikiş ve kilit dikişleri")
                 .clicked()
             {
                 settings = true;
@@ -344,7 +344,7 @@ impl Studio {
         if let Some(note) = self.stitch_rules_note() {
             fm.wide(|ui| {
                 crate::theme::caption(ui, note).on_hover_text(
-                    "From the machine. To change it, change the machine in Settings.",
+                    "Makineden gelir. Değiştirmek için Ayarlar'dan makineyi değiştirin.",
                 );
             });
         }
@@ -358,14 +358,14 @@ impl Studio {
 
     /// The Document panel's Narrow satin row.
     pub(crate) fn narrow_satin_row(&mut self, fm: &mut Form) {
-        fm.row("Narrow satin", |ui, lid| {
+        fm.row("Dar saten", |ui, lid| {
             ui.add(crate::units::drag_mm(
                 &mut self.doc.settings.narrow_satin_mm,
                 zigzag::document::NARROW_SATIN_MM,
                 0.01,
             ))
             .labelled_by(lid)
-            .on_hover_text("Satins narrower than this on average get a warning suggesting Run. How narrow a column still sews cleanly depends on your fabric and thread: set it to what does for you (0 never warns). It doesn't change the stitches.");
+            .on_hover_text("Ortalamada bundan dar satenler için Düz Dikiş öneren bir uyarı verilir. Bir sütunun ne kadar dar olup hâlâ temiz dikilebileceği kumaşa ve ipliğe bağlıdır: size uyan değeri girin (0 hiç uyarmaz). Dikişleri değiştirmez.");
         });
     }
 

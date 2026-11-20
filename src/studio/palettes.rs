@@ -72,7 +72,7 @@ impl Palettes {
         };
         for e in v["palettes"].as_array().into_iter().flatten() {
             p.mine.push(UserPalette {
-                name: e["name"].as_str().unwrap_or("Palette").to_string(),
+                name: e["name"].as_str().unwrap_or("Palet").to_string(),
                 colors: e["colors"]
                     .as_array()
                     .into_iter()
@@ -157,10 +157,10 @@ impl Palettes {
     pub fn create(&mut self, name: Option<String>, colors: Vec<[u8; 3]>) -> Source {
         let name = name.unwrap_or_else(|| {
             let mut n = self.mine.len() + 1;
-            while self.mine.iter().any(|p| p.name == format!("Palette {n}")) {
+            while self.mine.iter().any(|p| p.name == format!("Palet {n}")) {
                 n += 1;
             }
-            format!("Palette {n}")
+            format!("Palet {n}")
         });
         let mut colors = colors;
         colors.dedup();
@@ -253,7 +253,7 @@ impl Studio {
                     })
                     .response
                     .widget_info(|| {
-                        egui::WidgetInfo::labeled(egui::Role::ComboBox, true, "Palette")
+                        egui::WidgetInfo::labeled(egui::Role::ComboBox, true, "Palet")
                     });
                 if choice != src {
                     self.palettes.source = choice;
@@ -265,7 +265,7 @@ impl Studio {
             // The palette menu.
             let (r, resp) = ui.allocate_exact_size(Vec2::new(22.0, 20.0), Sense::click());
             resp.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::Role::Button, true, "Palette menu")
+                egui::WidgetInfo::labeled(egui::Role::Button, true, "Palet menüsü")
             });
             if resp.hovered() {
                 ui.painter().rect_filled(r, 4.0, p.hover);
@@ -278,11 +278,11 @@ impl Studio {
             );
             egui::Popup::menu(&resp).show(|ui| {
                 ui.set_min_width(200.0);
-                if ui.button("New Palette").clicked() {
+                if ui.button("Yeni Palet").clicked() {
                     self.palettes.create(None, Vec::new());
                     self.palettes.renaming = Some(self.palettes.name(self.palettes.source));
                 }
-                ui.menu_button("New Palette from Thread Kit", |ui| {
+                ui.menu_button("İplik Setinden Yeni Palet", |ui| {
                     ui.set_min_width(220.0);
                     for (bi, brand) in crate::kits::brands().into_iter().enumerate() {
                         if bi > 0 {
@@ -307,7 +307,7 @@ impl Studio {
                         }
                     }
                 });
-                if ui.button("New Palette from This Design").clicked() {
+                if ui.button("Bu Tasarımdan Yeni Palet").clicked() {
                     let colors = self.design_threads().into_iter().map(|t| t.0).collect();
                     let name = if self.doc.name.is_empty() {
                         None
@@ -318,10 +318,10 @@ impl Studio {
                 }
                 if let Source::Mine(k) = src {
                     ui.separator();
-                    if ui.button("Rename Palette").clicked() {
+                    if ui.button("Paleti Yeniden Adlandır").clicked() {
                         self.palettes.renaming = Some(self.palettes.name(src));
                     }
-                    if ui.button("Delete Palette").clicked() {
+                    if ui.button("Paleti Sil").clicked() {
                         self.palettes.delete(k);
                     }
                 }
@@ -365,14 +365,14 @@ impl Studio {
                                 }
                                 r.context_menu(|ui| {
                                     if let Source::Mine(k) = src
-                                        && ui.button("Remove from Palette").clicked()
+                                        && ui.button("Paletten Kaldır").clicked()
                                     {
                                         remove = Some((k, *c));
                                         ui.close();
                                     }
                                     for (k, pname) in &mine {
                                         if src != Source::Mine(*k)
-                                            && ui.button(format!("Add to {pname}")).clicked()
+                                            && ui.button(format!("{pname} paletine ekle")).clicked()
                                         {
                                             add = Some((*k, *c));
                                             ui.close();
@@ -389,7 +389,7 @@ impl Studio {
                                     egui::WidgetInfo::labeled(
                                         egui::Role::Button,
                                         current.is_some(),
-                                        "Add Color",
+                                        "Renk Ekle",
                                     )
                                 });
                                 let c = if current.is_some() {
@@ -405,7 +405,7 @@ impl Studio {
                                 );
                                 icons::paint(ui.painter(), r.shrink(size * 0.28), Icon::Plus, c);
                                 let resp = resp
-                                    .on_hover_text("Add the selection's thread to this palette");
+                                    .on_hover_text("Seçimin ipliğini bu palete ekle");
                                 if resp.clicked()
                                     && let Some(cur) = current
                                 {
@@ -418,7 +418,7 @@ impl Studio {
             }
         });
         if colors.is_empty() && matches!(src, Source::Mine(_)) {
-            crate::theme::caption(ui, "Empty. Select an object and click + to add its thread.");
+            crate::theme::caption(ui, "Boş. İpliğini eklemek için bir nesne seçip + düğmesine tıklayın.");
         }
         if let Some((k, c)) = add {
             self.palettes.add(k, c);

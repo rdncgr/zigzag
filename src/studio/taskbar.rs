@@ -154,11 +154,11 @@ impl Studio {
                                 let a = crate::widgets::allowed_kinds(&self.doc.shapes[i]);
                                 allowed.retain(|k| a.contains(k));
                             }
-                            let label = kind.map_or("Mixed", crate::widgets::kind_name);
+                            let label = kind.map_or("Karışık", crate::widgets::kind_name);
                             let (r, resp) =
                                 ui.allocate_exact_size(Vec2::new(KIND_W, BUTTON), Sense::click());
                             resp.widget_info(|| {
-                                egui::WidgetInfo::labeled(egui::Role::ComboBox, true, "Stitch type")
+                                egui::WidgetInfo::labeled(egui::Role::ComboBox, true, "Dikiş türü")
                             });
                             let open = egui::Popup::is_id_open(
                                 ui.ctx(),
@@ -223,9 +223,9 @@ impl Studio {
                                     egui::Role::Button,
                                     true,
                                     if thread == SelThread::Mixed {
-                                        "Thread color: several"
+                                        "İplik rengi: birkaç"
                                     } else {
-                                        "Thread color"
+                                        "İplik rengi"
                                     },
                                 )
                             });
@@ -247,7 +247,7 @@ impl Studio {
                                         egui::StrokeKind::Inside,
                                     );
                                     format!(
-                                        "Thread: {}",
+                                        "İplik: {}",
                                         crate::threads::nearest(self.view_tools.brand, color).1
                                     )
                                 }
@@ -255,7 +255,7 @@ impl Studio {
                                 // here, none): no one color to show.
                                 _ => {
                                     crate::threads::paint_mixed(ui.painter(), sw, 4.0, &p);
-                                    "Several threads · click to pick one for all the selected layers"
+                                    "Birkaç iplik · tüm seçili katmanlar için birini seçmek üzere tıklayın"
                                         .to_string()
                                 }
                             };
@@ -283,7 +283,7 @@ impl Studio {
                                         );
                                     })
                                     .response
-                                    .on_hover_text("Font");
+                                    .on_hover_text("Yazı tipi");
                                 self.lettering.font_filter = filter;
                                 let r = ui.add(crate::units::drag_mm(
                                     &mut spec.size_mm,
@@ -293,10 +293,10 @@ impl Studio {
                                 if r.drag_stopped() || r.lost_focus() {
                                     changed = true;
                                 }
-                                r.on_hover_text("Letter height");
+                                r.on_hover_text("Harf yüksekliği");
                                 if ui
                                     .toggle_value(&mut spec.bold, egui::RichText::new("B").strong())
-                                    .on_hover_text("Bold")
+                                    .on_hover_text("Kalın")
                                     .changed()
                                 {
                                     changed = true;
@@ -306,22 +306,22 @@ impl Studio {
                                         &mut spec.italic,
                                         egui::RichText::new("I").italics(),
                                     )
-                                    .on_hover_text("Italic")
+                                    .on_hover_text("İtalik")
                                     .changed()
                                 {
                                     changed = true;
                                 }
                                 for (a, icon, name) in [
-                                    (zigzag::document::Align::Left, Icon::AlignLeft, "Align Left"),
+                                    (zigzag::document::Align::Left, Icon::AlignLeft, "Sola Hizala"),
                                     (
                                         zigzag::document::Align::Center,
                                         Icon::AlignCenter,
-                                        "Align Center",
+                                        "Ortaya Hizala",
                                     ),
                                     (
                                         zigzag::document::Align::Right,
                                         Icon::AlignRight,
-                                        "Align Right",
+                                        "Sağa Hizala",
                                     ),
                                 ] {
                                     if icon_button(ui, icon, name, spec.align == a, BUTTON)
@@ -338,20 +338,20 @@ impl Studio {
                             }
                             separator(ui);
                             if single.is_some()
-                                && icon_button(ui, Icon::Direct, "Edit Points", false, BUTTON)
-                                    .on_hover_text("Edit points (Direct Selection, A)")
+                                && icon_button(ui, Icon::Direct, "Noktaları Düzenle", false, BUTTON)
+                                    .on_hover_text("Noktaları düzenle (Doğrudan Seçim, A)")
                                     .clicked()
                             {
                                 act = Some(Action::Tool(Tool::Direct));
                             }
-                            if icon_button(ui, Icon::RoundCorner, "Round Corners", false, BUTTON)
-                                .on_hover_text("Round Corners…")
+                            if icon_button(ui, Icon::RoundCorner, "Köşeleri Yuvarla", false, BUTTON)
+                                .on_hover_text("Köşeleri Yuvarla…")
                                 .clicked()
                             {
                                 act = Some(Action::RoundCorners);
                             }
-                            if icon_button(ui, Icon::Simplify, "Simplify", false, BUTTON)
-                                .on_hover_text("Simplify… (fewer points, smoother curves)")
+                            if icon_button(ui, Icon::Simplify, "Sadeleştir", false, BUTTON)
+                                .on_hover_text("Sadeleştir… (daha az nokta, daha yumuşak eğriler)")
                                 .clicked()
                             {
                                 act = Some(Action::SimplifyPath);
@@ -372,26 +372,26 @@ impl Studio {
                                 }
                             }
                             if idx.len() >= 2
-                                && icon_button(ui, Icon::PathUnite, "Unite", false, BUTTON)
-                                    .on_hover_text("Unite into one shape (Pathfinder)")
+                                && icon_button(ui, Icon::PathUnite, "Birleştir", false, BUTTON)
+                                    .on_hover_text("Tek şekilde birleştir (Yol Bulucu)")
                                     .clicked()
                             {
                                 act = Some(Action::Pathfinder(PathOp::Unite));
                             }
-                            if icon_button(ui, Icon::Duplicate, "Duplicate", false, BUTTON)
+                            if icon_button(ui, Icon::Duplicate, "Çoğalt", false, BUTTON)
                                 .clicked()
                             {
                                 act = Some(Action::Duplicate);
                             }
                             separator(ui);
                             let more =
-                                icon_button(ui, Icon::More, "Task bar options", false, BUTTON);
+                                icon_button(ui, Icon::More, "Görev çubuğu seçenekleri", false, BUTTON);
                             egui::Popup::menu(&more).show(|ui| {
                                 ui.set_min_width(200.0);
                                 if crate::flyout::menu_row(
                                     ui,
                                     crate::flyout::RowIcon::None,
-                                    "Hide Task Bar",
+                                    "Görev Çubuğunu Gizle",
                                     "",
                                     false,
                                     true,
@@ -404,7 +404,7 @@ impl Studio {
                                 if crate::flyout::menu_row(
                                     ui,
                                     crate::flyout::RowIcon::None,
-                                    "Pin Bar Position",
+                                    "Çubuk Konumunu Sabitle",
                                     "",
                                     pinned,
                                     true,
@@ -417,7 +417,7 @@ impl Studio {
                                 if crate::flyout::menu_row(
                                     ui,
                                     crate::flyout::RowIcon::None,
-                                    "Reset Bar Position",
+                                    "Çubuk Konumunu Sıfırla",
                                     "",
                                     false,
                                     true,
@@ -475,7 +475,7 @@ impl Studio {
                             let (r, resp) =
                                 ui.allocate_exact_size(Vec2::splat(BUTTON), Sense::click());
                             resp.widget_info(|| {
-                                egui::WidgetInfo::labeled(egui::Role::Button, true, "Outline thread")
+                                egui::WidgetInfo::labeled(egui::Role::Button, true, "Dış hat ipliği")
                             });
                             if resp.hovered() {
                                 ui.painter().rect_filled(r, 6.0, p.hover);
@@ -504,7 +504,7 @@ impl Studio {
                             );
                             let name = crate::threads::nearest(self.view_tools.brand, c).1;
                             if resp
-                                .on_hover_text(format!("Outline thread: {name}"))
+                                .on_hover_text(format!("Dış hat ipliği: {name}"))
                                 .clicked()
                             {
                                 outline_picker = Some((s.uid, r.left_top()));
@@ -516,13 +516,13 @@ impl Studio {
                                         (
                                             default_width,
                                             0.6..=10.0,
-                                            "Width of the satin, centered on the shape's edge",
+                                            "Şeklin kenarında ortalanmış saten genişliği",
                                         )
                                     } else {
                                         (
                                             zigzag::params::defaults::BLANKET_WIDTH,
                                             1.0..=6.0,
-                                            "How far the prongs reach into the shape",
+                                            "Dişlerin şeklin içine ne kadar uzandığı",
                                         )
                                     };
                                     let shown = s.params.width.unwrap_or(default);
@@ -545,7 +545,7 @@ impl Studio {
                                         egui::WidgetInfo::labeled(
                                             egui::Role::SpinButton,
                                             true,
-                                            "Outline width",
+                                            "Dış hat genişliği",
                                         )
                                     });
                                     // Only a change someone made.
@@ -560,7 +560,7 @@ impl Studio {
                                         ui,
                                         "outline-passes",
                                         &mut passes,
-                                        &[(1, "Single"), (3, "Triple")],
+                                        &[(1, "Tek"), (3, "Üçlü")],
                                     ) {
                                         s.params.repeats = Some(passes);
                                     }
@@ -575,8 +575,8 @@ impl Studio {
                             if gap > 0.0 {
                                 ui.add_space(gap);
                             }
-                            if icon_button(ui, Icon::NoOutline, "Remove outline", false, BUTTON)
-                                .on_hover_text("Remove the outline")
+                            if icon_button(ui, Icon::NoOutline, "Dış hattı kaldır", false, BUTTON)
+                                .on_hover_text("Dış hattı kaldır")
                                 .clicked()
                             {
                                 outline_removed = true;
@@ -626,23 +626,23 @@ impl Studio {
             // None yet: one is added, with its row open to set it up in.
             Some(false) => match self.set_outline(&idx, true) {
                 Ok(_) => {
-                    self.status = "Outline on: a running stitch round the edge. Its stitch, thread and width are in the bar's second row.".into();
+                    self.status = "Dış hat açık: kenar boyunca düz dikiş. Dikişi, ipliği ve genişliği çubuğun ikinci satırında.".into();
                 }
-                Err(e) => self.status = format!("Couldn't add an outline: {e:#}"),
+                Err(e) => self.status = format!("Dış hat eklenemedi: {e:#}"),
             },
             // One shape with an outline: its row opens or closes. The
             // outline stays as it is either way.
             Some(true) if single.is_some() => {
                 self.layout.outline_row_closed = !self.layout.outline_row_closed;
                 self.status = if self.layout.outline_row_closed {
-                    "Outline row closed. The outline is still there: its button shows its thread."
+                    "Dış hat satırı kapatıldı. Dış hat hâlâ orada: düğmesi ipliğini gösterir."
                         .into()
                 } else {
                     String::new()
                 };
             }
             Some(true) => {
-                self.status = "These all have outlines. Select one to set its outline up, or Object › Path › Remove Outline takes them all off.".into();
+                self.status = "Bunların hepsinin dış hattı var. Ayarlamak için birini seçin ya da Nesne › Yol › Dış Hattı Kaldır ile hepsini kaldırın.".into();
             }
             None => {}
         }
@@ -659,7 +659,7 @@ impl Studio {
         if let Some((i, spec)) = text_edit {
             match self.update_lettering(i, &spec) {
                 Ok(()) => {}
-                Err(e) => self.status = format!("Couldn't update the text: {e:#}"),
+                Err(e) => self.status = format!("Metin güncellenemedi: {e:#}"),
             }
         }
         let place = &mut self.layout.task_bar_place;
@@ -679,7 +679,7 @@ impl Studio {
         }
         if let Some(a) = act {
             if a == Action::ToggleTaskBar {
-                self.status = "Task bar hidden. View › Contextual Task Bar shows it again.".into();
+                self.status = "Görev çubuğu gizlendi. Görünüm › Bağlamsal Görev Çubuğu ile yeniden gösterilir.".into();
             }
             self.run_action(a);
         }
@@ -717,7 +717,7 @@ fn kind_button(
         kind,
         if on { p.text } else { p.secondary },
     );
-    resp.on_hover_text(format!("Outline: {name}"))
+    resp.on_hover_text(format!("Dış hat: {name}"))
 }
 
 /// The bar's outline button. Without an outline it's the plain icon. With
@@ -732,7 +732,7 @@ fn outline_button(
 ) -> egui::Response {
     let p = pal_ui(ui);
     let (r, resp) = ui.allocate_exact_size(Vec2::splat(BUTTON), Sense::click());
-    resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, open, "Outline"));
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, open, "Dış hat"));
     if open {
         let lit = if p.dark {
             Color32::from_rgb(70, 70, 74)
@@ -778,9 +778,9 @@ fn outline_button(
         }
     }
     resp.on_hover_text(match (on, open) {
-        (false, _) => "Outline: a line of stitches round the shape, in its own thread",
-        (true, true) => "Outline: on (click to close its row; the outline stays)",
-        (true, false) => "Outline: on (click to open its row)",
+        (false, _) => "Dış hat: şeklin çevresinde kendi ipliğiyle bir dikiş çizgisi",
+        (true, true) => "Dış hat: açık (satırını kapatmak için tıklayın; dış hat kalır)",
+        (true, false) => "Dış hat: açık (satırını açmak için tıklayın)",
     })
 }
 
@@ -795,7 +795,7 @@ enum PlaceChange {
 fn grip(ui: &mut egui::Ui) -> Vec2 {
     let p = pal_ui(ui);
     let (r, resp) = ui.allocate_exact_size(Vec2::new(GRIP_W, BUTTON), Sense::drag());
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Move Task Bar"));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Görev Çubuğunu Taşı"));
     let active = resp.hovered() || resp.dragged();
     ui.painter().rect_filled(
         Rect::from_center_size(r.center(), Vec2::new(3.0, BUTTON - 10.0)),

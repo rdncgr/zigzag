@@ -756,6 +756,72 @@ impl Document {
 
     /// Re-set lettering with new settings, keeping its place, transform and id.
     pub fn set_lettering(&mut self, index: usize, spec: &TextSpec) -> Result<()> {
+        self.set_lettering_placed(index, spec, None)
+    }
+
+    /// Lettering scaled as a shape (by its frame's handles, the Scale tool)
+    /// is drawn bigger by its transform while its settings still say the
+    /// height it was set at. Its scale is taken out of the transform into
+    /// them instead: the letter height by the scale up and down, tracking,
+    /// kerning by the scale across, the arc's radius likewise, and an
+    /// uneven scale as its horizontal scale, leaving the transform to say
+    /// only where it is and how it's turned. (Not lettering on a path, which
+    /// the path places; nor scaled askew, or past what the settings allow,
+    /// which only the transform can say.)
+    pub(super) fn fold_lettering_scale(&mut self, index: usize) -> Result<()> {
+        let Some(spec) = self.lettering(index) else {
+            return Ok(());
+        };
+        if spec.path.is_some() {
+            return Ok(());
+        }
+        let s = &self.shapes[index];
+        let doc = roxmltree::Document::parse(&self.xml).context("parsing document")?;
+        let Some(n) = doc.descendants().find(|n| {
+            n.is_element()
+                && n.tag_name().name() == "text"
+                && n.attribute("id") == Some(s.id.as_str())
+        }) else {
+            return Ok(());
+        };
+        let Some(t) = n.attribute("transform") else {
+            return Ok(());
+        };
+        let mut m = super::edit::parse_transform(t);
+        if let Some((h, v)) = spec.glyph_scale() {
+            m = affine_mul(m, [1.0 / h, 0.0, 0.0, 1.0 / v, 0.0, 0.0]);
+        }
+        drop(doc);
+        let (sx, sy) = (m[0].hypot(m[1]), m[2].hypot(m[3]));
+        let square = (m[0] * m[2] + m[1] * m[3]).abs() <= 1e-6 * sx * sy;
+        if !square
+            || sx <= 1e-9
+            || sy <= 1e-9
+            || ((sx - 1.0).abs() < 1e-4 && (sy - 1.0).abs() < 1e-4)
+        {
+            return Ok(());
+        }
+        let mut new = spec.clone();
+        new.size_mm = spec.size_mm * sy;
+        new.spacing_mm = spec.spacing_mm * sx;
+        new.arc_mm = spec.arc_mm * sy;
+        new.h_scale = spec.h_scale * sx / sy;
+        new.kern = spec.kern.iter().map(|&(k, mm)| (k, mm * sx)).collect();
+        if !(20.0..=400.0).contains(&new.h_scale) {
+            return Ok(());
+        }
+        let placed = affine_mul(m, [1.0 / sx, 0.0, 0.0, 1.0 / sy, 0.0, 0.0]);
+        self.set_lettering_placed(index, &new, Some(placed))
+    }
+
+    /// [`Self::set_lettering`], put where `placed` says (its transform, less
+    /// its glyph scale) instead of where it is.
+    fn set_lettering_placed(
+        &mut self,
+        index: usize,
+        spec: &TextSpec,
+        placed: Option<Affine>,
+    ) -> Result<()> {
         // (A lone space is allowed: the studio sets it while all the text
         // is deleted mid-edit, so the frame and caret have an element.)
         if spec.text.is_empty() || (spec.text.trim().is_empty() && spec.text != " ") {
@@ -786,17 +852,23 @@ impl Document {
         // written with (which a move or a turn since has folded into one
         // matrix with the rest).
         let was = lettering_of(n, s).and_then(|l| l.glyph_scale());
-        let transform = n.attribute("transform").and_then(|t| {
-            let mut m = super::edit::parse_transform(t);
-            if let Some((h, v)) = was {
-                m = affine_mul(m, [1.0 / h, 0.0, 0.0, 1.0 / v, 0.0, 0.0]);
-            }
-            let same = m
-                .iter()
-                .zip(crate::geom::IDENTITY)
-                .all(|(a, b)| (a - b).abs() < 1e-9);
-            (!same).then(|| super::edit::fmt_matrix(m))
-        });
+        let transform = placed
+            .or_else(|| {
+                n.attribute("transform").map(|t| {
+                    let mut m = super::edit::parse_transform(t);
+                    if let Some((h, v)) = was {
+                        m = affine_mul(m, [1.0 / h, 0.0, 0.0, 1.0 / v, 0.0, 0.0]);
+                    }
+                    m
+                })
+            })
+            .and_then(|m| {
+                let same = m
+                    .iter()
+                    .zip(crate::geom::IDENTITY)
+                    .all(|(a, b)| (a - b).abs() < 1e-9);
+                (!same).then(|| super::edit::fmt_matrix(m))
+            });
         // The arc path sits right before the text, sharing its group.
         let mut range = n.range();
         let mut arc_id = None;
@@ -1524,6 +1596,55 @@ mod tests {
         let e = Document::from_svg(&saved, "t", None).unwrap();
         assert!(e.lettering(0).is_some());
         assert_eq!(e.shapes[0].params.kind, Some(Kind::Satin));
+    }
+
+    #[test]
+    fn lettering_scaled_as_a_shape_says_its_new_height() {
+        // Scaled by its handles to twice the size: drawn twice as big, and
+        // its settings say so (16 mm), its transform only where it is.
+        let mut d = Document::empty();
+        let spec = TextSpec {
+            text: "ROB".into(),
+            size_mm: 8.0,
+            ..TextSpec::default()
+        };
+        let i = d.add_lettering(&spec, (0.0, 0.0)).unwrap();
+        let bounds = |d: &Document| svg::shapes_bounds(&d.shapes[i..=i]);
+        let b = bounds(&d);
+        let c = b.center();
+        let about = |k: f64, kx: f64| -> Affine {
+            affine_mul(
+                crate::geom::translation(c),
+                affine_mul(
+                    [kx, 0.0, 0.0, k, 0.0, 0.0],
+                    crate::geom::translation(P::new(-c.x, -c.y)),
+                ),
+            )
+        };
+        d.transform(&[i], about(2.0, 2.0)).unwrap();
+        let got = d.lettering(i).unwrap();
+        assert!((got.size_mm - 16.0).abs() < 0.05, "{}", got.size_mm);
+        assert!((got.spacing_mm - spec.spacing_mm * 2.0).abs() < 0.01);
+        assert!((got.h_scale - 100.0).abs() < 0.1);
+        let b2 = bounds(&d);
+        assert!(
+            (b2.width() / b.width() - 2.0).abs() < 0.02,
+            "{} {}",
+            b.width(),
+            b2.width()
+        );
+        assert!((b2.height() / b.height() - 2.0).abs() < 0.02);
+        assert!(b2.center().dist(c) < 1.0);
+        // Stretched across only: as wide again and a half, the same height.
+        d.transform(&[i], about(1.0, 1.5)).unwrap();
+        let got = d.lettering(i).unwrap();
+        assert!((got.size_mm - 16.0).abs() < 0.05, "{}", got.size_mm);
+        assert!((got.h_scale - 150.0).abs() < 0.2, "{}", got.h_scale);
+        let b3 = bounds(&d);
+        assert!((b3.width() / b2.width() - 1.5).abs() < 0.03);
+        assert!((b3.height() / b2.height() - 1.0).abs() < 0.02);
+        // And it's still where it was.
+        assert!(b3.center().dist(c) < 1.0);
     }
 
     #[test]

@@ -277,6 +277,7 @@ impl Studio {
         self.replans += 1;
         *self.satin_memo.borrow_mut() = None;
         self.agent.work.clear();
+        self.leave_review();
     }
 
     /// Bring tab `j` to the front.
@@ -675,7 +676,7 @@ impl Studio {
         }
         icons::paint(
             &painter,
-            Rect::from_center_size(plus.center(), Vec2::splat(14.0)),
+            Rect::from_center_size(plus.center(), Vec2::splat(15.0)),
             Icon::Plus,
             p.secondary,
         );
@@ -700,7 +701,7 @@ impl Studio {
             }
             icons::paint(
                 &painter,
-                Rect::from_center_size(more.center(), Vec2::splat(14.0)),
+                Rect::from_center_size(more.center(), Vec2::splat(15.0)),
                 Icon::ChevronsRight,
                 p.secondary,
             );

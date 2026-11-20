@@ -73,6 +73,7 @@ pub fn html(d: &Design, info: &WorksheetInfo) -> Result<String> {
         background: info.background,
         show_jumps: false,
         thread_mm: 0.38,
+        marks: Vec::new(),
     };
     let png = render_png(d, &opt, 900)?;
     let img = base64::engine::general_purpose::STANDARD.encode(png);

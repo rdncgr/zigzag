@@ -23,7 +23,10 @@ list_machines and set_document's machine set a document up for a machine: its ho
 Hat designs are small (about 50 × 50 mm on the front of a cap): keep satin columns under 7 mm wide, letters at least 5 mm tall, and details at least 1.5 mm. \
 open_file also opens machine files (pes, pec, dst, exp, jef, vp3) as manual stitches. \
 trace_image turns a logo (PNG, JPEG, WebP, GIF, BMP or TIFF) into shapes (snap colors to Brother or Janome threads with `threads`). simplify_design makes the whole design quicker to sew (fewer threads, no details too small to sew, fewer trims; try it with dry_run first to see what it comes to). add_outline gives a filled shape an outline (a running stitch, or satin) that is an object of its own, named \"<shape> (outline)\", with its own thread and stitch type. round_corners softens sharp corners, which stitch more cleanly; simplify takes extra points out of outlines (traced ones especially) and clean_up removes stray points, objects too small to sew and extra points across the design. \
+To make satin stitching cleaner: measure_stitching counts what shows (stitches outside the shape, bare cloth, crowded needle points, seams, piled satin, travel in sight, trims); change one thing (a letter's corners with set_object cut or mitred, its zigzag with even, its lean, underlay or pull; or break_into_columns and then move_object to reorder the columns and edit_path to move a rail's points or add, move or delete a rung, reading them first with get_path); measure again passing the first result's measures as `before`, keep the change if the verdict is better and undo it if it's worse; and look at render_preview, which sees what the numbers don't. Text is made shapes with create_outlines before its columns or points can be changed. Before breaking a shape into columns, duplicate it and set the copy's kind to skip, to pass as measure_stitching's `within` (the outline the columns are held to); delete the copy when done. \
 Use batch to make several changes in one call: it is all or nothing and one undo step, each step is {\"tool\": name, \"arguments\": {…}}, and later steps can use earlier results (\"$0.added.0.name\"). \
+The person can pin numbered notes on the canvas to show where they mean: get_annotations reads them (render_preview draws them too), and resolve_note marks one done with a word on what you did. \
+To offer the person a choice (when they ask for options, alternatives or a few versions), make versions to compare side by side with the original: start_variants, then for each version make its changes and call save_variant with a short label (it keeps the version and puts the original back for the next); show_comparison shows them again or puts them away. \
 Tools that change the design return the whole object or document; pass terse: true (on a tool, or on a batch for all its steps) for a short answer instead: ok, the names of objects added, and new_problems, the design problems that weren't there before.";
 
 fn obj_schema() -> Value {
@@ -215,7 +218,11 @@ pub fn tool_specs() -> Value {
                     "width_mm": { "type": ["number", "null"], "description": "Satin width (strokes and borders), appliqué cover width, or blanket prong length." },
                     "split_mm": { "type": ["number", "null"], "description": "Satin auto-split: split stitches longer than this (0 = off; default 7)." },
                     "lean": { "type": ["number", "null"], "description": "Satin: how far the stitches lean from square across the column, degrees (−60 to 60; default 0). A few degrees keeps stitches from sinking between a knit's rows; more shows a slant." },
+                    "even": { "type": ["boolean", "null"], "description": "Satin zigzag: true (the default) shares each step along the column between the stitch over and the stitch back, so both slant the same; false sews one straight across and the next the whole step." },
+                    "rails": { "type": ["array", "null"], "items": { "type": "integer" }, "description": "Two-rail satin (a stroke path of two rails and any rungs): which two subpaths are the rails, counted from 1 in the path's order; the rest are rungs. Null: worked out from what crosses what (a rung crosses both rails), which can't tell a short column with exactly two rungs from its rungs." },
                     "border": { "type": ["boolean", "null"], "description": "Satin on a filled shape: true = along its outline, false = across it as a column." },
+                    "cut": { "type": ["boolean", "null"], "description": "Satin on a filled shape (a letter): true (the default) cuts it into columns where its strokes part, corners squared, one stroke running on and the other ending against it. False: read as strokes, each its own column, corners mitred, unless a corner is too sharp for a mitre to sew cleanly or a join can't be read clearly, when it's cut (or always mitred, with mitred true)." },
+                    "mitred": { "type": ["boolean", "null"], "description": "Satin on a filled shape (a letter) with cut false: true mitres every corner however sharp. False: as cut says." },
                     "spiral": { "type": ["boolean", "null"], "description": "Contour fill as one spiral out from the center (or the start point) instead of rings." },
                     "underlay": { "type": ["boolean", "null"] },
                     "satin_underlay": { "description": "Satin underlay passes, or \"auto\".", "oneOf": [{ "type": "array", "items": { "type": "string", "enum": ["center", "contour", "zigzag"] } }, { "type": "string", "enum": ["auto"] }] },
@@ -366,6 +373,48 @@ pub fn tool_specs() -> Value {
             "annotations": { "readOnlyHint": true }
         }),
         json!({
+            "name": "get_annotations",
+            "description": "The notes the person pinned on the canvas, still to be dealt with: each one's number, what it says, where (a point, or a box, in mm from the hoop center), the objects it's on, and whether it's new or was sent with an earlier request.",
+            "inputSchema": { "type": "object", "properties": {} },
+            "annotations": { "readOnlyHint": true }
+        }),
+        json!({
+            "name": "resolve_note",
+            "description": "Mark one of the person's canvas notes done (it leaves the canvas), with a few words on what you did about it.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "number": { "type": "integer", "description": "The note's number (get_annotations)." },
+                    "reply": { "type": "string", "description": "What you did, in a few words." }
+                },
+                "required": ["number"]
+            }
+        }),
+        json!({
+            "name": "start_variants",
+            "description": "Start making versions for the person to compare: the design as it is now becomes the original they're shown beside. Then make each version and call save_variant.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
+        json!({
+            "name": "save_variant",
+            "description": "Keep the design as it is now as a version (the person sees it beside the original and the others, and chooses), and put the original back to start the next version from.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "label": { "type": "string", "description": "How this version differs, in a few words (\"Bolder satin border\")." }
+                },
+                "required": ["label"]
+            }
+        }),
+        json!({
+            "name": "show_comparison",
+            "description": "Show the person the latest versions side by side with the original (or, if there are none, the design before and after the last request), filling the canvas; or put that away (show: false) so the canvas shows the design again. start_variants shows it by itself.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "show": { "type": "boolean", "description": "Default true." } }
+            }
+        }),
+        json!({
             "name": "check_design",
             "description": "List problems an experienced digitizer would flag (sizes, satin widths, hoop fit, lettering size).",
             "inputSchema": { "type": "object", "properties": {} },
@@ -431,6 +480,82 @@ pub fn tool_specs() -> Value {
                     "color": { "type": "string", "description": "Thread color #rrggbb. Default: a darker shade of each shape's thread." }
                 },
                 "required": ["objects"]
+            }
+        }),
+        json!({
+            "name": "break_into_columns",
+            "description": "Break filled shapes sewn in satin into the columns they're sewn as, to see and adjust the route: each column becomes a two-rail satin object (its rails and rungs as paths), all in a group in the order ZigZag sews them. Satin columns one after another in one group, in the same thread and with the same settings, are sewn as one satin: in the order and direction they're in, the thread travelling on under the columns still to come and each column lapped under the one it ends against, so breaking a shape doesn't change how it's sewn. Afterwards reorder them with move_object, reshape their rails, or give one a trim with set_object to cut after it (the columns up to it are still one satin; a column with other settings of its own is sewn on its own). Text must be turned into shapes first.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "objects": { "description": "The satin shapes to break up: one (index or name) or a list of them.", "oneOf": [{ "type": "integer" }, { "type": "string" }, { "type": "array", "items": { "oneOf": [{ "type": "integer" }, { "type": "string" }] } }] }
+                },
+                "required": ["objects"]
+            }
+        }),
+        json!({
+            "name": "measure_stitching",
+            "description": "Measure how cleanly satin stitching comes out, to tell whether a change made it better. Call it before a change and again after, passing the first call's `measures` as `before`: it says which numbers moved and gives a verdict (better, worse, mixed or same). It plans just the objects given, on their own, with the document's settings, and counts what shows in the thread; less of each is better: trims (and trims_needed, the cuts the shape can't be sewn without, one fewer than its separate parts), travel_showing (travel stitches lying across finished stitching), stitches_outside (needle points more than 0.6 mm past the outline), stitches_leaving_shape (stitches that cross out of the shape and back), bare_mm2 (cloth inside the outline no thread covers), crowded_needle_points (four or more within 0.25 mm: the narrow end of a fan), seams (places a stroke is sewn in pieces and the stitch direction jumps), piled_mm2 (satin three columns deep), stitches_off_square (stitches more than 30° from square across their column), stitches_off_edge (the same against the shape's own edge), worst_lean_deg, pointed_ends (column ends that come to a point) and filled_parts (parts that couldn't be made columns and are filled instead). `faults` names the ones that aren't zero. A filled shape sewn in satin is held to its own outline. Columns broken out of a shape (break_into_columns) have no outline left to be held to: before breaking it, duplicate the shape and set the copy's kind to skip (kept, not sewn), then pass the copy as `within`; without one, the measures that need an outline are null. These are measures, not eyes: stitches outside the shape, bare cloth, piled satin and seams are counted well, a fan of stitches into a corner poorly, so look at render_preview too. check_design lists the design-wide problems (hoop fit, sizes, stitch lengths).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "objects": { "description": "The satin objects to measure together: one (index or name) or a list. Left out: every satin in the design.", "oneOf": [{ "type": "integer" }, { "type": "string" }, { "type": "array", "items": { "oneOf": [{ "type": "integer" }, { "type": "string" }] } }] },
+                    "within": { "description": "Filled shapes whose outlines the stitching should cover and stay inside, besides the measured shapes' own: the unsewn copy of a shape that was broken into columns.", "oneOf": [{ "type": "integer" }, { "type": "string" }, { "type": "array", "items": { "oneOf": [{ "type": "integer" }, { "type": "string" }] } }] },
+                    "before": { "type": "object", "description": "The `measures` of an earlier call, to compare with." }
+                }
+            },
+            "annotations": { "readOnlyHint": true }
+        }),
+        json!({
+            "name": "create_outlines",
+            "description": "Turn text into plain shapes (Type › Create Outlines): its letters' outlines as one object that's no longer text, so it can be broken into columns (break_into_columns) or edited point by point (edit_path). It keeps its stitch settings and thread; the wording, font and size can't be changed afterwards.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "objects": { "description": "The text objects: one (index or name) or a list of them.", "oneOf": [{ "type": "integer" }, { "type": "string" }, { "type": "array", "items": { "oneOf": [{ "type": "integer" }, { "type": "string" }] } }] }
+                },
+                "required": ["objects"]
+            }
+        }),
+        json!({
+            "name": "get_path",
+            "description": "An object's outline as its points, to read before edit_path: its subpaths in the path's order, each open or closed, each point with its place in mm (the design's coordinates, as center_mm in get_design) and its curve handles where it has them. For a two-rail satin (what break_into_columns makes) each subpath says whether it's a rail or a rung: the stitches run from rail to rail, and each rung fixes where on the two rails one stitch lands. Subpaths and points are counted from 1.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "object": { "description": "Index or name.", "oneOf": [{ "type": "integer" }, { "type": "string" }] }
+                },
+                "required": ["object"]
+            }
+        }),
+        json!({
+            "name": "edit_path",
+            "description": "Change an object's outline point by point (the Direct Selection and Pen tools' edits), all in one undo step: move a point, add one, delete one, add a subpath or delete one. On a two-rail satin this is how a column is adjusted: move a rail's points to widen, narrow or straighten it, move a rung's two ends to turn the stitches there, add a rung (a two-point subpath crossing both rails) where the stitches should be held to an angle, or delete one that twists them. Read the points with get_path first; numbers are as it gives them (from 1) and refer to the path as it is before this call's edits when there's one edit; with several, each edit sees the ones before it. Text must be made outlines first (create_outlines). Check the result with check_design or render_preview.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "object": { "description": "Index or name.", "oneOf": [{ "type": "integer" }, { "type": "string" }] },
+                    "edits": {
+                        "type": "array",
+                        "description": "The edits, applied in order.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "op": { "type": "string", "enum": ["move", "insert", "delete", "add_subpath", "delete_subpath"], "description": "move: a point (its handles go with it) to to_mm, or by by_mm. insert: a new point on the segment after point `after` (0: before the first point of an open subpath is not allowed; use the segment after 1), at the middle of the segment keeping its shape, or at at_mm as a corner. delete: a point. add_subpath: a new subpath through points_mm (a rung is two points, one just outside each rail). delete_subpath: a whole subpath (not a satin's rail)." },
+                                "subpath": { "type": "integer", "description": "Which subpath, from 1 (all but add_subpath)." },
+                                "point": { "type": "integer", "description": "Which point of it, from 1 (move, delete)." },
+                                "after": { "type": "integer", "description": "insert: the point the new one comes after (the last point of a closed subpath: between it and the first)." },
+                                "to_mm": { "type": "array", "items": { "type": "number" }, "description": "move: where to, [x, y]." },
+                                "by_mm": { "type": "array", "items": { "type": "number" }, "description": "move: how far, [dx, dy]." },
+                                "at_mm": { "type": "array", "items": { "type": "number" }, "description": "insert: where, [x, y]. Left out: the middle of the segment." },
+                                "points_mm": { "type": "array", "items": { "type": "array", "items": { "type": "number" } }, "description": "add_subpath: its points, [[x, y], …], two or more." },
+                                "closed": { "type": "boolean", "description": "add_subpath: closed. Default false." }
+                            },
+                            "required": ["op"]
+                        }
+                    }
+                },
+                "required": ["object", "edits"]
             }
         }),
         json!({
@@ -566,6 +691,7 @@ fn only_reads(name: &str) -> bool {
             | "get_svg"
             | "list_documents"
             | "list_machines"
+            | "get_annotations"
     )
 }
 
@@ -696,6 +822,14 @@ fn hex(c: [u8; 3]) -> String {
     format!("#{:02x}{:02x}{:02x}", c[0], c[1], c[2])
 }
 
+/// How many subpaths object `s` is drawn as.
+fn rails_count(s: &zigzag::svg::Shape) -> usize {
+    match &s.geometry {
+        Geometry::Stroke { lines, .. } => lines.len(),
+        Geometry::Fill { rings, .. } => rings.len(),
+    }
+}
+
 fn mm(v: f64) -> f64 {
     (v * 100.0).round() / 100.0
 }
@@ -787,7 +921,7 @@ impl Studio {
             }
             Kind::Satin => {
                 let w = crate::app::mean_satin_width(s);
-                let ul = p.satin_underlay_for(w);
+                let ul = p.satin_underlay_for(&f, w);
                 let names: Vec<&str> = [
                     (underlay::CENTER, "center"),
                     (underlay::CONTOUR, "contour"),
@@ -800,6 +934,13 @@ impl Studio {
                 settings.insert("mean_width_mm".into(), json!(mm(w)));
                 if matches!(s.geometry, Geometry::Fill { .. }) {
                     settings.insert("border".into(), json!(p.is_border()));
+                    settings.insert("cut".into(), json!(p.satin_cut()));
+                    settings.insert("mitred".into(), json!(p.satin_mitred()));
+                    // (Overlapping strokes aren't offered; said only of an
+                    // object a file has them on.)
+                    if p.satin_overlap() {
+                        settings.insert("overlap".into(), json!(true));
+                    }
                 }
                 settings.insert("spacing_mm".into(), json!(p.satin_spacing(&f)));
                 settings.insert("pull_mm".into(), json!(p.satin_pull(&f)));
@@ -811,6 +952,10 @@ impl Studio {
                 settings.insert("short_stitches".into(), json!(p.short_stitches_on()));
                 settings.insert("split_mm".into(), json!(p.satin_split().unwrap_or(0.0)));
                 settings.insert("lean".into(), json!(p.satin_lean()));
+                settings.insert("even".into(), json!(p.satin_even()));
+                if let Some((a, b)) = p.rails {
+                    settings.insert("rails".into(), json!([a, b]));
+                }
             }
             Kind::Run => {
                 settings.insert("length_mm".into(), json!(p.run_len(&f)));
@@ -1010,6 +1155,11 @@ impl Studio {
             "batch" => return self.tool_batch(args),
             "trace_image" => self.tool_trace_image(args),
             "round_corners" => self.tool_round_corners(args),
+            "break_into_columns" => self.tool_break_into_columns(args),
+            "create_outlines" => self.tool_create_outlines(args),
+            "measure_stitching" => self.tool_measure_stitching(args),
+            "get_path" => self.tool_get_path(args),
+            "edit_path" => self.tool_edit_path(args),
             "add_outline" => self.tool_add_outline(args),
             "simplify" => self.tool_simplify(args),
             "clean_up" => self.tool_clean_up(args),
@@ -1161,6 +1311,11 @@ impl Studio {
             }
             "duplicate_objects" => self.tool_duplicate(args),
             "render_preview" => self.tool_render(args),
+            "get_annotations" => self.tool_get_annotations(),
+            "resolve_note" => self.tool_resolve_note(args),
+            "start_variants" => self.tool_start_variants(),
+            "save_variant" => self.tool_save_variant(args),
+            "show_comparison" => self.tool_show_comparison(args),
             "check_design" => {
                 let v: Vec<Value> = self
                     .issues
@@ -1795,6 +1950,403 @@ impl Studio {
         ))
     }
 
+    fn tool_break_into_columns(&mut self, args: &Value) -> Result<ToolResult, String> {
+        let idx = self.resolve_many(args.get("objects"))?;
+        let mut new = Vec::new();
+        self.structural(|d| {
+            new = d.break_into_columns(&idx)?;
+            Ok(())
+        })
+        .map_err(|e| format!("{e:#}"))?;
+        self.replan_soon();
+        self.set_selection(&new);
+        Ok(ToolResult::json(
+            &json!({ "made": new.iter().map(|&i| self.object_json(i)).collect::<Vec<_>>() }),
+        ))
+    }
+
+    fn tool_measure_stitching(&mut self, args: &Value) -> Result<ToolResult, String> {
+        use zigzag::design::measure;
+        let satin = |s: &zigzag::svg::Shape| {
+            s.params.kind == Some(Kind::Satin)
+                && match &s.geometry {
+                    Geometry::Fill { .. } => !s.params.is_border() && !s.outline,
+                    Geometry::Stroke { .. } => measure::drawn_column(s).is_some(),
+                }
+        };
+        let idx = match args.get("objects") {
+            None | Some(Value::Null) => (0..self.doc.shapes.len())
+                .filter(|&i| satin(&self.doc.shapes[i]))
+                .collect(),
+            some => self.resolve_many(some)?,
+        };
+        if idx.is_empty() {
+            return Err(
+                "there's no satin to measure: a filled shape sewn in satin, or a two-rail satin"
+                    .into(),
+            );
+        }
+        if let Some(&i) = idx.iter().find(|&&i| !satin(&self.doc.shapes[i])) {
+            return Err(format!(
+                "object {i} isn't a satin column or a filled shape sewn in satin (a border satin, a fill or a run isn't measured this way: see check_design)"
+            ));
+        }
+        let within = match args.get("within") {
+            None | Some(Value::Null) => Vec::new(),
+            some => self.resolve_many(some)?,
+        };
+        if let Some(&i) = within
+            .iter()
+            .find(|&&i| !matches!(self.doc.shapes[i].geometry, Geometry::Fill { .. }))
+        {
+            return Err(format!(
+                "`within`: object {i} isn't a filled shape, so it has no outline to hold stitching to"
+            ));
+        }
+        let take = |idx: &[usize]| -> Vec<zigzag::svg::Shape> {
+            idx.iter().map(|&i| self.doc.shapes[i].clone()).collect()
+        };
+        let (shapes, held) = (take(&idx), take(&within));
+        let opt = self.doc.plan_options();
+        let (outline, bare) = measure::counted(&shapes, &held);
+        let l =
+            zigzag::design::caught(|| measure::measured(&shapes, &held, &opt)).map_err(|_| {
+                "those objects couldn't be measured (an internal error on their outlines)"
+                    .to_string()
+            })?;
+        let mm2 = |cells: usize| mm(cells as f64 / 100.0);
+        let measures = json!({
+            "trims": l.trims,
+            "trims_needed": l.owed,
+            "travel_showing": l.exposed,
+            "stitches_outside": outline.then_some(l.outside),
+            "stitches_leaving_shape": l.astray,
+            "bare_mm2": bare.then(|| mm2(l.bare)),
+            "crowded_needle_points": l.crowded,
+            "seams": l.seams,
+            "piled_mm2": mm2(l.layers),
+            "stitches_off_square": l.skewed,
+            "stitches_off_edge": l.off_edge,
+            "worst_lean_deg": l.lean,
+            "pointed_ends": l.pointed,
+            "filled_parts": l.fills,
+        });
+        // (What isn't a fault at nothing: the cuts it can't do without.)
+        let amount = |key: &str, v: &Value| -> Option<f64> {
+            let x = v.get(key)?.as_f64()?;
+            Some(match key {
+                "trims" => {
+                    (x - v.get("trims_needed").and_then(Value::as_f64).unwrap_or(0.0)).max(0.0)
+                }
+                _ => x,
+            })
+        };
+        let keys: Vec<&str> = measures
+            .as_object()
+            .map(|m| {
+                m.keys()
+                    .map(String::as_str)
+                    .filter(|k| *k != "trims_needed")
+                    .collect()
+            })
+            .unwrap_or_default();
+        let faults: Vec<&str> = keys
+            .iter()
+            .copied()
+            .filter(|k| amount(k, &measures).is_some_and(|x| x > 0.0))
+            .collect();
+        let mut out = json!({
+            "objects": idx,
+            "columns": l.columns,
+            "measures": measures,
+            "faults": faults,
+        });
+        if !outline {
+            out["note"] = json!(
+                "No outline to hold these columns to: stitches_outside and bare_mm2 aren't measured. Pass the shape they came from (an unsewn copy) as `within`."
+            );
+        } else if !bare {
+            out["note"] = json!(
+                "Too big an area to look over for bare cloth: bare_mm2 isn't measured. Measure fewer objects at a time."
+            );
+        }
+        if let Some(before) = args.get("before").filter(|b| b.is_object()) {
+            let (mut better, mut worse) = (Vec::new(), Vec::new());
+            let mut changes = serde_json::Map::new();
+            for k in &keys {
+                let (Some(was), Some(now)) = (amount(k, before), amount(k, &out["measures"]))
+                else {
+                    continue;
+                };
+                if (now - was).abs() > 1e-9 {
+                    changes.insert(
+                        (*k).into(),
+                        json!({ "before": before[*k], "after": out["measures"][*k] }),
+                    );
+                    if now < was {
+                        better.push(*k)
+                    } else {
+                        worse.push(*k)
+                    }
+                }
+            }
+            out["compared"] = json!({
+                "verdict": match (better.is_empty(), worse.is_empty()) {
+                    (true, true) => "same",
+                    (false, true) => "better",
+                    (true, false) => "worse",
+                    (false, false) => "mixed",
+                },
+                "better": better,
+                "worse": worse,
+                "changes": changes,
+            });
+        }
+        Ok(ToolResult::json(&out))
+    }
+
+    fn tool_create_outlines(&mut self, args: &Value) -> Result<ToolResult, String> {
+        let idx = self.resolve_many(args.get("objects"))?;
+        if let Some(&i) = idx.iter().find(|&&i| self.doc.lettering(i).is_none()) {
+            return Err(format!(
+                "object {i} isn't text: only text is made outlines (a shape already is its outline)"
+            ));
+        }
+        let uids: Vec<usize> = idx.iter().map(|&i| self.doc.shapes[i].uid).collect();
+        let mut new = Vec::new();
+        self.structural(|d| {
+            for uid in &uids {
+                let Some(i) = d.shapes.iter().position(|s| s.uid == *uid) else {
+                    continue;
+                };
+                let j = d.expand_lettering(i)?;
+                new.push(d.shapes[j].uid);
+            }
+            Ok(())
+        })
+        .map_err(|e| format!("{e:#}"))?;
+        self.replan_soon();
+        let made: Vec<usize> = (0..self.doc.shapes.len())
+            .filter(|&i| new.contains(&self.doc.shapes[i].uid))
+            .collect();
+        self.set_selection(&made);
+        Ok(ToolResult::json(
+            &json!({ "made": made.iter().map(|&i| self.object_json(i)).collect::<Vec<_>>() }),
+        ))
+    }
+
+    /// Object `i`'s outline as `get_path` gives it.
+    fn path_json(&self, i: usize, path: &zigzag::bezier::BezPath) -> Value {
+        let s = &self.doc.shapes[i];
+        let at = |p: zigzag::geom::P| json!([mm(p.x / 10.0), mm(p.y / 10.0)]);
+        // (Which subpaths are a two-rail satin's rails: as it says, or as
+        // they're told apart when it doesn't.)
+        let rails: Option<(usize, usize)> = match &s.geometry {
+            Geometry::Stroke { lines, .. }
+                if s.params.kind == Some(Kind::Satin) && !s.outline && lines.len() >= 2 =>
+            {
+                zigzag::stitch::satin::rails_of_subpaths(lines, s.params.satin_rails())
+            }
+            _ => None,
+        };
+        let subpaths: Vec<Value> = path
+            .iter()
+            .enumerate()
+            .map(|(k, sp)| {
+                let points: Vec<Value> = sp
+                    .anchors
+                    .iter()
+                    .enumerate()
+                    .map(|(n, a)| {
+                        let mut point = serde_json::Map::new();
+                        point.insert("point".into(), json!(n + 1));
+                        point.insert("at_mm".into(), at(a.p));
+                        if a.h_in != a.p {
+                            point.insert("handle_in_mm".into(), at(a.h_in));
+                        }
+                        if a.h_out != a.p {
+                            point.insert("handle_out_mm".into(), at(a.h_out));
+                        }
+                        Value::Object(point)
+                    })
+                    .collect();
+                let mut sub = serde_json::Map::new();
+                sub.insert("subpath".into(), json!(k + 1));
+                sub.insert("closed".into(), json!(sp.closed));
+                if let Some((a, b)) = rails
+                    && path.len() == rails_count(s)
+                {
+                    sub.insert(
+                        "role".into(),
+                        json!(if k == a || k == b { "rail" } else { "rung" }),
+                    );
+                }
+                sub.insert("points".into(), json!(points));
+                Value::Object(sub)
+            })
+            .collect();
+        json!({ "object": i, "name": self.names.get(i), "subpaths": subpaths })
+    }
+
+    fn tool_get_path(&mut self, args: &Value) -> Result<ToolResult, String> {
+        let i = self.resolve(args.get("object"))?;
+        if self.doc.lettering(i).is_some() {
+            return Err(
+                "that object is text: its letters are edited as text (edit_text), or made outlines first (create_outlines)"
+                    .into(),
+            );
+        }
+        let path = self.doc.edit_path(i).map_err(|e| format!("{e:#}"))?;
+        Ok(ToolResult::json(&self.path_json(i, &path)))
+    }
+
+    fn tool_edit_path(&mut self, args: &Value) -> Result<ToolResult, String> {
+        use zigzag::bezier::{Anchor, SubPath};
+        use zigzag::geom::P;
+        let i = self.resolve(args.get("object"))?;
+        if self.doc.lettering(i).is_some() {
+            return Err(
+                "that object is text: make it outlines first (create_outlines), then edit its points"
+                    .into(),
+            );
+        }
+        let edits = args
+            .get("edits")
+            .and_then(Value::as_array)
+            .filter(|e| !e.is_empty())
+            .ok_or("`edits` must be a list of one or more edits")?;
+        let mut path = self.doc.edit_path(i).map_err(|e| format!("{e:#}"))?;
+        // (A satin's marked rails, kept right as subpaths come and go.)
+        let mut rails = self.doc.shapes[i].params.rails;
+        let point = |v: Option<&Value>, what: &str| -> Result<P, String> {
+            let xy = v
+                .and_then(Value::as_array)
+                .filter(|a| a.len() == 2)
+                .and_then(|a| Some((a[0].as_f64()?, a[1].as_f64()?)))
+                .filter(|(x, y)| x.is_finite() && y.is_finite())
+                .ok_or(format!("`{what}` must be [x, y] in mm"))?;
+            Ok(P::new(xy.0 * 10.0, xy.1 * 10.0))
+        };
+        for (n, e) in edits.iter().enumerate() {
+            let said = |why: String| format!("edit {}: {why}", n + 1);
+            let op = e.get("op").and_then(Value::as_str).ok_or_else(|| {
+                said("`op` must be move, insert, delete, add_subpath or delete_subpath".into())
+            })?;
+            // (Counted from 1; here from 0.)
+            let number = |key: &str, most: usize, of: &str| -> Result<usize, String> {
+                e.get(key)
+                    .and_then(Value::as_u64)
+                    .map(|k| k as usize)
+                    .filter(|k| (1..=most).contains(k))
+                    .map(|k| k - 1)
+                    .ok_or_else(|| {
+                        said(format!("`{key}` must be a number from 1 to {most} ({of})"))
+                    })
+            };
+            if op == "add_subpath" {
+                let pts = e
+                    .get("points_mm")
+                    .and_then(Value::as_array)
+                    .filter(|a| a.len() >= 2)
+                    .ok_or_else(|| said("`points_mm` must be two or more [x, y] points".into()))?;
+                let anchors = pts
+                    .iter()
+                    .map(|v| point(Some(v), "points_mm").map(Anchor::corner))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(said)?;
+                let closed = e.get("closed").and_then(Value::as_bool).unwrap_or(false);
+                path.push(SubPath { anchors, closed });
+                continue;
+            }
+            let s = number("subpath", path.len(), "this object's subpaths")?;
+            match op {
+                "delete_subpath" => {
+                    if let Some((a, b)) = rails {
+                        let k = s as u32 + 1;
+                        if k == a || k == b {
+                            return Err(said(format!(
+                                "subpath {k} is one of the satin's rails: a column needs both (delete the object to remove the column)"
+                            )));
+                        }
+                        let down = |r: u32| if r > k { r - 1 } else { r };
+                        rails = Some((down(a), down(b)));
+                    }
+                    if path.len() == 1 {
+                        return Err(said(
+                            "that's the object's only subpath: delete the object instead (delete_object)".into(),
+                        ));
+                    }
+                    path.remove(s);
+                }
+                "move" => {
+                    let k = number("point", path[s].anchors.len(), "that subpath's points")?;
+                    let a = &mut path[s].anchors[k];
+                    let by = match (e.get("to_mm"), e.get("by_mm")) {
+                        (Some(to), None) => point(Some(to), "to_mm").map_err(said)? - a.p,
+                        (None, Some(by)) => point(Some(by), "by_mm").map_err(said)?,
+                        _ => return Err(said("give `to_mm` or `by_mm` (one of them)".into())),
+                    };
+                    (a.p, a.h_in, a.h_out) = (a.p + by, a.h_in + by, a.h_out + by);
+                }
+                "delete" => {
+                    let k = number("point", path[s].anchors.len(), "that subpath's points")?;
+                    let least = if path[s].closed { 3 } else { 2 };
+                    if path[s].anchors.len() <= least {
+                        return Err(said(format!(
+                            "subpath {} has only {} points: delete the subpath instead (delete_subpath)",
+                            s + 1,
+                            path[s].anchors.len()
+                        )));
+                    }
+                    path[s].anchors.remove(k);
+                }
+                "insert" => {
+                    let count = path[s].anchors.len();
+                    let last = if path[s].closed { count } else { count - 1 };
+                    let after = number(
+                        "after",
+                        last.max(1),
+                        "the point the new one comes after; the last point only on a closed subpath",
+                    )?;
+                    let (_, k) = zigzag::bezier::split(&mut path, s, after, 0.5);
+                    if let Some(at) = e.get("at_mm") {
+                        // (Put there as a corner: the curve either side
+                        // keeps its far handles.)
+                        let at = point(Some(at), "at_mm").map_err(said)?;
+                        path[s].anchors[k] = Anchor::corner(at);
+                    }
+                }
+                other => {
+                    return Err(said(format!(
+                        "no op `{other}`: move, insert, delete, add_subpath or delete_subpath"
+                    )));
+                }
+            }
+        }
+        let uid = self.doc.shapes[i].uid;
+        self.structural(|d| {
+            d.set_path(i, &path)?;
+            if let Some(j) = d.shapes.iter().position(|s| s.uid == uid)
+                && d.shapes[j].params.rails != rails
+            {
+                d.shapes[j].params.rails = rails;
+            }
+            Ok(())
+        })
+        .map_err(|e| format!("{e:#}"))?;
+        self.replan_soon();
+        let i = self
+            .doc
+            .shapes
+            .iter()
+            .position(|s| s.uid == uid)
+            .ok_or("the object has no outline left")?;
+        let now = self.doc.edit_path(i).map_err(|e| format!("{e:#}"))?;
+        let mut out = self.path_json(i, &now);
+        out["settings"] = self.object_json(i)["settings"].clone();
+        Ok(ToolResult::json(&out))
+    }
+
     fn tool_round_corners(&mut self, args: &Value) -> Result<ToolResult, String> {
         let idx = self.resolve_many(args.get("objects"))?;
         let r = args.get("radius_mm").and_then(Value::as_f64).unwrap_or(1.5);
@@ -1980,6 +2532,49 @@ impl Studio {
             p.lean = v
                 .map(|x| x.clamp(-zigzag::params::MAX_LEAN, zigzag::params::MAX_LEAN))
                 .filter(|x| *x != 0.0);
+        }
+        if let Some(v) = flag("even")? {
+            p.even = v.filter(|&x| x != zigzag::params::defaults::SATIN_EVEN);
+        }
+        if let Some(v) = flag("cut")? {
+            // (Cut is the default: only not cutting is recorded.)
+            p.cut = v.filter(|&x| !x);
+        }
+        if let Some(v) = flag("mitred")? {
+            p.mitred = v.filter(|&x| x);
+        }
+        match args.get("rails") {
+            None => {}
+            Some(Value::Null) => p.rails = None,
+            Some(v) => {
+                let pair: Option<(u32, u32)> =
+                    v.as_array().filter(|a| a.len() == 2).and_then(|a| {
+                        let n = |x: &Value| x.as_u64().and_then(|n| u32::try_from(n).ok());
+                        Some((n(&a[0])?, n(&a[1])?))
+                    });
+                let subpaths = match &self.doc.shapes[i].geometry {
+                    Geometry::Stroke { lines, .. } => lines.len() as u32,
+                    Geometry::Fill { .. } => 0,
+                };
+                match pair {
+                    Some((a, b))
+                        if a != b && a >= 1 && b >= 1 && a <= subpaths && b <= subpaths =>
+                    {
+                        p.rails = Some((a, b))
+                    }
+                    _ if subpaths < 2 => {
+                        return Err(
+                            "`rails` picks two of an object's strokes as a satin's rails: this object has no strokes to pick from (it's a filled shape, or one line)"
+                                .into(),
+                        );
+                    }
+                    _ => {
+                        return Err(format!(
+                            "`rails` must be two different subpath numbers from 1 to {subpaths} (this object's subpaths), or null"
+                        ));
+                    }
+                }
+            }
         }
         if let Some(v) = num("repeats")? {
             p.repeats = v.map(|x| x.clamp(1.0, 9.0) as u32);
@@ -2266,6 +2861,7 @@ impl Studio {
             background: self.doc.settings.cloth,
             show_jumps,
             thread_mm: 0.38,
+            marks: self.preview_marks(),
         };
         let png = render_png(&self.design, &opt, width).map_err(|e| format!("{e:#}"))?;
         let b = self.design.bounds();
@@ -2854,6 +3450,256 @@ mod tests {
         let r = ok(s.run_tool("set_object", &json!({ "object": 0, "lean": null })));
         assert_eq!(r["settings"]["lean"], 0.0);
         assert!(!s.doc.to_svg().unwrap().contains("lean="));
+        // Its zigzag is even unless it's said not to be (which is all a
+        // file records).
+        assert_eq!(r["settings"]["even"], true);
+        // (A filled satin's corners: cut unless asked not to be, and then
+        // mitred where that's clean, or everywhere.)
+        if r["settings"].get("cut").is_some() {
+            assert_eq!(r["settings"]["cut"], true);
+            let c = ok(s.run_tool("set_object", &json!({ "object": 0, "cut": false })));
+            assert_eq!(c["settings"]["cut"], false);
+            assert_eq!(c["settings"]["mitred"], false);
+            let c = ok(s.run_tool("set_object", &json!({ "object": 0, "mitred": true })));
+            assert_eq!(c["settings"]["mitred"], true);
+            let c = ok(s.run_tool("set_object", &json!({ "object": 0, "mitred": false })));
+            assert_eq!(c["settings"]["mitred"], false);
+            let c = ok(s.run_tool("set_object", &json!({ "object": 0, "cut": true })));
+            assert_eq!(c["settings"]["cut"], true);
+        }
+        let r = ok(s.run_tool("set_object", &json!({ "object": 0, "even": false })));
+        assert_eq!(r["settings"]["even"], false);
+        assert!(s.doc.to_svg().unwrap().contains("even=0"));
+        let r = ok(s.run_tool("set_object", &json!({ "object": 0, "even": true })));
+        assert_eq!(r["settings"]["even"], true);
+        assert!(!s.doc.to_svg().unwrap().contains("even="));
+        // Rails are two of the object's own subpaths.
+        for bad in [json!([1, 1]), json!([0, 1]), json!([1, 99]), json!("1+2")] {
+            assert!(
+                s.run_tool("set_object", &json!({ "object": 0, "rails": bad }))
+                    .is_error
+            );
+        }
+        assert!(!s.doc.to_svg().unwrap().contains("rails="));
+    }
+
+    #[test]
+    fn an_agent_reshapes_a_broken_out_column_point_by_point() {
+        let mut s = Studio::with_file(None, None);
+        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><path id="H_satin" fill="#123456" d="M10 10 L13 10 L13 19 L27 19 L27 10 L30 10 L30 30 L27 30 L27 21 L13 21 L13 30 L10 30 Z"/></svg>"##;
+        ok(s.run_tool("add_svg", &json!({ "svg": svg, "width_mm": 20.0 })));
+        ok(s.run_tool("break_into_columns", &json!({ "objects": 0 })));
+        // A column reads as two rails and its rungs, points in mm.
+        let p = ok(s.run_tool("get_path", &json!({ "object": 0 })));
+        let subs = p["subpaths"].as_array().unwrap().clone();
+        assert!(subs.len() >= 3, "{p}");
+        assert_eq!(subs[0]["role"], "rail");
+        assert_eq!(subs[1]["role"], "rail");
+        assert!(subs[2..].iter().all(|x| x["role"] == "rung"), "{p}");
+        let at = |v: &Value| (v[0].as_f64().unwrap(), v[1].as_f64().unwrap());
+        let first = at(&subs[0]["points"][0]["at_mm"]);
+        // Move a rail's point, by an amount and to a place.
+        let r = ok(s.run_tool(
+            "edit_path",
+            &json!({ "object": 0, "edits": [{ "op": "move", "subpath": 1, "point": 1, "by_mm": [0.5, 0.0] }] }),
+        ));
+        let moved = at(&r["subpaths"][0]["points"][0]["at_mm"]);
+        assert!(
+            (moved.0 - first.0 - 0.5).abs() < 0.02 && (moved.1 - first.1).abs() < 0.02,
+            "{r}"
+        );
+        assert_eq!(r["settings"]["rails"], json!([1, 2]), "still its rails");
+        let undo = s.undo.len();
+        let r = ok(s.run_tool(
+            "edit_path",
+            &json!({ "object": 0, "edits": [{ "op": "move", "subpath": 1, "point": 1, "to_mm": [first.0, first.1] }] }),
+        ));
+        assert_eq!(s.undo.len(), undo + 1, "one undo step a call");
+        let back = at(&r["subpaths"][0]["points"][0]["at_mm"]);
+        assert!((back.0 - first.0).abs() < 0.02 && (back.1 - first.1).abs() < 0.02);
+        // A rung added across the column, a point added to a rail, and
+        // both taken away again, in one call each.
+        let n = r["subpaths"].as_array().unwrap().len();
+        let rail_points = r["subpaths"][0]["points"].as_array().unwrap().len();
+        let a = at(&r["subpaths"][0]["points"][0]["at_mm"]);
+        let b = at(&r["subpaths"][1]["points"][0]["at_mm"]);
+        let (ax, ay, bx, by) = (
+            a.0 + (a.0 - b.0) * 0.1,
+            a.1 + (a.1 - b.1) * 0.1 + 0.3,
+            b.0 + (b.0 - a.0) * 0.1,
+            b.1 + (b.1 - a.1) * 0.1 + 0.3,
+        );
+        let r = ok(s.run_tool(
+            "edit_path",
+            &json!({ "object": 0, "edits": [
+                { "op": "add_subpath", "points_mm": [[ax, ay], [bx, by]] },
+                { "op": "insert", "subpath": 1, "after": 1 }
+            ] }),
+        ));
+        assert_eq!(r["subpaths"].as_array().unwrap().len(), n + 1);
+        assert_eq!(r["subpaths"][n]["role"], "rung");
+        assert_eq!(
+            r["subpaths"][0]["points"].as_array().unwrap().len(),
+            rail_points + 1
+        );
+        let r = ok(s.run_tool(
+            "edit_path",
+            &json!({ "object": 0, "edits": [
+                { "op": "delete_subpath", "subpath": n + 1 },
+                { "op": "delete", "subpath": 1, "point": 2 }
+            ] }),
+        ));
+        assert_eq!(r["subpaths"].as_array().unwrap().len(), n);
+        assert_eq!(
+            r["subpaths"][0]["points"].as_array().unwrap().len(),
+            rail_points
+        );
+        // What can't be done says why, and changes nothing.
+        let before = s.doc.to_svg().unwrap();
+        for bad in [
+            json!([{ "op": "delete_subpath", "subpath": 1 }]),
+            json!([{ "op": "move", "subpath": 99, "point": 1, "by_mm": [1, 0] }]),
+            json!([{ "op": "move", "subpath": 1, "point": 1 }]),
+            json!([{ "op": "move", "subpath": 1, "point": 1, "by_mm": [1, 0] }, { "op": "bend" }]),
+            json!([]),
+        ] {
+            assert!(
+                s.run_tool("edit_path", &json!({ "object": 0, "edits": bad }))
+                    .is_error,
+                "{bad}"
+            );
+        }
+        assert_eq!(s.doc.to_svg().unwrap(), before);
+        // It still sews, as a satin.
+        let d = ok(s.run_tool("check_design", &json!({})));
+        assert!(d.to_string().len() > 2);
+        assert!(s.doc.plan().stitch_count() > 100);
+    }
+
+    #[test]
+    fn an_agent_measures_stitching_before_and_after_a_change() {
+        let mut s = Studio::with_file(None, None);
+        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><path id="H_satin" fill="#123456" d="M10 10 L13 10 L13 19 L27 19 L27 10 L30 10 L30 30 L27 30 L27 21 L13 21 L13 30 L10 30 Z"/></svg>"##;
+        ok(s.run_tool("add_svg", &json!({ "svg": svg, "width_mm": 20.0 })));
+        // A clean H: one piece of thread, nothing outside it, nothing bare
+        // to speak of.
+        let was = ok(s.run_tool("measure_stitching", &json!({})));
+        assert_eq!(was["objects"], json!([0]));
+        assert_eq!(was["measures"]["trims"], 0);
+        assert_eq!(was["measures"]["stitches_outside"], 0);
+        assert_eq!(was["measures"]["filled_parts"], 0);
+        assert!(was["measures"]["bare_mm2"].is_number());
+        // The same again: the same.
+        let again = ok(s.run_tool(
+            "measure_stitching",
+            &json!({ "objects": 0, "before": was["measures"] }),
+        ));
+        assert_eq!(again["compared"]["verdict"], "same", "{again}");
+        // A change that makes it worse (stitches leaning hard) is said to
+        // be, and which measure says so.
+        ok(s.run_tool("set_object", &json!({ "object": 0, "lean": 45 })));
+        let leant = ok(s.run_tool(
+            "measure_stitching",
+            &json!({ "objects": 0, "before": was["measures"] }),
+        ));
+        assert_eq!(leant["compared"]["verdict"], "worse", "{leant}");
+        assert!(!leant["compared"]["worse"].as_array().unwrap().is_empty());
+        // And putting it back, better than that.
+        ok(s.run_tool("set_object", &json!({ "object": 0, "lean": null })));
+        let back = ok(s.run_tool(
+            "measure_stitching",
+            &json!({ "objects": 0, "before": leant["measures"] }),
+        ));
+        assert_eq!(back["compared"]["verdict"], "better", "{back}");
+        assert_eq!(back["measures"], was["measures"]);
+        // Broken into columns, there's no outline to hold them to unless
+        // one is kept: a copy of the shape, not sewn.
+        ok(s.run_tool(
+            "add_svg",
+            &json!({ "svg": svg.replace("H_satin", "kept_skip"), "width_mm": 20.0 }),
+        ));
+        assert!(
+            s.run_tool("measure_stitching", &json!({ "objects": 1 }))
+                .is_error,
+            "not a satin"
+        );
+        let made = ok(s.run_tool("break_into_columns", &json!({ "objects": 0 })));
+        let cols: Vec<Value> = made["made"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|o| o["index"].clone())
+            .collect();
+        let loose = ok(s.run_tool("measure_stitching", &json!({ "objects": cols })));
+        assert!(loose["measures"]["stitches_outside"].is_null(), "{loose}");
+        assert!(loose["note"].is_string());
+        let kept = s.doc.shapes.len() - 1;
+        let held = ok(s.run_tool(
+            "measure_stitching",
+            &json!({ "objects": cols, "within": kept }),
+        ));
+        assert!(held["measures"]["stitches_outside"].is_number(), "{held}");
+        assert!(held["measures"]["bare_mm2"].is_number(), "{held}");
+        assert_eq!(held["columns"], cols.len());
+    }
+
+    #[test]
+    fn an_agent_makes_text_outlines_to_break_it_into_columns() {
+        let mut s = Studio::with_file(None, None);
+        ok(s.run_tool("add_text", &json!({ "text": "HI", "size_mm": 15.0 })));
+        ok(s.run_tool("set_object", &json!({ "object": 0, "kind": "satin" })));
+        // Text is text: its points aren't to be had, nor its columns.
+        assert!(s.run_tool("get_path", &json!({ "object": 0 })).is_error);
+        assert!(
+            s.run_tool(
+                "edit_path",
+                &json!({ "object": 0, "edits": [{ "op": "delete", "subpath": 1, "point": 1 }] })
+            )
+            .is_error
+        );
+        assert!(
+            s.run_tool("break_into_columns", &json!({ "objects": 0 }))
+                .is_error
+        );
+        let r = ok(s.run_tool("create_outlines", &json!({ "objects": 0 })));
+        assert_eq!(r["made"].as_array().unwrap().len(), 1);
+        assert!(s.doc.lettering(0).is_none(), "a shape now");
+        assert_eq!(s.doc.shapes[0].params.kind, Some(Kind::Satin));
+        assert!(
+            ok(s.run_tool("get_path", &json!({ "object": 0 })))["subpaths"]
+                .as_array()
+                .unwrap()
+                .len()
+                >= 2
+        );
+        // (A shape isn't made outlines again.)
+        assert!(
+            s.run_tool("create_outlines", &json!({ "objects": 0 }))
+                .is_error
+        );
+        let r = ok(s.run_tool("break_into_columns", &json!({ "objects": 0 })));
+        assert!(r["made"].as_array().unwrap().len() >= 3, "{r}");
+    }
+
+    #[test]
+    fn overlapping_strokes_arent_offered_to_agents() {
+        let mut s = Studio::with_file(None, None);
+        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><path id="H_satin" fill="#123456" d="M10 10 L13 10 L13 19 L27 19 L27 10 L30 10 L30 30 L27 30 L27 21 L13 21 L13 30 L10 30 Z"/></svg>"##;
+        ok(s.run_tool("add_svg", &json!({ "svg": svg, "width_mm": 20.0 })));
+        let r = ok(s.run_tool("set_object", &json!({ "object": 0, "kind": "satin" })));
+        assert!(
+            r["settings"].get("overlap").is_none(),
+            "not a setting to see"
+        );
+        assert!(
+            s.run_tool("set_object", &json!({ "object": 0, "overlap": true }))
+                .is_error
+        );
+        assert_eq!(s.doc.shapes[0].params.overlap, None);
+        // (A file that has them says so.)
+        s.doc.shapes[0].params.overlap = Some(true);
+        let d = ok(s.run_tool("get_design", &json!({})));
+        assert_eq!(d["objects"][0]["settings"]["overlap"], true);
     }
 
     #[test]

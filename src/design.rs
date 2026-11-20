@@ -8,7 +8,7 @@
 
 use crate::boolean;
 use crate::geom::{Bounds, FillRule, P, Polyline, dedupe, segment_inside};
-use crate::params::{Fabric, Kind, defaults, underlay};
+use crate::params::{Fabric, Kind, Params, defaults, underlay};
 use crate::route::Zone;
 use crate::stitch::fill::{FillParams, tatami};
 use crate::stitch::satin::{self, Rails, SatinParams};
@@ -17,6 +17,8 @@ use crate::svg::{Geometry, Shape};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+
+pub mod measure;
 
 /// A continuous sequence of stitches.
 #[derive(Clone, Debug)]
@@ -62,6 +64,10 @@ pub struct Design {
     /// a hop: where each is, for checking that none lies over finished
     /// stitching in plain sight ([`crate::checks::exposed_travel`]).
     pub travels: Vec<Travel>,
+    /// A satin's columns in the order they're sewn: (input shape, column
+    /// by its place among the shape's columns that are columns, as
+    /// [`satin_rails`] gives them, whether sewn from its end).
+    pub satin_columns: Vec<(usize, usize, bool)>,
 }
 
 /// How a stretch of travel gets where it's going.
@@ -156,6 +162,16 @@ struct Piece {
     alt: Option<Polyline>,
     /// Closed outline (single pass): may start at any vertex.
     ring: bool,
+    /// What's sewn for `pts` and for `alt`, where that's more than they
+    /// are: a satin's column with its stitches run on under the column it
+    /// ends against (see [`laps`]). The same from its first stitch to its
+    /// last, which is all that's planned with.
+    sewn: Option<Polyline>,
+    alt_sewn: Option<Polyline>,
+    /// A satin's column this sews (its place among the shape's columns
+    /// that are columns, as [`satin_rails`] gives them), and whether
+    /// `pts` sews it from its end.
+    column: Option<(usize, bool)>,
 }
 
 impl Piece {
@@ -166,6 +182,9 @@ impl Piece {
             pts,
             alt: Some(alt),
             ring: false,
+            sewn: None,
+            alt_sewn: None,
+            column: None,
         }
     }
     fn fixed(pts: Polyline) -> Piece {
@@ -173,6 +192,9 @@ impl Piece {
             pts,
             alt: None,
             ring: false,
+            sewn: None,
+            alt_sewn: None,
+            column: None,
         }
     }
     /// A closed loop (first point repeated at the end).
@@ -185,6 +207,9 @@ impl Piece {
             pts,
             alt: None,
             ring: true,
+            sewn: None,
+            alt_sewn: None,
+            column: None,
         }
     }
     /// Distance from `here` to where this piece would start, and that start.
@@ -226,6 +251,11 @@ struct ShapeRuns {
     /// group is in, so a part's underlay and top are sewn together (rather
     /// than every part's underlay, then back round them all for the top).
     islands: Vec<Vec<usize>>,
+    /// Groups besides the last whose stitches are top stitching too, not
+    /// underlay: the rows of each part of a satin that couldn't be
+    /// columns and is filled instead (its columns are the last group).
+    /// Travel across them shows as it would across the last group's.
+    tops: Vec<usize>,
 }
 
 impl ShapeRuns {
@@ -236,6 +266,7 @@ impl ShapeRuns {
             stops: Vec::new(),
             colors: Vec::new(),
             islands: Vec::new(),
+            tops: Vec::new(),
         }
     }
 
@@ -455,9 +486,21 @@ type Cover = Option<(Vec<Polyline>, FillRule)>;
 /// A fill's rows no further apart than this (mm) hide travel under them.
 const HIDING_SPACING: f64 = 1.0;
 
+/// Where travel within the shape being sewn is out of sight, as worked
+/// out from some point with some of a satin's columns done (they're kept
+/// by both: see [`hidden_zone`], which takes in the point): the ground it
+/// may run over (`ways`), and what of that covers it once sewn (`cover`:
+/// the same, but for a satin's parts that are filled instead, whose rows
+/// already sewn nothing covers).
+struct Ground {
+    ways: Option<Rc<Zone>>,
+    cover: Option<Rc<Zone>>,
+}
+
 /// Where travel to and within the shape sewn at `order[pos]` is out of
 /// sight: under its own fill (`own`, when its stitches hide what's under
-/// them) and under whatever's sewn later on top. `from` is where the
+/// them; `thin`: its hairlines, as wide as travel needs, see
+/// [`satin_thin`]) and under whatever's sewn later on top. `from` is where the
 /// needle's coming from: taken in when it's within `reach` (the last
 /// object, close by).
 #[allow(clippy::too_many_arguments)]
@@ -466,6 +509,7 @@ fn hidden_zone(
     order: &[usize],
     pos: usize,
     own: Option<&(Vec<Polyline>, FillRule)>,
+    thin: &[&Polyline],
     from: P,
     reach: f64,
     covers: &mut [Option<Cover>],
@@ -519,6 +563,11 @@ fn hidden_zone(
     let mut parts: Vec<(&[Polyline], FillRule)> = Vec::new();
     if let Some((rings, rule)) = own {
         parts.push((rings.as_slice(), *rule));
+    }
+    // (Each on its own: where one lies over a column beside it, that's
+    // ground twice over, not a hole.)
+    for ring in thin {
+        parts.push((std::slice::from_ref(*ring), FillRule::EvenOdd));
     }
     for j in later {
         if let Some(Some((rings, rule))) = &covers[j] {
@@ -617,19 +666,266 @@ fn mm(v: f64) -> f64 {
     v * 10.0
 }
 
+/// A filled shape's rings, the ones that cross themselves or each other
+/// told from the rest (see [`untangled`]).
+struct Untangled<'a> {
+    /// The rings that cross nothing, as they were and in their order.
+    plain: std::borrow::Cow<'a, [Polyline]>,
+    /// Each group of rings that cross (and the ones inside those): as
+    /// they were, and as the outline of what they fill together.
+    tangles: Vec<(Vec<Polyline>, Vec<Polyline>)>,
+}
+
+/// Rings, each that touches itself at a point as the rings either side of
+/// that point, and the points: `None` if none of them does.
+///
+/// The arm and leg of a k may meet its stem at a point: one outline that
+/// goes through that point twice, of a shape that's two, touching. Taken
+/// as one, the join between them is a neck of no width, and the cut across
+/// it lands wherever the last bit of its coordinates puts it: the same
+/// letter comes out clean in one place and leaning in another.
+fn unpinched(rings: &[Polyline]) -> Option<(Vec<Polyline>, Vec<P>)> {
+    // Where a ring first comes back to a point it has been at (not a
+    // point doubled, or a spike out and back: a loop each side of it).
+    let pinch = |ring: &[P]| -> Option<(usize, usize)> {
+        let n = ring.len();
+        let mut seen: HashMap<(i64, i64), usize> = HashMap::with_capacity(n);
+        for (j, p) in ring.iter().enumerate() {
+            let at = ((p.x * 1e6).round() as i64, (p.y * 1e6).round() as i64);
+            match seen.get(&at) {
+                Some(&i) if j - i >= 3 && n - (j - i) >= 3 => return Some((i, j)),
+                Some(_) => {}
+                None => {
+                    seen.insert(at, j);
+                }
+            }
+        }
+        None
+    };
+    if rings.iter().all(|r| pinch(r).is_none()) {
+        return None;
+    }
+    let mut out = Vec::with_capacity(rings.len() + 1);
+    let mut at = Vec::new();
+    let mut todo: Vec<Polyline> = rings.iter().rev().cloned().collect();
+    while let Some(ring) = todo.pop() {
+        match pinch(&ring) {
+            Some((i, j)) => {
+                // (Each from the point after the one they share, which
+                // is on the other's outline.)
+                let mut near: Polyline = ring[i..j].to_vec();
+                let mut far: Polyline = ring[j..].iter().chain(&ring[..i]).copied().collect();
+                near.rotate_left(1);
+                far.rotate_left(1);
+                at.push(ring[i]);
+                todo.push(far);
+                todo.push(near);
+            }
+            None => out.push(ring),
+        }
+    }
+    Some((out, at))
+}
+
+/// A filled shape's rings, with the overlaps found in them: the rings
+/// that cross themselves or each other (and the ones inside those), in
+/// groups, each with the outline of what it fills.
+///
+/// A variable font draws a letter in overlapping pieces (a b as a stem
+/// laid over a bowl, an e as one outline that crosses itself), which
+/// fill as one shape by the nonzero rule but aren't the outline of one:
+/// taken for it, a stem is a part of its own and the bowl a ring with a
+/// bite out of it. The letters of a script that run into each other
+/// overlap as well, but are letters each of its own: which a tangle is,
+/// [`satin_rails`] tells by which way it can be sewn.
+fn untangled(rings: &[Polyline], rule: FillRule) -> Untangled<'_> {
+    use std::borrow::Cow;
+    let n = rings.len();
+    // Every edge, by the ring it's of, sorted by where it starts across:
+    // only edges that overlap across can cross.
+    struct Edge {
+        ring: usize,
+        at: usize,
+        a: P,
+        b: P,
+    }
+    let mut edges: Vec<Edge> = Vec::new();
+    for (ring, r) in rings.iter().enumerate() {
+        let m = r.len();
+        if m < 3 {
+            continue;
+        }
+        edges.extend((0..m).map(|at| Edge {
+            ring,
+            at,
+            a: r[at],
+            b: r[(at + 1) % m],
+        }));
+    }
+    edges.sort_by(|x, y| x.a.x.min(x.b.x).total_cmp(&y.a.x.min(y.b.x)));
+    let side = |a: P, b: P, c: P| (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    // The groups of rings that cross (a ring that crosses itself is a
+    // group of one).
+    let mut group: Vec<usize> = (0..n).collect();
+    fn root(group: &mut [usize], mut k: usize) -> usize {
+        while group[k] != k {
+            group[k] = group[group[k]];
+            k = group[k];
+        }
+        k
+    }
+    let mut tangled = vec![false; n];
+    for (i, e) in edges.iter().enumerate() {
+        let reach = e.a.x.max(e.b.x);
+        for f in edges[i + 1..]
+            .iter()
+            .take_while(|f| f.a.x.min(f.b.x) <= reach)
+        {
+            // (Edges next to each other on a ring meet, and don't cross.)
+            let m = rings[e.ring].len();
+            if e.ring == f.ring && ((e.at + 1) % m == f.at || (f.at + 1) % m == e.at) {
+                continue;
+            }
+            if e.a.y.max(e.b.y) < f.a.y.min(f.b.y) || f.a.y.max(f.b.y) < e.a.y.min(e.b.y) {
+                continue;
+            }
+            if side(e.a, e.b, f.a) * side(e.a, e.b, f.b) < 0.0
+                && side(f.a, f.b, e.a) * side(f.a, f.b, e.b) < 0.0
+            {
+                let (x, y) = (root(&mut group, e.ring), root(&mut group, f.ring));
+                group[x] = y;
+                tangled[e.ring] = true;
+                tangled[f.ring] = true;
+            }
+        }
+    }
+    if !tangled.contains(&true) {
+        return Untangled {
+            plain: Cow::Borrowed(rings),
+            tangles: Vec::new(),
+        };
+    }
+    for k in 0..n {
+        if tangled[k] {
+            let r = root(&mut group, k);
+            tangled[r] = true;
+        }
+    }
+    // A ring inside one of a group's is that group's too (a counter, for
+    // the fill rule to make of what it will), and so is one that has one
+    // of a group's inside it (a letter's outer outline, round counters
+    // drawn as one contour that crosses itself): until there are no more.
+    let inside = |j: usize, k: usize| {
+        rings[j].len() >= 3
+            && rings[k].len() >= 3
+            && crate::geom::point_inside(&rings[j..=j], FillRule::NonZero, rings[k][0])
+    };
+    loop {
+        let mut joined = false;
+        for k in 0..n {
+            for j in 0..n {
+                let (own, of) = (root(&mut group, k), root(&mut group, j));
+                if own != of && tangled[of] && (inside(j, k) || inside(k, j)) {
+                    group[own] = of;
+                    joined = true;
+                }
+            }
+        }
+        if !joined {
+            break;
+        }
+    }
+    let mut plain: Vec<Polyline> = Vec::with_capacity(n);
+    let mut tangles = Vec::new();
+    let mut done = vec![false; n];
+    for k in 0..n {
+        let own = root(&mut group, k);
+        if !tangled[own] {
+            plain.push(rings[k].clone());
+        } else if !done[own] {
+            done[own] = true;
+            let pieces: Vec<Polyline> = (0..n)
+                .filter(|&j| root(&mut group, j) == own)
+                .map(|j| rings[j].clone())
+                .collect();
+            let whole = boolean::normalize(&pieces, rule);
+            tangles.push((pieces, whole));
+        }
+    }
+    Untangled {
+        plain: Cow::Owned(plain),
+        tangles,
+    }
+}
+
 /// The satin rails a shape will be sewn with, or why a part couldn't be.
 /// Parts that fail fall back to fill (returned as `Err` with the component).
 pub fn satin_rails(shape: &Shape) -> Vec<Result<Rails, (Vec<Polyline>, String)>> {
+    satin_rails_sewn(shape)
+        .into_iter()
+        .map(|r| r.map(|(rails, _)| rails))
+        .collect()
+}
+
+/// A column, and where its stitches run on past its ends.
+type Sewn = (Rails, satin::Laps);
+
+/// [`satin_rails`], and where each column's stitches run on past its
+/// ends: one that ends against the side of another is sewn a little way
+/// under it (see [`laps`]). The columns themselves, which are what's
+/// shown, measured and planned with, end where they meet.
+fn satin_rails_sewn(shape: &Shape) -> Vec<Result<Sewn, (Vec<Polyline>, String)>> {
+    let alone = |r: Rails| Ok((r, satin::NO_LAPS));
     let p = &shape.params;
     match &shape.geometry {
         Geometry::Stroke { lines, width } => {
+            // (Satin columns sewn as one satin: each its own subpaths',
+            // lapped where it ends against another as a shape's are, the
+            // satin being all of them.)
+            if !shape.joined.is_empty() {
+                let mut rest = &lines[..];
+                let columns: Vec<Rails> = shape
+                    .joined
+                    .iter()
+                    .filter_map(|&n| {
+                        let (own, after) = rest.split_at(n.min(rest.len()));
+                        rest = after;
+                        satin::rails_from_subpaths(own, p.satin_rails())
+                    })
+                    .collect();
+                let outlines: Vec<(Polyline, Bounds)> = columns
+                    .iter()
+                    .filter(|r| !r.closed)
+                    .map(|r| {
+                        let ring = r.outline().remove(0);
+                        let mut b = Bounds::empty();
+                        ring.iter().for_each(|&q| b.add(q));
+                        (ring, b)
+                    })
+                    .collect();
+                let inside = |q: P| {
+                    outlines.iter().any(|(ring, b)| {
+                        q.x >= b.min.x
+                            && q.x <= b.max.x
+                            && q.y >= b.min.y
+                            && q.y <= b.max.y
+                            && crate::geom::point_inside(
+                                std::slice::from_ref(ring),
+                                FillRule::EvenOdd,
+                                q,
+                            )
+                    })
+                };
+                let laps = laps(&columns, &inside);
+                return columns.into_iter().zip(laps).map(Ok).collect();
+            }
             let w = p.width.map(mm).unwrap_or(*width);
             // (A shape's outline is sewn along each of its edges: a shape
             // in two parts, or with a hole, isn't a column between them.)
             if !shape.outline
-                && let Some(r) = satin::rails_from_subpaths(lines)
+                && let Some(r) = satin::rails_from_subpaths(lines, p.satin_rails())
             {
-                return vec![Ok(r)];
+                return vec![alone(r)];
             }
             // (A subpath without length, a dot drawn as `M p L p`, has no
             // column to sew.)
@@ -637,77 +933,484 @@ pub fn satin_rails(shape: &Shape) -> Vec<Result<Rails, (Vec<Polyline>, String)>>
                 .iter()
                 .map(|(l, c)| satin::rails_from_centerline(l, *c, w))
                 .filter(|r| r.a.len() > 1)
-                .map(Ok)
+                .map(alone)
                 .collect()
         }
         Geometry::Fill { rings, rule } => {
+            let Untangled { plain, tangles } = untangled(rings, *rule);
             if p.is_border() {
                 let w = p.width.map(mm).unwrap_or(mm(defaults::OUTLINE_SATIN_WIDTH));
-                return rings
+                return plain
                     .iter()
+                    .chain(tangles.iter().flat_map(|(_, whole)| whole))
                     .map(|r| satin::rails_from_centerline(r, true, w))
                     .filter(|r| r.a.len() > 1)
-                    .map(Ok)
+                    .map(alone)
                     .collect();
             }
             // Each part as one column if it is one; else as the columns
             // it can be cut into (a stem and a bowl, a bar and a stem); and
             // failing that, filled.
-            let mut out = Vec::new();
-            for comp in satin::components(rings, *rule) {
-                let one = satin::auto_rails(&comp);
-                // A ring whose stitches lean (one with corners: a triangle
-                // and the triangle cut out of it) is better cut into
-                // columns too, where those come out clearly squarer. (Only
-                // a ring: a column between two tips is left as it is.)
-                let leaning = one
-                    .as_ref()
-                    .ok()
-                    .filter(|r| r.closed)
-                    .map(|r| satin::lean(std::slice::from_ref(r)))
-                    .filter(|l| *l > satin::RING_LEAN);
-                let cut = if one.is_err() || leaning.is_some() {
-                    crate::stitch::columns::split(&comp)
-                        .filter(|c| leaning.is_none_or(|l| satin::lean(c) < l * 0.7))
-                } else {
-                    None
-                };
-                match (cut, one) {
-                    (Some(columns), _) => out.extend(columns.into_iter().map(Ok)),
-                    (None, Ok(rails)) => out.push(Ok(rails)),
-                    (None, Err(e)) => {
-                        // "Too wide" as one column may only mean it
-                        // isn't one: say so only of a shape that's
-                        // wide whichever way it's sewn (its area over
-                        // half its outline's length is how thick it
-                        // is, as a stroke).
-                        let area: f64 = comp
-                            .iter()
-                            .enumerate()
-                            .map(|(k, r)| {
-                                let a = boolean::ring_area(r).abs();
-                                if k == 0 { a } else { -a }
-                            })
-                            .sum();
-                        let around: f64 = comp
-                            .iter()
-                            .map(|r| {
-                                crate::geom::polyline_length(r)
-                                    + r.last().map_or(0.0, |l| l.dist(r[0]))
-                            })
-                            .sum();
-                        let thick = 2.0 * area / around.max(1.0);
-                        let why = match e {
-                            satin::AutoSatinError::TooWide(_) if thick < 50.0 => {
-                                satin::AutoSatinError::TooComplex
-                            }
-                            e => e,
-                        };
-                        out.push(Err((comp, why.to_string())));
+            let how = Strokes::of(p);
+            // (The parts, letters, each on its own: on all the computer's
+            // cores at once, a line of text being many.)
+            let columns = |rings: &[Polyline]| -> Vec<_> {
+                in_parallel(satin::components(rings, *rule), |comp| {
+                    component_columns(comp, how)
+                })
+                .into_iter()
+                .flatten()
+                .collect()
+            };
+            // How much of what came of some rings is filled, by area.
+            let filled = |parts: &[Result<Sewn, (Vec<Polyline>, String)>]| -> f64 {
+                parts
+                    .iter()
+                    .filter_map(|c| c.as_ref().err())
+                    .filter_map(|(comp, _)| comp.first())
+                    .map(|outer| boolean::ring_area(outer).abs())
+                    .sum()
+            };
+            let mut out = columns(&plain);
+            for (pieces, whole) in &tangles {
+                // Rings that overlap, as the one shape they fill, if that
+                // can be sewn in columns: a letter drawn in pieces is. If
+                // it can't, and less of them would be filled taken as
+                // they are, as they are: the letters of a script that run
+                // into each other, each lapped over the next.
+                let together = columns(whole);
+                if filled(&together) > 0.0 {
+                    let apart = columns(pieces);
+                    if filled(&apart) < filled(&together) {
+                        out.extend(apart);
+                        continue;
                     }
                 }
+                out.extend(together);
             }
             out
+        }
+    }
+}
+
+/// Two outlines that differ by less than this, a design unit over it, are
+/// the same outline to [`component_columns`] (a hundredth of a micron:
+/// the rounding of putting one somewhere else is a billionth of that).
+const COLUMN_GRAIN: f64 = 1e-4;
+
+/// The columns one part of a filled shape (its outer ring, then its
+/// holes) is sewn in, or the part and why it's filled instead.
+///
+/// Found for the part's shape, not for where it lies: its outline is read
+/// from its own first point, the columns found for that, and moved back.
+/// So a letter has the same columns wherever it's put, and they're found
+/// once (they're kept by that outline): the second l of a word, or a line
+/// of text moved across the design, costs nothing more. Finding them is
+/// most of the work of planning a satin, and the rails on the canvas and
+/// the checks ask for them as well.
+///
+/// `how`: the way its strokes are read (see [`Strokes`]).
+/// `f` of each of `items`, in their order, the work shared among the
+/// computer's cores (each takes the next item as it's free). With one
+/// item, or one core, just in turn. A panic in `f` is the caller's, as
+/// it would be in turn.
+fn in_parallel<T: Send, R: Send>(items: Vec<T>, f: impl Fn(T) -> R + Sync) -> Vec<R> {
+    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let n = items.len();
+    let cores = std::thread::available_parallelism()
+        .map_or(1, |c| c.get())
+        .min(n);
+    if cores <= 1 {
+        return items.into_iter().map(f).collect();
+    }
+    let items: Vec<Mutex<Option<T>>> = items.into_iter().map(|t| Mutex::new(Some(t))).collect();
+    let out: Vec<Mutex<Option<R>>> = (0..n).map(|_| Mutex::new(None)).collect();
+    let next = AtomicUsize::new(0);
+    // (A panic is the caller's: as much caught on a worker as it is here,
+    // for a panic hook to tell (see [`catching`]), and handed back whole
+    // rather than as a thread's having panicked.)
+    let caller_catching = CATCHING.with(|c| c.get());
+    let panicked: Mutex<Option<Box<dyn std::any::Any + Send>>> = Mutex::new(None);
+    std::thread::scope(|s| {
+        for _ in 0..cores {
+            s.spawn(|| {
+                CATCHING.with(|c| c.set(caller_catching));
+                loop {
+                    let i = next.fetch_add(1, Ordering::Relaxed);
+                    if i >= n {
+                        break;
+                    }
+                    let Some(t) = items[i].lock().ok().and_then(|mut t| t.take()) else {
+                        continue;
+                    };
+                    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(t))) {
+                        Ok(r) => {
+                            if let Ok(mut slot) = out[i].lock() {
+                                *slot = Some(r);
+                            }
+                        }
+                        Err(why) => {
+                            if let Ok(mut first) = panicked.lock() {
+                                first.get_or_insert(why);
+                            }
+                            // (No more begun: the rest is the caller's to
+                            // drop.)
+                            next.store(n, Ordering::Relaxed);
+                            break;
+                        }
+                    }
+                }
+            });
+        }
+    });
+    if let Some(why) = panicked.into_inner().ok().flatten() {
+        std::panic::resume_unwind(why);
+    }
+    out.into_iter()
+        .filter_map(|m| m.into_inner().ok().flatten())
+        .collect()
+}
+
+fn component_columns(
+    comp: Vec<Polyline>,
+    how: Strokes,
+) -> Vec<Result<Sewn, (Vec<Polyline>, String)>> {
+    use std::hash::{Hash, Hasher};
+    use std::sync::{Mutex, OnceLock};
+    // (In two halves, the older dropped when the newer fills up: what was
+    // asked for lately, the letters on the canvas now, is never what goes.)
+    type Memo = HashMap<u64, Result<Vec<Sewn>, String>>;
+    static MEMO: OnceLock<Mutex<(Memo, Memo)>> = OnceLock::new();
+    let Some(&origin) = comp.first().and_then(|r| r.first()) else {
+        return Vec::new();
+    };
+    // (Known by its points to the grain, so that the same outline
+    // somewhere else, a few bits of rounding different, is known again.)
+    let mut h = hasher();
+    how.hash(&mut h);
+    let mut corners: HashMap<(i64, i64), P> = HashMap::new();
+    let home: Vec<Polyline> = comp
+        .iter()
+        .map(|ring| {
+            ring.len().hash(&mut h);
+            ring.iter()
+                .map(|&p| {
+                    let d = (p - origin) * (1.0 / COLUMN_GRAIN);
+                    let at = (d.x.round() as i64, d.y.round() as i64);
+                    at.hash(&mut h);
+                    corners.insert(at, p);
+                    p - origin
+                })
+                .collect()
+        })
+        .collect();
+    let key = h.finish();
+    let memo = MEMO.get_or_init(Default::default);
+    let kept = memo.lock().ok().and_then(|mut m| {
+        if let Some(hit) = m.0.get(&key) {
+            return Some(hit.clone());
+        }
+        let hit = m.1.remove(&key)?;
+        m.0.insert(key, hit.clone());
+        Some(hit)
+    });
+    let found = kept.unwrap_or_else(|| {
+        let found = columns_at_home(&home, how).map(|columns| {
+            let laps = laps(&columns, &|p| {
+                crate::geom::point_inside(&home, FillRule::EvenOdd, p)
+            });
+            columns.into_iter().zip(laps).collect::<Vec<Sewn>>()
+        });
+        if let Ok(mut m) = memo.lock() {
+            if m.0.len() >= 1024 {
+                m.1 = std::mem::take(&mut m.0);
+            }
+            m.0.insert(key, found.clone());
+        }
+        found
+    });
+    match found {
+        Ok(columns) => columns
+            .into_iter()
+            .map(|(mut r, mut laps)| {
+                // (A point of the outline is that point again, to the
+                // bit, not a rounding away from it.)
+                r.a.iter_mut().chain(&mut r.b).for_each(|p| {
+                    let d = *p * (1.0 / COLUMN_GRAIN);
+                    let corner = corners
+                        .get(&(d.x.round() as i64, d.y.round() as i64))
+                        .filter(|c| (**c - origin).dist(*p) < 1e-9);
+                    *p = corner.copied().unwrap_or(*p + origin);
+                });
+                laps.iter_mut().flatten().for_each(|row| {
+                    *row = (row.0 + origin, row.1 + origin);
+                });
+                Ok((r, laps))
+            })
+            .collect(),
+        Err(why) => vec![Err((comp, why))],
+    }
+}
+
+/// [`component_columns`] of a part read from its own first point: each
+/// part as one column if it is one; else as the columns it can be cut
+/// into (a stem and a bowl, a bar and a stem); and failing that, why not.
+fn columns_at_home(comp: &[Polyline], how: Strokes) -> Result<Vec<Rails>, String> {
+    // A part that touches itself at a point (see [`unpinched`]) is cut
+    // into columns as the parts it's made of, and those sewn as the one
+    // letter they are: the thread goes through from one to the next
+    // where they touch. (If any of them can't be cut into columns, as
+    // the one part after all.)
+    if let Some((rings, touching)) = unpinched(comp) {
+        let parts = satin::components(&rings, FillRule::EvenOdd);
+        let each: Result<Vec<Vec<Rails>>, String> =
+            parts.iter().map(|part| part_columns(part, how)).collect();
+        if let (true, Ok(each)) = (parts.len() > 1, each) {
+            return Ok(through(each.concat(), &touching));
+        }
+    }
+    part_columns(comp, how).map(|columns| through(columns, &[]))
+}
+
+/// How a filled satin's strokes are read into columns (its settings).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+enum Strokes {
+    /// By its chordal axis (see [`crate::stitch::cat`]): each stroke a
+    /// column, corners mitred, joins butted; unless a corner is too sharp
+    /// to mitre cleanly or a join can't be read clearly, when it's `Cut`.
+    /// The default.
+    Auto,
+    /// By its chordal axis, whatever its corners (the `mitred` setting).
+    Mitred,
+    /// Cut where its strokes part (see [`crate::stitch::columns::split`]):
+    /// corners squared, one stroke run on and the other ended against it
+    /// (the `cut` setting).
+    Cut,
+    /// Its strokes as whole columns laid over each other where they meet
+    /// (the `overlap` setting, no longer offered).
+    Overlap,
+}
+
+impl Strokes {
+    fn of(p: &Params) -> Strokes {
+        if p.satin_overlap() {
+            Strokes::Overlap
+        } else if p.satin_cut() {
+            Strokes::Cut
+        } else if p.satin_mitred() {
+            Strokes::Mitred
+        } else {
+            Strokes::Auto
+        }
+    }
+}
+
+/// [`columns_at_home`], of a part that's one shape and not two that
+/// touch, and before any of its columns is cut in two for the thread.
+/// Whether every end of `was` that `now` has moved came to a point:
+/// narrower than [`POINTED`] of the column's usual width.
+fn only_pointed_ends_moved(was: &Rails, now: &Rails) -> bool {
+    let ps = satin::pairs(was, 3.0);
+    let mut widths: Vec<f64> = ps.iter().map(|(a, b)| a.dist(*b)).collect();
+    widths.sort_by(f64::total_cmp);
+    let Some(&usual) = widths.get(widths.len() / 2) else {
+        return false;
+    };
+    let end = |r: &Rails, last: bool| {
+        if last {
+            (r.a[r.a.len() - 1], r.b[r.b.len() - 1])
+        } else {
+            (r.a[0], r.b[0])
+        }
+    };
+    [false, true].iter().all(|&last| {
+        let ((a, b), (c, d)) = (end(was, last), end(now, last));
+        let moved = a.dist(c) > 1e-6 || b.dist(d) > 1e-6;
+        !moved || a.dist(b) < POINTED * usual
+    })
+}
+
+/// A column's end narrower than this share of its usual width comes to
+/// a point.
+const POINTED: f64 = 0.25;
+
+fn part_columns(comp: &[Polyline], how: Strokes) -> Result<Vec<Rails>, String> {
+    // Its strokes laid over each other, when that's asked for and they
+    // can be read (as they're found: their ends are their own); or by its
+    // chordal axis (the default), where that reads them and they cover it;
+    // else cut into columns as below (asked for, or a square, a dot, a
+    // shape whose axis is all corners).
+    if how == Strokes::Overlap
+        && let Some(strokes) = crate::stitch::columns::overlapping(comp)
+    {
+        return Ok(strokes);
+    }
+    if matches!(how, Strokes::Auto | Strokes::Mitred)
+        && let Some(columns) = crate::stitch::cat::columns(comp, how == Strokes::Auto)
+    {
+        // (A stroke cut off at a slant, the top of a v, that the axis
+        // brings to a point at the cut's sharp corner, the stitches
+        // fanned in to it: ended on the cut instead, as below, its
+        // stitches turned to meet it. Only an end that came to a point:
+        // one already across the stroke, a serif's foot, is left.)
+        return Ok(columns
+            .into_iter()
+            .map(|r| match satin::flat_ends(&r, comp) {
+                Some(flat)
+                    if crate::stitch::columns::holds(comp, &flat, &r)
+                        && only_pointed_ends_moved(&r, &flat) =>
+                {
+                    flat
+                }
+                _ => r,
+            })
+            .collect());
+    }
+
+    let one = satin::auto_rails(comp);
+    // A ring whose stitches lean (one with corners: a triangle
+    // and the triangle cut out of it) is better cut into
+    // columns too, where those come out clearly squarer. (Only
+    // a ring: a column between two tips is left as it is.)
+    let leaning = one
+        .as_ref()
+        .ok()
+        .filter(|r| r.closed)
+        .map(|r| satin::lean(std::slice::from_ref(r)))
+        .filter(|l| *l > satin::RING_LEAN);
+    // So is one taken for a column whose stitches would cross
+    // each other or span two strokes (a V, serif to serif
+    // round its foot): its strokes, if it can be cut into them.
+    let unsound = one
+        .as_ref()
+        .is_ok_and(|r| !crate::stitch::columns::sound(comp, r));
+    let cut = if one.is_err() || leaning.is_some() || unsound {
+        crate::stitch::columns::split(comp)
+            .filter(|c| leaning.is_none_or(|l| satin::lean(c) < l * 0.7))
+    } else {
+        None
+    };
+    // A line through the shape, off its outline: a cut between columns.
+    let is_cut = |a: P, b: P| {
+        [0.25, 0.5, 0.75].iter().all(|&t| {
+            let q = a.lerp(b, t);
+            crate::geom::point_inside(comp, FillRule::EvenOdd, q)
+                && comp.iter().all(|ring| dist_to_ring(ring, q) > 1.0)
+        })
+    };
+    // Each column's ends where the shape's are, however the
+    // column was come by.
+    // And its stitches square to it where nothing has said how they
+    // cross it (a column found by its corners has rungs only there; one
+    // between two tips has none), unless that takes them off the shape.
+    // (`cuts`: whether a flat end may be made along a cut between
+    // columns too, or only along the shape's own outline.)
+    let ended = |r: Rails, cuts: bool| {
+        let on_cut = |flat: &Rails| {
+            [true, false].iter().any(|&last| {
+                let end = |x: &Rails| {
+                    if last {
+                        (x.a[x.a.len() - 1], x.b[x.b.len() - 1])
+                    } else {
+                        (x.a[0], x.b[0])
+                    }
+                };
+                let ((fa, fb), (ra, rb)) = (end(flat), end(&r));
+                (fa.dist(ra) > 1e-6 || fb.dist(rb) > 1e-6) && is_cut(fa, fb)
+            })
+        };
+        let r = match satin::flat_ends(&r, comp) {
+            Some(flat)
+                if crate::stitch::columns::holds(comp, &flat, &r) && (cuts || !on_cut(&flat)) =>
+            {
+                flat
+            }
+            _ => r,
+        };
+        let square = satin::squared(&r);
+        if crate::stitch::columns::astray(comp, &square) > crate::stitch::columns::astray(comp, &r)
+        {
+            r
+        } else {
+            square
+        }
+    };
+    // A column that ends on a steep cut against another (two diagonals
+    // cut apart on a mitre, an arm against a stem at a sharp angle) comes
+    // to a point there, the cut its side (see [`satin::pointed`]); and
+    // one that comes to a point against another already isn't given a
+    // flat end along the cut. Each only where it leaves the column's
+    // stitches squarer to the shape's own edge, and none of them off the
+    // shape: not where the cut is long (a bowl leaving its stem all but
+    // along it), and the wedge it makes is sewn no squarer than the end
+    // was.
+    let finished = |r: Rails| -> Rails {
+        // (Not closed up on itself at an end first: see
+        // [`satin::unfolded`].)
+        let r = satin::unfolded(&r);
+        if r.closed || r.a.len() < 2 || r.b.len() < 2 {
+            return ended(r, true);
+        }
+        let ends = [(r.a[r.a.len() - 1], r.b[r.b.len() - 1]), (r.a[0], r.b[0])];
+        let score = |x: &Rails| {
+            (
+                crate::stitch::columns::astray(comp, x),
+                crate::stitch::columns::off_square(comp, x),
+            )
+        };
+        let better = |now: &Rails, was: &Rails| {
+            let (now, was) = (score(now), score(was));
+            now.0 <= was.0 && now.1 < was.1
+        };
+        let mut best = ended(r.clone(), true);
+        let plain = ended(r.clone(), false);
+        if better(&plain, &best) {
+            best = plain;
+        }
+        let mut raw = r;
+        for (ea, eb) in ends {
+            let this = |a: P, b: P| a.dist(ea) < 1e-9 && b.dist(eb) < 1e-9 && is_cut(a, b);
+            let point = satin::pointed(&raw, satin::POINT_SHEAR, this);
+            if point.a.len() == raw.a.len() && point.b.len() == raw.b.len() {
+                continue;
+            }
+            let pointed = ended(point.clone(), false);
+            if better(&pointed, &best) {
+                (raw, best) = (point, pointed);
+            }
+        }
+        best
+    };
+    match (cut, one) {
+        (Some(columns), _) => Ok(columns.into_iter().map(finished).collect()),
+        (None, Ok(rails)) => Ok(vec![ended(rails, true)]),
+        (None, Err(e)) => {
+            // "Too wide" as one column may only mean it
+            // isn't one: say so only of a shape that's
+            // wide whichever way it's sewn (its area over
+            // half its outline's length is how thick it
+            // is, as a stroke).
+            let area: f64 = comp
+                .iter()
+                .enumerate()
+                .map(|(k, r)| {
+                    let a = boolean::ring_area(r).abs();
+                    if k == 0 { a } else { -a }
+                })
+                .sum();
+            let around: f64 = comp
+                .iter()
+                .map(|r| crate::geom::polyline_length(r) + r.last().map_or(0.0, |l| l.dist(r[0])))
+                .sum();
+            let thick = 2.0 * area / around.max(1.0);
+            let why = match e {
+                satin::AutoSatinError::TooWide(_) if thick < 50.0 => {
+                    satin::AutoSatinError::TooComplex
+                }
+                e => e,
+            };
+            Err(why.to_string())
         }
     }
 }
@@ -782,7 +1485,7 @@ fn satin_pieces(
     shape: &Shape,
     opt: &PlanOptions,
     notes: &mut Vec<String>,
-) -> (Vec<Piece>, Vec<Vec<Piece>>) {
+) -> (Vec<Piece>, Vec<Vec<Piece>>, Vec<usize>) {
     satin_pieces_strip(shape, opt, notes, 0.0, 1.0)
 }
 
@@ -795,65 +1498,79 @@ fn satin_pieces_strip(
     notes: &mut Vec<String>,
     t0: f64,
     t1: f64,
-) -> (Vec<Piece>, Vec<Vec<Piece>>) {
+) -> (Vec<Piece>, Vec<Vec<Piece>>, Vec<usize>) {
     let p = &shape.params;
     let f = &opt.fabric;
     let mut pieces = Vec::new();
     let mut fallback = Vec::new();
+    // (Which of the fallback's groups are a filled part's top rows: the
+    // last of each part's.)
+    let mut tops = Vec::new();
     let whole = t0 <= 0.0 && t1 >= 1.0;
-    for r in satin_rails(shape) {
+    for r in satin_rails_sewn(shape) {
         match r {
-            Ok(rails) => {
-                let rails = if whole {
-                    rails
+            Ok((rails, laps)) => {
+                // (Part of a column, sewn for show, ends where it's cut.)
+                let (rails, laps) = if whole {
+                    (rails, laps)
                 } else {
-                    satin::strip(&rails, t0, t1)
+                    (satin::strip(&rails, t0, t1), satin::NO_LAPS)
                 };
                 let w = mean_width(&rails);
                 let sp = SatinParams {
                     spacing: mm(p.satin_spacing_for(f, w / 10.0)),
                     pull: mm(p.satin_pull(f)),
-                    underlay: p.satin_underlay_for(w / 10.0),
+                    underlay: p.satin_underlay_for(f, w / 10.0),
                     run_len: mm(2.5),
                     short_stitches: p.short_stitches_on(),
                     split: p.satin_split().map(mm),
                     style: p.satin_style(),
                     lean: p.satin_lean().to_radians(),
+                    even: p.satin_even(),
                 };
                 let fwd = satin::column(&rails, &sp);
-                let alt = (!rails.closed).then(|| {
-                    let rev = Rails {
-                        a: rails.a.iter().rev().copied().collect(),
-                        b: rails.b.iter().rev().copied().collect(),
-                        closed: false,
-                        sync: {
-                            let (la, lb) = (
-                                crate::geom::polyline_length(&rails.a),
-                                crate::geom::polyline_length(&rails.b),
-                            );
-                            rails
-                                .sync
-                                .iter()
-                                .rev()
-                                .map(|&(a, b)| (la - a, lb - b))
-                                .collect()
-                        },
-                    };
-                    satin::column(&rev, &sp)
+                let rev = (!rails.closed).then(|| Rails {
+                    a: rails.a.iter().rev().copied().collect(),
+                    b: rails.b.iter().rev().copied().collect(),
+                    closed: false,
+                    sync: {
+                        let (la, lb) = (
+                            crate::geom::polyline_length(&rails.a),
+                            crate::geom::polyline_length(&rails.b),
+                        );
+                        rails
+                            .sync
+                            .iter()
+                            .rev()
+                            .map(|&(a, b)| (la - a, lb - b))
+                            .collect()
+                    },
                 });
+                let alt = rev.as_ref().map(|rev| satin::column(rev, &sp));
+                let lapped = laps != satin::NO_LAPS;
+                let sewn = lapped.then(|| satin::column_lapped(&rails, &sp, &laps));
+                let alt_sewn = rev
+                    .as_ref()
+                    .filter(|_| lapped)
+                    .map(|rev| satin::column_lapped(rev, &sp, &[laps[1], laps[0]]));
+
                 pieces.push(Piece {
                     pts: fwd,
                     alt,
                     ring: false,
+                    sewn,
+                    alt_sewn,
+                    column: Some((pieces.len(), false)),
                 });
             }
             Err((comp, why)) => {
                 notes.push(format!("Part of this shape {why}; it's filled instead."));
                 fallback.extend(fill_runs(&comp, FillRule::EvenOdd, shape, opt));
+                tops.push(fallback.len() - 1);
             }
         }
     }
-    (pieces, fallback)
+    (pieces, fallback, tops)
 }
 
 /// Concentric rows following the outline, outside in.
@@ -1125,6 +1842,7 @@ fn applique_runs(rings: &[Polyline], shape: &Shape, opt: &PlanOptions) -> ShapeR
         split: None,
         style: Default::default(),
         lean: 0.0,
+        even: false,
     };
     let tack: Vec<Piece> = closed
         .iter()
@@ -1145,6 +1863,7 @@ fn applique_runs(rings: &[Polyline], shape: &Shape, opt: &PlanOptions) -> ShapeR
         split: None,
         style: Default::default(),
         lean: 0.0,
+        even: p.satin_even(),
     };
     let cover: Vec<Piece> = closed
         .iter()
@@ -1161,6 +1880,7 @@ fn applique_runs(rings: &[Polyline], shape: &Shape, opt: &PlanOptions) -> ShapeR
         stops: vec![1, 2],
         colors: Vec::new(),
         islands: Vec::new(),
+        tops: Vec::new(),
     }
 }
 
@@ -1369,7 +2089,8 @@ fn shape_runs(
                 let n = colors.len();
                 for (k, &color) in colors.iter().enumerate() {
                     let (t0, t1) = (k as f64 / n as f64, (k + 1) as f64 / n as f64);
-                    let (pieces, fallback) = satin_pieces_strip(shape, opt, notes, t0, t1);
+                    let (pieces, fallback, tops) = satin_pieces_strip(shape, opt, notes, t0, t1);
+                    sr.tops.extend(tops.iter().map(|k| sr.groups.len() + k));
                     let mut groups = fallback;
                     if !pieces.is_empty() {
                         groups.push(pieces);
@@ -1381,11 +2102,13 @@ fn shape_runs(
                 }
                 return sr;
             }
-            let (pieces, mut fallback) = satin_pieces(shape, opt, notes);
+            let (pieces, mut fallback, tops) = satin_pieces(shape, opt, notes);
             if !pieces.is_empty() {
                 fallback.push(pieces);
             }
-            ShapeRuns::new(fallback, area)
+            let mut sr = ShapeRuns::new(fallback, area);
+            sr.tops = tops;
+            sr
         }
         (Geometry::Fill { rings, .. }, _) => {
             // Running stitch along each outline.
@@ -1427,28 +2150,113 @@ pub fn coverage(shape: &Shape) -> Option<(Vec<Polyline>, FillRule)> {
         }
         (Kind::Satin, _) => Some((
             satin_columns(shape).into_iter().flatten().collect(),
-            FillRule::EvenOdd,
+            FillRule::NonZero,
         )),
         _ => None,
     }
 }
 
-/// What each of a satin's columns covers, column by column (even-odd): a
-/// column between two rails is one ring, a closed one (a ring of satin)
-/// its two rails, and a part that's filled instead its outline.
+/// What each of a satin's columns covers, column by column: a column
+/// between two rails is one ring, a closed one (a ring of satin) its two
+/// rails, and a part that's filled instead its outline.
+///
+/// Each column's rings are wound alike (see [`wound_alike`]), so that any
+/// of them together are what they cover by the nonzero rule: columns that
+/// overlap (see the `overlap` setting) cover where they overlap. (By the
+/// even-odd rule, that would be a hole in what they cover, between every
+/// two strokes; one column alone is the same by either rule.)
 fn satin_columns(shape: &Shape) -> Vec<Vec<Polyline>> {
     satin_rails(shape)
         .into_iter()
         .map(|r| match r {
-            Ok(rails) if rails.closed => vec![rails.a, rails.b],
-            Ok(rails) => {
-                let mut ring = rails.a;
-                ring.extend(rails.b.iter().rev());
-                vec![ring]
-            }
+            Ok(rails) => rails.outline(),
             Err((comp, _)) => comp,
         })
+        .map(wound_alike)
         .collect()
+}
+
+/// One part's rings, its outermost wound one way and the rest (its holes)
+/// the other: what's inside it by the even-odd rule, and by the nonzero
+/// rule as well, alone or with other parts wound so.
+fn wound_alike(mut rings: Vec<Polyline>) -> Vec<Polyline> {
+    let signed = |r: &[P]| -> f64 {
+        (0..r.len())
+            .map(|i| crate::geom::cross(r[i], r[(i + 1) % r.len()]))
+            .sum()
+    };
+    let outer = (0..rings.len())
+        .max_by(|&i, &j| signed(&rings[i]).abs().total_cmp(&signed(&rings[j]).abs()));
+    for (i, ring) in rings.iter_mut().enumerate() {
+        if (signed(ring) > 0.0) != (Some(i) == outer) {
+            ring.reverse();
+        }
+    }
+    rings
+}
+
+/// A satin's column (by its place among those that are columns) by its
+/// place among all its parts, the filled ones too (`filled`: which are,
+/// see [`satin_filled`]).
+fn satin_part(filled: &[bool], column: usize) -> Option<usize> {
+    filled
+        .iter()
+        .enumerate()
+        .filter(|(_, f)| !**f)
+        .nth(column)
+        .map(|(i, _)| i)
+}
+
+/// Which of a satin's parts, as [`satin_columns`] has them, couldn't be
+/// columns and are filled instead.
+fn satin_filled(shape: &Shape) -> Vec<bool> {
+    satin_rails(shape).iter().map(|r| r.is_err()).collect()
+}
+
+/// A column narrower than this (units) is taken to be this wide as ground
+/// for travel: thread run down the middle of a hairline lies under its
+/// stitches, but the hairline itself is narrower than the cells travel is
+/// routed over, and no way is found along it.
+const GROUND_WIDTH: f64 = 6.0;
+
+/// A satin's hairlines as ground for travel, column by column as
+/// [`satin_columns`] has them: the outline of each open column that's
+/// narrower than [`GROUND_WIDTH`] somewhere, widened to that about its
+/// middle; `None` for the rest.
+fn satin_thin(shape: &Shape) -> Vec<Option<Polyline>> {
+    satin_rails(shape)
+        .into_iter()
+        .map(|r| thin_ground(&r.ok()?))
+        .collect()
+}
+
+/// An open column's outline with its hairlines widened to
+/// [`GROUND_WIDTH`] about their middle; `None` if it has none (or is a
+/// ring).
+fn thin_ground(rails: &Rails) -> Option<Polyline> {
+    if rails.closed {
+        return None;
+    }
+    let pairs = satin::pairs(rails, 5.0);
+    if pairs.iter().all(|(a, b)| a.dist(*b) >= GROUND_WIDTH) {
+        return None;
+    }
+    let wide: Vec<(P, P)> = pairs
+        .iter()
+        .map(|&(a, b)| {
+            let w = a.dist(b);
+            // (Not where it comes to a point: there's no saying which way
+            // is across it.)
+            if w >= GROUND_WIDTH || w < 0.5 {
+                return (a, b);
+            }
+            let (mid, out) = (a.lerp(b, 0.5), (a - b).norm() * (GROUND_WIDTH * 0.5));
+            (mid + out, mid - out)
+        })
+        .collect();
+    let mut ring: Polyline = wide.iter().map(|w| w.0).collect();
+    ring.extend(wide.iter().rev().map(|w| w.1));
+    Some(ring)
 }
 
 /// What one plan works out that the next can use as it is, kept in the
@@ -1462,6 +2270,11 @@ fn satin_columns(shape: &Shape) -> Vec<Vec<Polyline>> {
 struct Kept {
     /// By [`satin_key`].
     satins: RefCell<HashMap<u64, Rc<Vec<Vec<Polyline>>>>>,
+    /// Their hairlines ([`satin_thin`]), by the same.
+    thins: RefCell<HashMap<u64, Rc<Vec<Option<Polyline>>>>>,
+    /// And which of each one's parts are filled instead of sewn as
+    /// columns ([`satin_filled`]), by the same.
+    filled: RefCell<HashMap<u64, Rc<Vec<bool>>>>,
     /// By what the zone is made of and the box it's in.
     zones: RefCell<HashMap<u64, Option<Rc<Zone>>>>,
     /// By the area the ring is inset from (see [`travel_ring`]).
@@ -1496,6 +2309,7 @@ fn satin_key(shape: &Shape) -> u64 {
     geometry_key(&shape.geometry).hash(&mut h);
     format!("{:?}", shape.params).hash(&mut h);
     shape.outline.hash(&mut h);
+    shape.joined.hash(&mut h);
     h.finish()
 }
 
@@ -1511,6 +2325,28 @@ impl Kept {
         c
     }
 
+    /// [`satin_thin`], from last time when the satin is as it was.
+    fn satin_thin(&self, shape: &Shape) -> Rc<Vec<Option<Polyline>>> {
+        let key = satin_key(shape);
+        if let Some(t) = self.thins.borrow().get(&key) {
+            return t.clone();
+        }
+        let t = Rc::new(satin_thin(shape));
+        self.thins.borrow_mut().insert(key, t.clone());
+        t
+    }
+
+    /// [`satin_filled`], from last time when the satin is as it was.
+    fn satin_filled(&self, shape: &Shape) -> Rc<Vec<bool>> {
+        let key = satin_key(shape);
+        if let Some(f) = self.filled.borrow().get(&key) {
+            return f.clone();
+        }
+        let f = Rc::new(satin_filled(shape));
+        self.filled.borrow_mut().insert(key, f.clone());
+        f
+    }
+
     /// [`coverage`], a satin's from its kept columns.
     fn coverage(&self, shape: &Shape) -> Cover {
         if shape.params.kind.unwrap_or(Kind::Fill) == Kind::Satin {
@@ -1520,7 +2356,7 @@ impl Kept {
                     .flatten()
                     .cloned()
                     .collect(),
-                FillRule::EvenOdd,
+                FillRule::NonZero,
             ));
         }
         coverage(shape)
@@ -1572,6 +2408,8 @@ impl Kept {
             .map(satin_key)
             .collect();
         self.satins.borrow_mut().retain(|k, _| live.contains(k));
+        self.thins.borrow_mut().retain(|k, _| live.contains(k));
+        self.filled.borrow_mut().retain(|k, _| live.contains(k));
         self.used.borrow_mut().clear();
     }
 
@@ -1609,6 +2447,86 @@ fn overlaps(a: &Bounds, b: &Bounds) -> bool {
 
 /// Sewing order: document order, or cap order (center-out, bottom-up, grouping
 /// colors) that still sews anything underneath an object before the object.
+/// Satin columns sewn as one satin: two or more two-rail satins one after
+/// another in the sewing order, in the same group, in the same thread and
+/// with the same settings, none of them saying where it begins or ends.
+/// One that says to cut or stop after it is the last of them, and the
+/// satin they make cuts or stops there. What Break into Columns makes, and columns
+/// drawn by hand and grouped. They're planned as a satin shape's columns
+/// are, the thread going on under the columns still to come, so a satin
+/// broken into its columns sews as it did; but in the order and direction
+/// they're drawn, which is what drawing them is for.
+///
+/// The shapes from `pos` in `order` that are, and the one satin they
+/// make: their subpaths one after another, [`Shape::joined`] saying how
+/// many are each's. `None` if fewer than two are.
+fn joined_satin(shapes: &[Shape], order: &[usize], pos: usize) -> Option<(Vec<usize>, Shape)> {
+    fn column(s: &Shape) -> Option<(&Vec<(Polyline, bool)>, f64)> {
+        let p = &s.params;
+        match &s.geometry {
+            Geometry::Stroke { lines, width }
+                if p.kind == Some(Kind::Satin)
+                    && !s.outline
+                    && !s.groups.is_empty()
+                    && p.start.is_none()
+                    && p.end.is_none()
+                    && p.colors.as_ref().is_none_or(|c| c.len() < 2)
+                    && satin::rails_from_subpaths(lines, p.satin_rails()).is_some() =>
+            {
+                Some((lines, *width))
+            }
+            _ => None,
+        }
+    }
+    let first = &shapes[*order.get(pos)?];
+    let (_, width) = column(first)?;
+    // (Settings but for what happens after: that's the last one's to say.)
+    let settings_of = |s: &Shape| {
+        let mut p = s.params.clone();
+        (p.trim, p.stop) = (None, None);
+        format!("{p:?}")
+    };
+    let ends = |s: &Shape| s.params.trim == Some(true) || s.params.stop == Some(true);
+    let settings = settings_of(first);
+    let mut members: Vec<usize> = Vec::new();
+    for &j in &order[pos..] {
+        let s = &shapes[j];
+        if column(s).is_none()
+            || s.groups != first.groups
+            || s.color != first.color
+            || settings_of(s) != settings
+        {
+            break;
+        }
+        members.push(j);
+        if ends(s) {
+            break;
+        }
+    }
+    if members.len() < 2 {
+        return None;
+    }
+    let last = &shapes[*members.last()?];
+    let mut params = first.params.clone();
+    (params.trim, params.stop) = (last.params.trim, last.params.stop);
+    let mut lines = Vec::new();
+    let mut joined = Vec::new();
+    for &j in &members {
+        let (own, _) = column(&shapes[j])?;
+        joined.push(own.len());
+        lines.extend(own.iter().cloned());
+    }
+    Some((
+        members,
+        Shape {
+            geometry: Geometry::Stroke { lines, width },
+            joined,
+            params,
+            ..first.clone()
+        },
+    ))
+}
+
 fn sew_order(shapes: &[Shape], opt: &PlanOptions) -> Vec<usize> {
     let n = shapes.len();
     if !opt.hat_order {
@@ -1951,11 +2869,12 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
         bridges: Vec::new(),
         stitch_shapes: Vec::new(),
         travels: Vec::new(),
+        satin_columns: Vec::new(),
     };
     // What each shape covers and where it is, worked out when travel first
     // looks for cover.
-    let mut covers: Vec<Option<Cover>> = vec![None; shapes.len()];
-    let mut shape_bounds: Option<Vec<Bounds>> = None;
+    let covers: RefCell<Vec<Option<Cover>>> = RefCell::new(vec![None; shapes.len()]);
+    let shape_bounds: RefCell<Option<Vec<Bounds>>> = RefCell::new(None);
     let mut cursor: Option<P> = None;
     // Set by the last object: cut before the next run, or pause before
     // the next object.
@@ -1964,8 +2883,22 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
     // The last run sewn belongs to the object being sewn, so its outline
     // can be used to route travel within the same shape.
     let mut same_shape = false;
+    // Up to where satin columns sewn as one satin (see [`joined_satin`])
+    // have been sewn with the first of them.
+    let mut joined_until = 0;
     for (pos, &si) in order.iter().enumerate() {
-        let shape = &shapes[si];
+        if pos < joined_until {
+            continue;
+        }
+        let (members, joined) = match joined_satin(shapes, &order, pos) {
+            Some((members, shape)) => (members, Some(shape)),
+            None => (vec![si], None),
+        };
+        joined_until = pos + members.len();
+        // (What's sewn after it is what's after all of them.)
+        let pos = joined_until - 1;
+        let shape = joined.as_ref().unwrap_or(&shapes[si]);
+        let shape_geometry = joined.as_ref().map_or(&geometry[si], |s| &s.geometry);
         if shape.params.kind == Some(Kind::Skip) {
             continue;
         }
@@ -1984,7 +2917,10 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
         let mut fill_sewing: Option<Vec<(P, P)>> = None;
         // Likewise where travel is out of sight (and, for a satin, how
         // many of its columns had been sewn when that was worked out).
-        let mut zone: Option<(usize, Option<Rc<Zone>>)> = None;
+        // (By the satin's columns sewn and where the thread is: an order is
+        // tried out before it's sewn, from other places with other columns
+        // done.)
+        let mut zones: HashMap<(Vec<usize>, [u64; 2]), Ground> = HashMap::new();
         // (And where it's under what's sewn later, whatever this shape
         // has sewn: for a fill's travel over its own finished rows.)
         let mut later_zone: Option<Option<Rc<Zone>>> = None;
@@ -2002,6 +2938,10 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
         // (The column of the piece in hand: sewn once the way to it has
         // been found, which may be under it.)
         let mut satin_sewing: Option<usize> = None;
+        // Whether the piece just sewn was of a part of the satin that's
+        // filled instead: the thread leaves it as it leaves a fill, with
+        // no hop over its rows taken for free.
+        let left_fill = std::cell::Cell::new(false);
         let start_at = shape
             .params
             .start
@@ -2014,10 +2954,14 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
         // left of it after overlaps, its settings and the options are the same.
         let key = {
             let mut h = hasher();
-            geo_keys[si].hash(&mut h);
+            joined
+                .as_ref()
+                .map_or(geo_keys[si], |s| geometry_key(&s.geometry))
+                .hash(&mut h);
+            shape.joined.hash(&mut h);
             shape.origin.x.to_bits().hash(&mut h);
             shape.origin.y.to_bits().hash(&mut h);
-            geometry_key(&geometry[si]).hash(&mut h);
+            geometry_key(shape_geometry).hash(&mut h);
             format!("{:?}{:?}", shape.params, shape.part).hash(&mut h);
             // A tartan's default sett comes from the thread color, and a
             // meander's seed from the uid.
@@ -2031,7 +2975,7 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
             Some(hit) => hit.clone(),
             None => {
                 let mut notes = Vec::new();
-                let sr = shape_runs_guarded(shape, &geometry[si], opt, &mut notes);
+                let sr = shape_runs_guarded(shape, shape_geometry, opt, &mut notes);
                 cache.runs.insert(key, (sr.clone(), notes.clone()));
                 (sr, notes)
             }
@@ -2051,13 +2995,14 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
             design.stitch_shapes.push(Vec::new());
         }
         let last_group = sr.groups.iter().rposition(|g| !g.is_empty()).unwrap_or(0);
+        let tops = sr.tops.clone();
         // The object sewn next in the same thread, if nothing says to cut
         // before it: what it will cover (travel can run under that), and
         // where a line of it can begin.
-        let next_reach: Option<(Cover, Vec<P>)> = order[pos + 1..]
-            .iter()
-            .copied()
-            .find(|&j| shapes[j].params.kind != Some(Kind::Skip))
+        let next_at =
+            (pos + 1..order.len()).find(|&k| shapes[order[k]].params.kind != Some(Kind::Skip));
+        let next_reach: Option<(Cover, Vec<P>)> = next_at
+            .map(|k| order[k])
             .filter(|&j| {
                 shapes[j].color == shape.color
                     && sr.colors.is_empty()
@@ -2066,7 +3011,7 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
                     && shape.params.stop != Some(true)
             })
             .map(|j| {
-                let cover = covers[j]
+                let cover = covers.borrow_mut()[j]
                     .get_or_insert_with(|| kept.coverage(&shapes[j]))
                     .clone();
                 let ends = match &shapes[j].geometry {
@@ -2080,19 +3025,58 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
                 (cover, ends)
             });
         // Whether the next object can be reached from `p` without a cut:
-        // a short hop from where it can begin, or from what it will cover.
+        // a short hop from where it can begin or from what it will cover,
+        // or a way to it under what's sewn later.
         let reaches_next = |p: P| -> bool {
             let Some((cover, ends)) = &next_reach else {
                 return false;
             };
             let near = opt.max_jump_no_trim;
-            match cover {
+            let beside = match cover {
                 Some((rings, rule)) => {
                     crate::geom::point_inside(rings, *rule, p)
                         || rings.iter().any(|r| dist_to_ring(r, p) <= near)
                 }
                 None => ends.iter().any(|e| e.dist(p) <= near),
+            };
+            if beside || opt.travel_route <= 0.0 {
+                return beside;
             }
+            let Some(at) = next_at else {
+                return false;
+            };
+            let next = &shapes[order[at]];
+            // (Under the next object itself only where its stitches hide
+            // what's beneath them, as for travel within it.)
+            let hides = match next.params.kind.unwrap_or(Kind::Fill) {
+                Kind::Satin => true,
+                Kind::Fill => next.params.fill_spacing(&opt.fabric) <= HIDING_SPACING,
+                _ => false,
+            };
+            // Where travel to it is out of sight: under it, and under
+            // what's sewn after it.
+            let zone = hidden_zone(
+                shapes,
+                &order,
+                at,
+                cover.as_ref().filter(|_| hides),
+                &[],
+                p,
+                opt.travel_route,
+                &mut covers.borrow_mut(),
+                &mut shape_bounds.borrow_mut(),
+                kept,
+            );
+            let Some(zone) = zone else {
+                return false;
+            };
+            // Somewhere the next object can begin: on each of its
+            // outlines, or at a line's ends.
+            let begins: Vec<P> = match cover {
+                Some((rings, _)) => rings.iter().filter_map(|r| r.first().copied()).collect(),
+                None => ends.clone(),
+            };
+            begins.iter().any(|&q| zone.joined(p, near, q))
         };
         // The stitches from the last run (ending at `prev`) to a piece
         // starting at `start`, when the thread needn't be cut between
@@ -2155,13 +3139,15 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
                                     &order,
                                     pos,
                                     None,
+                                    &[],
                                     prev,
                                     opt.travel_route,
-                                    &mut covers,
-                                    &mut shape_bounds,
+                                    &mut covers.borrow_mut(),
+                                    &mut shape_bounds.borrow_mut(),
                                     kept,
                                 )
                             },
+                            0.0,
                         ) > FEW_ROWS
                     {
                         across = None;
@@ -2172,48 +3158,98 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
                 // under what's sewn later on top.
                 if across.is_none() && opt.travel_route > 0.0 {
                     how.set(TravelHow::Under);
-                    let sewn = satin_sewn.borrow().len();
-                    if zone.as_ref().is_none_or(|(n, _)| *n != sewn) {
-                        // The satin's columns still to sew.
-                        let to_sew: Option<(Vec<Polyline>, FillRule)> = is_satin.then(|| {
-                            let done = satin_sewn.borrow();
-                            (
+                    let mut sewn = satin_sewn.borrow().clone();
+                    sewn.sort_unstable();
+                    let key = (sewn, [prev.x.to_bits(), prev.y.to_bits()]);
+                    if !zones.contains_key(&key) {
+                        // The satin's columns still to sew; and its parts
+                        // that are filled instead, whose rows hide what's
+                        // under them as a fill's do (`parts`: with those,
+                        // or the columns alone).
+                        let filled = is_satin.then(|| kept.satin_filled(shape));
+                        let any_filled = filled.as_ref().is_some_and(|f| f.contains(&true));
+                        let fill_hides = shape.params.fill_spacing(&opt.fabric) <= HIDING_SPACING;
+                        let still = |parts: bool| -> Option<(Vec<Polyline>, FillRule)> {
+                            let (filled, done) = (filled.as_ref()?, satin_sewn.borrow());
+                            Some((
                                 satin_cols
                                     .get_or_init(|| kept.satin_columns(shape))
                                     .iter()
                                     .enumerate()
-                                    .filter(|(k, _)| !done.contains(k))
+                                    .filter(|(k, _)| {
+                                        if filled.get(*k).copied().unwrap_or(false) {
+                                            parts && fill_hides
+                                        } else {
+                                            !done.contains(k)
+                                        }
+                                    })
                                     .flat_map(|(_, c)| c.iter().cloned())
                                     .collect(),
-                                FillRule::EvenOdd,
-                            )
-                        });
+                                FillRule::NonZero,
+                            ))
+                        };
+                        let to_sew = still(true);
                         let own = if is_satin {
                             to_sew.as_ref().filter(|(rings, _)| !rings.is_empty())
                         } else {
                             sr.area.as_ref().filter(|_| own_hides)
                         };
-                        zone = Some((
-                            sewn,
+                        // (And its hairlines still to sew, wide enough to
+                        // travel under.)
+                        let thins = is_satin.then(|| kept.satin_thin(shape));
+                        let thin: Vec<&Polyline> = thins
+                            .iter()
+                            .flat_map(|t| t.iter().enumerate())
+                            .filter(|(k, _)| !satin_sewn.borrow().contains(k))
+                            .filter_map(|(_, ring)| ring.as_ref())
+                            .collect();
+                        let ways = hidden_zone(
+                            shapes,
+                            &order,
+                            pos,
+                            own,
+                            &thin,
+                            prev,
+                            opt.travel_route,
+                            &mut covers.borrow_mut(),
+                            &mut shape_bounds.borrow_mut(),
+                            kept,
+                        );
+                        // What covers travel there once it's sewn: the
+                        // same ground, but for the filled parts. Thread
+                        // can run under one where its rows are still to
+                        // come, but its rows already sewn aren't covered
+                        // by anything.
+                        let cover = if any_filled {
+                            let columns = still(false);
                             hidden_zone(
                                 shapes,
                                 &order,
                                 pos,
-                                own,
+                                columns.as_ref().filter(|(rings, _)| !rings.is_empty()),
+                                &thin,
                                 prev,
                                 opt.travel_route,
-                                &mut covers,
-                                &mut shape_bounds,
+                                &mut covers.borrow_mut(),
+                                &mut shape_bounds.borrow_mut(),
                                 kept,
-                            ),
-                        ));
+                            )
+                        } else {
+                            ways.clone()
+                        };
+                        zones.insert(key.clone(), Ground { ways, cover });
                     }
-                    across = zone.as_ref().and_then(|(_, z)| z.as_ref()).and_then(|z| {
+                    let zone = &zones[&key];
+                    across = zone.ways.as_ref().and_then(|z| {
                         z.route_from(prev, start, opt.travel_route, opt.max_jump_no_trim)
                     });
                     // A fill's rows hide what's sewn before them, not
                     // after: a way over rows already sewn is in plain
                     // sight, unless something sewn later covers it there.
+                    // (For a satin, its own columns still to sew are such
+                    // cover: what the way crosses under them, the last
+                    // stitches of a column that butts into one, they hide.)
+                    let mut own_zone = is_satin.then(|| zone.cover.clone());
                     if is_tatami
                         && !opt.over_sewn
                         && !fill_sewn.borrow().is_empty()
@@ -2223,21 +3259,62 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
                             path,
                             start,
                             &fill_sewn.borrow(),
-                            &mut later_zone,
+                            if is_satin {
+                                &mut own_zone
+                            } else {
+                                &mut later_zone
+                            },
                             || {
                                 hidden_zone(
                                     shapes,
                                     &order,
                                     pos,
                                     None,
+                                    &[],
                                     prev,
                                     opt.travel_route,
-                                    &mut covers,
-                                    &mut shape_bounds,
+                                    &mut covers.borrow_mut(),
+                                    &mut shape_bounds.borrow_mut(),
                                     kept,
                                 )
                             },
+                            if is_satin { opt.max_jump_no_trim } else { 0.0 },
                         ) > FEW_ROWS
+                    {
+                        across = None;
+                    }
+                    // (And that hop no more across finished stitching than
+                    // the checks would say shows: a column's stitches
+                    // fanning into its tip are many in a little way.)
+                    if is_satin
+                        && let Some(path) = &across
+                        && over_sewn(
+                            prev,
+                            path,
+                            start,
+                            &fill_sewn.borrow(),
+                            &mut own_zone,
+                            || None,
+                            0.0,
+                        ) >= crate::checks::EXPOSED_ROWS
+                    {
+                        across = None;
+                    }
+                    // (Leaving a filled part, nothing still to sew is
+                    // taken to cover the way out over its rows: the
+                    // columns' outlines reach past their stitches there.)
+                    if is_satin
+                        && left_fill.get()
+                        && let Some(path) = &across
+                        && over_sewn(
+                            prev,
+                            path,
+                            start,
+                            &fill_sewn.borrow(),
+                            &mut Some(None),
+                            || None,
+                            0.0,
+                        ) >= LEFT_FILL_ROWS
                     {
                         across = None;
                     }
@@ -2250,6 +3327,67 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
                 }
                 (across, false)
             };
+        // What sewing a piece of group `gi` leaves for the way to the
+        // next, from its stitches as planned (`pts`) and the satin's column
+        // it's of (`column`, by its place among those that are columns):
+        // the satin's part that's no longer ground for travel, the rows a
+        // way may cross (a fill's or a satin's), and whether the thread
+        // leaves a fill. (Sewing, and trying out an order: the same.)
+        //
+        // A satin's column, once sewn, is no longer somewhere for travel
+        // to hide: the one the piece is of (its place among the satin's
+        // parts, the filled ones too). Not the one a stitch of it lies in:
+        // columns that overlap both have their stitches there. (A part
+        // that's filled instead is many pieces, and stays ground for
+        // travel while any is to come: where its rows are sewn, they're
+        // counted.) Every section's rows, whether its group has others or
+        // it's a part of its own: the next may be reached across it. And a
+        // satin's columns are its last group, if it has any: every other
+        // group is of a part that's filled.
+        let after = |pts: &Polyline, column: Option<usize>, gi: usize| {
+            let part = column
+                .filter(|_| is_satin && pts.len() >= 2)
+                .and_then(|k| satin_part(&kept.satin_filled(shape), k))
+                .filter(|i| !satin_sewn.borrow().contains(i));
+            let rows =
+                (is_tatami && (gi == last_group || tops.contains(&gi))).then(|| straight_runs(pts));
+            let left = is_satin && (gi != last_group || tops.contains(&gi));
+            (part, rows, left)
+        };
+        // A satin column there's no way to that's out of sight (column
+        // `c`, by its place among the satin's parts), but which begins
+        // straight across its own ground from where the thread is (the
+        // thread at one corner of the end it starts from, or a hop off it;
+        // the column starting from the middle of that end): run to it
+        // under the column itself, which is about to cover the way.
+        let under_own = |prev: P, start: P, c: usize| -> Option<Vec<P>> {
+            if !is_satin || opt.travel_route <= 0.0 || prev.dist(start) > satin::AUTO_MAX_WIDTH {
+                return None;
+            }
+            let cols = satin_cols.get_or_init(|| kept.satin_columns(shape));
+            let gap = prev.dist(start);
+            let steps = (gap / 2.0).ceil().max(1.0) as usize;
+            let on_it = |k: usize| {
+                let p = prev.lerp(start, k as f64 / steps as f64);
+                crate::geom::point_inside(&cols[c], FillRule::EvenOdd, p)
+                    || cols[c].iter().any(|r| dist_to_ring(r, p) <= OWN_GROUND)
+            };
+            let reached = (0..=steps).find(|&k| on_it(k))?;
+            (gap * reached as f64 / steps as f64 <= opt.max_jump_no_trim
+                && (reached..=steps).all(on_it)
+                // (The hop onto it over no more finished stitching than
+                // the checks would say shows.)
+                && crossings(
+                    &[prev, prev.lerp(start, reached as f64 / steps as f64)],
+                    &fill_sewn.borrow(),
+                ) < crate::checks::EXPOSED_ROWS)
+                .then(|| {
+                    let n = (gap / 30.0).ceil() as usize;
+                    (1..n)
+                        .map(|i| prev.lerp(start, i as f64 / n as f64))
+                        .collect()
+                })
+        };
         // The groups in sewing order: one after another, or (a fill in
         // separate parts, with no start or end point to honour) part by
         // part, each part's groups together, nearest part next.
@@ -2315,8 +3453,10 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
                 design.stitch_shapes.push(Vec::new());
             }
             let bs = design.block_shapes.last_mut().unwrap();
-            if !bs.contains(&si) {
-                bs.push(si);
+            for &m in &members {
+                if !bs.contains(&m) {
+                    bs.push(m);
+                }
             }
             let block_index = design.blocks.len() - 1;
             let block = design.blocks.last_mut().unwrap();
@@ -2349,7 +3489,163 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
             // would take the thread over rows already sewn: the order
             // (and which way each is sewn) that doesn't.
             let mut planned = false;
-            if is_tatami
+            // A satin's columns, likewise: a column that ends against the
+            // side of another is sewn before it, so the thread goes on
+            // under the one still to come instead of being cut.
+            //
+            // The search counts cuts quickly, by which columns touch; the
+            // sewing below finds its way by the travel it routes. So each
+            // order it finds is tried out as it would be sewn, the search
+            // told what each of its steps came to (cut or not, whatever it
+            // had counted), and run again while it's learning something
+            // and its count was wrong (lazy constraint generation).
+            // Whichever of the orders found sews with fewest cuts is sewn,
+            // going to the nearest piece each time among them (first, on a
+            // tie): what's sewn is what was tried out.
+            // (What the last piece of the group before left being sewn is
+            // sewn by now: the orders tried out begin from that, as the
+            // sewing below does.)
+            if let Some(c) = satin_sewing.take() {
+                satin_sewn.borrow_mut().push(c);
+            }
+            if let Some(rows) = fill_sewing.take() {
+                fill_sewn.borrow_mut().extend(rows);
+            }
+            let columns = if is_satin
+                && gi == last_group
+                && sr.colors.is_empty()
+                && start_at.is_none()
+                && end_at.is_none()
+                && group.len() >= 2
+            {
+                let cols = satin_cols.get_or_init(|| kept.satin_columns(shape));
+                let from = cursor.filter(|_| !block.runs.is_empty() && !force_trim);
+                let reach = next_reach
+                    .is_some()
+                    .then_some(&reaches_next as &dyn Fn(P) -> bool);
+                let drawn = joined.is_some();
+                // An order as it'd be sewn: its cuts, and which of its
+                // steps are cut (by their places in it). As the loop below
+                // sews it: each piece as planned and as sewn, and what
+                // sewing it leaves (`after`) taken in where the loop takes
+                // it in; all put back as it was after.
+                let mut try_out = |order: &PieceOrder| -> (usize, Vec<usize>) {
+                    let done = satin_sewn.borrow().clone();
+                    let rows = fill_sewn.borrow().len();
+                    let left = left_fill.get();
+                    let mut prev = from;
+                    let mut cut_at = Vec::new();
+                    for (k, &(i, turned, leave)) in order.iter().enumerate() {
+                        let piece = &group[i];
+                        let (mut planned, mut sewn) = if turned {
+                            (
+                                piece.alt.clone().unwrap_or_else(|| piece.pts.clone()),
+                                piece.alt_sewn.clone(),
+                            )
+                        } else {
+                            (piece.pts.clone(), piece.sewn.clone())
+                        };
+                        if let Some(to) = leave {
+                            planned.push(to);
+                            if let Some(sewn) = &mut sewn {
+                                sewn.push(to);
+                            }
+                        }
+                        let (part, rows, left) = after(&planned, piece.column.map(|(c, _)| c), gi);
+                        left_fill.set(left);
+                        let mut pts = sewn.unwrap_or(planned);
+                        dedupe(&mut pts, opt.min_stitch);
+                        if !sewable(&pts, opt.min_stitch) {
+                            pts.clear();
+                        }
+                        if let Some(p) = prev
+                            && let Some(&start) = pts.first()
+                            && connect(p, start, false, k > 0 || same_shape).0.is_none()
+                            && part.is_none_or(|c| under_own(p, start, c).is_none())
+                        {
+                            cut_at.push(k);
+                        }
+                        satin_sewn.borrow_mut().extend(part);
+                        fill_sewn.borrow_mut().extend(rows.into_iter().flatten());
+                        prev = pts.last().copied().or(prev);
+                    }
+                    let missed = reach.is_some_and(|f| prev.is_some_and(|p| !f(p)));
+                    *satin_sewn.borrow_mut() = done;
+                    fill_sewn.borrow_mut().truncate(rows);
+                    left_fill.set(left);
+                    (cut_at.len() + missed as usize, cut_at)
+                };
+                let mut known: HashMap<Step, bool> = HashMap::new();
+                let mut best: Option<(usize, PieceOrder)> = None;
+                let (mut expected, mut searches) = (None, 0);
+                for _ in 0..ORDER_SEARCHES {
+                    let Some(plan) = column_order(
+                        &group,
+                        cols,
+                        &kept.satin_filled(shape),
+                        from,
+                        reach,
+                        opt,
+                        drawn,
+                        &known,
+                    ) else {
+                        break;
+                    };
+                    searches += 1;
+                    expected.get_or_insert(plan.expected);
+                    if best.is_none() && !drawn {
+                        best = Some((try_out(&plan.first).0, plan.first.clone()));
+                    }
+                    let (cuts, cut_at) = try_out(&plan.order);
+                    let mut learned = false;
+                    for (k, &step) in plan.steps.iter().enumerate() {
+                        learned |= known.insert(step, cut_at.contains(&k)).is_none();
+                    }
+                    if best.as_ref().is_none_or(|b| cuts < b.0) {
+                        best = Some((cuts, plan.order));
+                    }
+                    if cuts == plan.expected || !learned {
+                        break;
+                    }
+                }
+                if trim_report()
+                    && let Some((cuts, _)) = &best
+                {
+                    eprintln!(
+                        "column order: {} columns, expected {} cuts; tried out, {cuts} ({searches} searches); taken",
+                        group.len(),
+                        expected.unwrap_or(0),
+                    );
+                }
+                best.map(|b| b.1)
+            } else {
+                None
+            };
+            if let Some(order) = columns {
+                let mut from: Vec<Option<Piece>> = group.drain(..).map(Some).collect();
+                for (i, turned, leave) in order {
+                    let Some(mut piece) = from[i].take() else {
+                        continue;
+                    };
+                    if turned && let Some(alt) = piece.alt.take() {
+                        piece.pts = alt;
+                        piece.sewn = piece.alt_sewn.take();
+                        if let Some((_, t)) = &mut piece.column {
+                            *t = !*t;
+                        }
+                    }
+                    piece.alt = None;
+                    piece.alt_sewn = None;
+                    if let Some(to) = leave {
+                        piece.pts.push(to);
+                        if let Some(sewn) = &mut piece.sewn {
+                            sewn.push(to);
+                        }
+                    }
+                    group.push(piece);
+                }
+                planned = true;
+            } else if is_tatami
                 && gi == last_group
                 && start_at.is_none()
                 && end_at.is_none()
@@ -2369,9 +3665,22 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
                     };
                     if turned && let Some(alt) = piece.alt.take() {
                         piece.pts = alt;
+                        piece.sewn = piece.alt_sewn.take();
+                        if let Some((_, t)) = &mut piece.column {
+                            *t = !*t;
+                        }
                     }
                     piece.alt = None;
+                    piece.alt_sewn = None;
                     group.push(piece);
+                }
+                planned = true;
+            } else if joined.is_some() {
+                // Columns sewn as one satin, too many to search: as
+                // they're drawn.
+                for piece in &mut group {
+                    piece.alt = None;
+                    piece.alt_sewn = None;
                 }
                 planned = true;
             }
@@ -2474,6 +3783,29 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
                         best_alt = true;
                     }
                 }
+                // (The object the piece is of: of columns sewn as one
+                // satin, its column's.)
+                let si = piece
+                    .column
+                    .and_then(|(c, _)| members.get(c).copied())
+                    .unwrap_or(si);
+                // (Which of the satin's columns this sews, among those
+                // that are columns.)
+                let own_column = piece.column.map(|(c, _)| c);
+                // (Once: a satin of several threads sews each column
+                // once a thread.)
+                if let Some((c, turned)) = piece.column
+                    && joined.is_none()
+                    && !design
+                        .satin_columns
+                        .iter()
+                        .rev()
+                        .take_while(|e| e.0 == si)
+                        .any(|e| e.1 == c)
+                {
+                    design.satin_columns.push((si, c, turned != best_alt));
+                }
+                let sewn = if best_alt { piece.alt_sewn } else { piece.sewn };
                 let mut pts = if best_alt {
                     piece.alt.unwrap()
                 } else if piece.ring && best_at > 0 {
@@ -2481,30 +3813,16 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
                 } else {
                     piece.pts
                 };
-                // A satin's column, once this is sewn, is no longer
-                // somewhere for travel to hide: which one it is, by a
-                // stitch across its middle.
-                if is_satin && pts.len() >= 2 {
-                    let cols = satin_cols.get_or_init(|| kept.satin_columns(shape));
-                    let done = satin_sewn.borrow();
-                    let probes = [pts.len() / 2, pts.len() * 3 / 4, pts.len() / 4];
-                    let found = probes.iter().find_map(|&k| {
-                        let k = k.clamp(1, pts.len() - 1);
-                        let mid = pts[k - 1].lerp(pts[k], 0.5);
-                        (0..cols.len()).find(|c| {
-                            !done.contains(c)
-                                && crate::geom::point_inside(&cols[*c], FillRule::EvenOdd, mid)
-                        })
-                    });
-                    satin_sewing = found;
-                }
-                // (Every section, whether its group has others or it's a
-                // part of its own: the next may be reached across it.)
-                if is_tatami && gi == last_group {
-                    fill_sewing = Some(straight_runs(&pts));
+                let left;
+                (satin_sewing, fill_sewing, left) = after(&pts, own_column, gi);
+                left_fill.set(left);
+                // (Planned as the column that ends where it meets the
+                // next; sewn with its stitches run on under that one.)
+                if let Some(sewn) = sewn {
+                    pts = sewn;
                 }
                 dedupe(&mut pts, opt.min_stitch);
-                if pts.is_empty() {
+                if !sewable(&pts, opt.min_stitch) {
                     continue;
                 }
                 // Begin at the start point: a few stitches from it to the
@@ -2538,9 +3856,18 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
                 let mut trim_before = false;
                 let (travel_block, travel_run) = (block_index, block.runs.len().saturating_sub(1));
                 if let (Some(prev), Some(run)) = (cursor, block.runs.last_mut()) {
-                    let (across, bridged) = connect(prev, start, force_trim, same_shape);
+                    let (mut across, bridged) = connect(prev, start, force_trim, same_shape);
                     if bridged {
                         design.bridges.push((prev, start));
+                    }
+                    if across.is_none()
+                        && !force_trim
+                        && !from_start
+                        && let Some(c) = satin_sewing
+                        && let Some(way) = under_own(prev, start, c)
+                    {
+                        across = Some(way);
+                        how.set(TravelHow::Under);
                     }
                     if let Some(across) = across {
                         // No stitch shorter than the shortest allowed where
@@ -2580,6 +3907,17 @@ fn plan_shown(name: &str, shapes: &[Shape], opt: &PlanOptions, cache: &mut PlanC
                         continue;
                     }
                     trim_before = true;
+                    if trim_report() {
+                        eprintln!(
+                            "trim before shape {si} ({}): {} -> {}, {:.1} mm (a hop is {:.1}){}",
+                            shape.id,
+                            at_mm(prev),
+                            at_mm(start),
+                            prev.dist(start) / 10.0,
+                            opt.max_jump_no_trim / 10.0,
+                            if force_trim { ", asked for" } else { "" },
+                        );
+                    }
                 }
                 force_trim = false;
                 same_shape = true;
@@ -2632,16 +3970,22 @@ fn straight_runs(pts: &[P]) -> Vec<(P, P)> {
     out
 }
 
-/// How many of `rows` the path `path` crosses.
+/// How many of `rows` the path `path` crosses: as many rows' worth of
+/// them as it does (see [`crate::checks::rows_worth`]: stitches crowded
+/// together, round the inside of a bend or fanned into a corner, are no
+/// more to travel across than the same distance of plain rows).
 fn crossings(path: &[P], rows: &[(P, P)]) -> usize {
     let side = |a: P, b: P, c: P| (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-    let mut n = 0;
+    // How far along the path each crossing is.
+    let mut at: Vec<f64> = Vec::new();
+    let mut gone = 0.0;
     for w in path.windows(2) {
         let (a, b) = (w[0], w[1]);
         let (lo, hi) = (
             P::new(a.x.min(b.x), a.y.min(b.y)),
             P::new(a.x.max(b.x), a.y.max(b.y)),
         );
+        let len = a.dist(b);
         for &(c, d) in rows {
             if c.x.max(d.x) < lo.x
                 || c.x.min(d.x) > hi.x
@@ -2650,13 +3994,22 @@ fn crossings(path: &[P], rows: &[(P, P)]) -> usize {
             {
                 continue;
             }
-            if side(a, b, c) * side(a, b, d) < 0.0 && side(c, d, a) * side(c, d, b) < 0.0 {
-                n += 1;
+            let (sa, sb) = (side(c, d, a), side(c, d, b));
+            if side(a, b, c) * side(a, b, d) < 0.0 && sa * sb < 0.0 {
+                at.push(gone + len * sa / (sa - sb));
             }
         }
+        gone += len;
     }
-    n
+    crate::checks::rows_worth(at)
 }
+
+/// The way out of a satin's part that's filled instead may cross fewer
+/// of its finished rows than this, nothing taken to cover them: one
+/// under what the checks say shows. (Over the census's 2,423 letters
+/// with a filled part, at 7 the letters with travel in sight went from 34
+/// to 10 for 302 more trims; at 6, to 4 for 832 more.)
+const LEFT_FILL_ROWS: usize = 7;
 
 /// A travel path may cross this many rows already sewn and still count
 /// as out of sight: a millimetre or so at a section's edge, as a short
@@ -2667,6 +4020,9 @@ const FEW_ROWS: usize = 4;
 /// `path` to `start` crosses in plain sight: not counting where it's
 /// under what's sewn later (`later`: that zone, made by `zone` when first
 /// needed).
+///
+/// Nor the first `free` units of the way: the hop off where the last piece
+/// ended, as short as the gaps that are sewn straight across anyway.
 fn over_sewn(
     prev: P,
     path: &[P],
@@ -2674,10 +4030,22 @@ fn over_sewn(
     rows: &[(P, P)],
     later: &mut Option<Option<Rc<Zone>>>,
     zone: impl FnOnce() -> Option<Rc<Zone>>,
+    free: f64,
 ) -> usize {
     let mut whole = vec![prev];
     whole.extend(path.iter().copied());
     whole.push(start);
+    // (The way from where the hop is over.)
+    let mut left = free;
+    while left > 0.0 && whole.len() >= 2 {
+        let len = whole[0].dist(whole[1]);
+        if len > left {
+            whole[0] = whole[0].lerp(whole[1], left / len);
+            break;
+        }
+        left -= len;
+        whole.remove(0);
+    }
     let mut zone = Some(zone);
     let mut over = 0;
     for w in whole.windows(2) {
@@ -2697,6 +4065,1058 @@ fn over_sewn(
         }
     }
     over
+}
+
+/// The most columns [`through`] cuts in two at their joins, and the
+/// most it leaves after (each a column the order search tries).
+const ORDER_COLUMNS: usize = 16;
+/// How many steps [`column_order`]'s search takes before it settles for
+/// the best order it has (a bound on its time).
+const ORDER_BUDGET: usize = 30_000;
+/// The most times a satin's columns are searched for an order, each time
+/// told what the last one's steps came to, tried out (see `plan_shown`):
+/// a bound on the time. (Most of the census's letters stop after one;
+/// a few dozen go on, and one or two take all of these.)
+const ORDER_SEARCHES: usize = 50;
+
+/// An order to sew a satin's pieces in: each piece, whether it's sewn
+/// from its other end, and where it leaves the thread if not where its
+/// last stitch ends (see [`end_stitch`]).
+type PieceOrder = Vec<(usize, bool, Option<P>)>;
+
+/// What [`column_order`] found: the order with fewest cuts as its search
+/// counts them (`expected`), each of its steps (to tell the search what
+/// each came to, tried out: see [`Step`]), and the order going to the
+/// nearest piece each time would take (`first`), for comparison.
+struct ColumnPlan {
+    order: PieceOrder,
+    steps: Vec<Step>,
+    expected: usize,
+    first: PieceOrder,
+}
+
+/// The order to sew a satin's columns in, and which way each (true: from
+/// its other end), as its search counts the cuts (`None` if there are
+/// too many columns to try): the caller tries it out (see
+/// `plan_shown`), and tells it what the steps it's tried came to
+/// (`known`: whether each was cut).
+///
+/// Thread gets from one column to the next without a cut by a short hop,
+/// or under columns still to be sewn (never over one that's done). So a
+/// column that ends against the side of another (a serif under a stem,
+/// the bar of an e, an arm off a stem) has to be sewn first: sewn after,
+/// it's cut off from the rest by the column it leans on. Nearest-next
+/// sews whichever it comes to. `cols` is what each column covers (see
+/// [`satin_columns`]); `from` where the thread is, if it needn't be cut
+/// before this object; `reaches_next` whether the next object can be
+/// reached from a point, if there is one to reach.
+///
+/// `drawn`: the pieces are columns drawn in the order they're to be sewn
+/// ([`joined_satin`]), and only which side each ends on is chosen: always
+/// an order, then (that one), unless there are too many to search.
+#[allow(clippy::too_many_arguments)]
+fn column_order(
+    pieces: &[Piece],
+    cols: &[Vec<Polyline>],
+    filled: &[bool],
+    from: Option<P>,
+    reaches_next: Option<&dyn Fn(P) -> bool>,
+    opt: &PlanOptions,
+    drawn: bool,
+    known: &HashMap<Step, bool>,
+) -> Option<ColumnPlan> {
+    let n = pieces.len();
+    if n < 2 {
+        return None;
+    }
+    // (What each piece covers: the column it sews, by its place among
+    // the satin's parts, the filled ones too.)
+    let col_of: Vec<usize> = pieces
+        .iter()
+        .map(|p| p.column.and_then(|(c, _)| satin_part(filled, c)))
+        .collect::<Option<_>>()?;
+    let outlines: Vec<&Vec<Polyline>> = col_of.iter().map(|&c| &cols[c]).collect();
+    // Each way of sewing each piece: from either end, and with the thread
+    // left where its last stitch ends or back along it (`leaves`: where,
+    // if back; see [`end_stitch`]). (As it comes first.) Each as it's
+    // sewn: with its stitches run on under the column it ends against.
+    let mut ends: Vec<ColumnWay> = Vec::new();
+    let mut leaves: Vec<Option<P>> = Vec::new();
+    for (i, piece) in pieces.iter().enumerate() {
+        let mut add = |pts: &Polyline, turned: bool| {
+            if let (Some(&start), Some(&end)) = (pts.first(), pts.last()) {
+                ends.push(ColumnWay {
+                    piece: i,
+                    turned,
+                    start,
+                    end,
+                });
+                leaves.push(None);
+                for end in end_stitch(pts, opt.min_stitch) {
+                    ends.push(ColumnWay {
+                        piece: i,
+                        turned,
+                        start,
+                        end,
+                    });
+                    leaves.push(Some(end));
+                }
+            }
+        };
+        add(piece.sewn.as_ref().unwrap_or(&piece.pts), false);
+        if let Some(alt) = piece.alt.as_ref().filter(|_| !drawn) {
+            add(piece.alt_sewn.as_ref().unwrap_or(alt), true);
+        }
+    }
+    let found = fewest_cuts(
+        &outlines,
+        &ends,
+        from,
+        reaches_next,
+        opt.max_jump_no_trim,
+        drawn,
+        known,
+        usize::MAX,
+    )?;
+    let as_pieces = |ways: &[usize]| -> PieceOrder {
+        ways.iter()
+            .map(|&w| (ends[w].piece, ends[w].turned, leaves[w]))
+            .collect()
+    };
+    let mut sewn = 0u64;
+    let mut last = usize::MAX;
+    let steps = found
+        .order
+        .iter()
+        .map(|&w| {
+            let step = (sewn, last, w);
+            sewn |= 1u64.checked_shl(ends[w].piece as u32).unwrap_or(0);
+            last = w;
+            step
+        })
+        .collect();
+    Some(ColumnPlan {
+        order: as_pieces(&found.order),
+        steps,
+        expected: found.cuts,
+        first: as_pieces(&found.first),
+    })
+}
+
+/// Whether the thread gets from a point (how far from each column:
+/// `here`, infinitely if more than a hop) to column `to` under columns
+/// not yet sewn (`sewn`: a bit each), as the travel that's sewn will have
+/// to ([`Zone::route_from`]): onto the ground the column is on, if that's
+/// within a hop; or onto the nearest ground, and from that by one hop to
+/// the column's. Not hop after hop: three serifs in a row, each a hop
+/// from the next, are no way from the first to the third. (`joined`:
+/// which columns are one piece of ground; `touch`: which are within a
+/// hop. Each by both columns' places, row by row.)
+#[cfg(test)]
+fn hidden_way(here: &[f64], to: usize, sewn: u64, joined: &[bool], touch: &[bool]) -> bool {
+    let n = here.len();
+    hidden_way_from(
+        &Reach::of(here),
+        to,
+        sewn,
+        &bit_masks(joined, n),
+        &bit_masks(touch, n),
+    )
+}
+
+/// The columns a point is at (in, or a hop from): a bit each, and each of
+/// them nearest first. (What [`hidden_way`] asks of the point, worked out
+/// once for each column's end, as the order search asks at every step.)
+struct Reach {
+    at: u64,
+    nearest: Vec<usize>,
+}
+
+impl Reach {
+    /// From how far the point is from each column (infinitely, if more
+    /// than a hop).
+    fn of(here: &[f64]) -> Reach {
+        let mut nearest: Vec<usize> = (0..here.len()).filter(|&j| here[j].is_finite()).collect();
+        nearest.sort_by(|&a, &b| here[a].total_cmp(&here[b]));
+        Reach {
+            at: nearest.iter().fold(0u64, |m, &j| m | 1 << j),
+            nearest,
+        }
+    }
+}
+
+/// [`hidden_way`], from a point's [`Reach`], with which columns are one
+/// piece of ground with each (`joined`) and which are within a hop
+/// (`touch`) as a bit each.
+fn hidden_way_from(here: &Reach, to: usize, sewn: u64, joined: &[u64], touch: &[u64]) -> bool {
+    let n = joined.len();
+    let all = if n >= 64 { u64::MAX } else { (1u64 << n) - 1 };
+    let unsewn = all & !sewn;
+    // The columns still to sew that are one piece of ground with it.
+    let goal = flood(1 << to, unsewn, joined);
+    if here.at & goal != 0 {
+        return true;
+    }
+    let Some(&nearest) = here.nearest.iter().find(|&&j| unsewn & (1 << j) != 0) else {
+        return false;
+    };
+    let mut from = flood(1 << nearest, unsewn, joined);
+    while from != 0 {
+        let x = from.trailing_zeros() as usize;
+        from &= from - 1;
+        if touch[x] & goal != 0 {
+            return true;
+        }
+    }
+    false
+}
+
+/// Each of `n` columns' neighbours in `adj` (`n` by `n`), a bit each.
+fn bit_masks(adj: &[bool], n: usize) -> Vec<u64> {
+    (0..n)
+        .map(|i| {
+            (0..n)
+                .filter(|&j| adj[i * n + j])
+                .fold(0u64, |m, j| m | 1 << j)
+        })
+        .collect()
+}
+
+/// The columns reached from `start` by way of neighbours (`adj`, a bit
+/// each) among `within`.
+fn flood(start: u64, within: u64, adj: &[u64]) -> u64 {
+    let (mut reached, mut edge) = (start, start);
+    while edge != 0 {
+        let mut grow = 0u64;
+        let mut e = edge;
+        while e != 0 {
+            grow |= adj[e.trailing_zeros() as usize];
+            e &= e - 1;
+        }
+        edge = grow & within & !reached;
+        reached |= edge;
+    }
+    reached
+}
+
+/// Two columns no further apart than this (a cell of the ground travel is
+/// routed over) are one piece of ground, with no hop between.
+const ONE_GROUND: f64 = crate::route::CELL;
+
+/// How near a column's outline (units) the thread is on the column's own
+/// ground: its stitches reach a little past the outline they're drawn to.
+const OWN_GROUND: f64 = 3.0;
+
+/// Whether a piece's stitches (deduplicated: see [`dedupe`]) are any to
+/// sew: not none, nor a sliver all within the shortest stitch (`min`) of
+/// where it starts, which would be one stitch shorter than that. (A
+/// single point is: a needle down, no stitch.)
+fn sewable(pts: &Polyline, min: f64) -> bool {
+    pts.first()
+        .is_some_and(|&p| pts.len() == 1 || pts.iter().any(|q| q.dist(p) >= min))
+}
+
+/// Where else a satin column can leave the thread: back along its last
+/// stitch, which hides the thread going there. Back to where it began
+/// (the column's other side), or halfway (the middle of its end: where a
+/// square end comes nearest what's beyond it, the dot over an i, which
+/// either corner can miss by a hop). Not by a stitch shorter than
+/// `shortest` (the shortest the machine is to sew).
+fn end_stitch(pts: &Polyline, shortest: f64) -> Vec<P> {
+    let n = pts.len();
+    if n < 3 {
+        return Vec::new();
+    }
+    // (The last stitch is to the last point, from the last before it that
+    // isn't the same: a column's stitches can end with a needle down
+    // twice in one place.)
+    let last = pts[n - 1];
+    let Some(&back) = pts[..n - 1].iter().rev().find(|q| q.dist(last) > 1e-9) else {
+        return Vec::new();
+    };
+    [back, last.lerp(back, 0.5)]
+        .into_iter()
+        .filter(|q| q.dist(last) >= shortest)
+        .collect()
+}
+
+/// Whether to say, on stderr, why the planner cuts the thread where it
+/// does (`ZIGZAG_TRIMS` set): each trim, how far the jump was, and what
+/// the searches that ordered and cut the columns expected. For finding
+/// the cause of a trim in a letter without adding prints of one's own;
+/// `zigzag convert` and the census pass it through.
+fn trim_report() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("ZIGZAG_TRIMS").is_some())
+}
+
+/// A point in mm, for [`trim_report`].
+fn at_mm(p: P) -> String {
+    format!("({:.1}, {:.1})", p.x / 10.0, p.y / 10.0)
+}
+
+/// A way of sewing one of a satin's columns: which (its place among the
+/// columns), from which end (`turned`: its other one), and where that
+/// starts and ends. (A column can end on either side, or between: see
+/// [`end_stitch`].)
+struct ColumnWay {
+    piece: usize,
+    turned: bool,
+    start: P,
+    end: P,
+}
+
+/// What [`fewest_cuts`] found: the cuts its order takes, the order (the
+/// ways it was given, by their place among them), and the order going to
+/// the nearest each time would take (`first`), likewise.
+struct ColumnOrder {
+    cuts: usize,
+    order: Vec<usize>,
+    first: Vec<usize>,
+}
+
+/// A step of an order of a satin's columns, as [`fewest_cuts`] can be told
+/// what it came to tried out (`known`): the columns sewn before it (a bit
+/// each), the way the last was sewn (`usize::MAX` for none: from where the
+/// thread was), and the way to be sewn (each by its place among those it
+/// was given).
+type Step = (u64, usize, usize);
+
+/// As many columns as [`letter_cuts`] searches at once (a bit each).
+const SEARCH_COLUMNS: usize = 64;
+
+/// [`column_order`]'s search, on what each column covers (`outlines`) and
+/// the ways each can be sewn: the order with fewest cuts, a letter (the
+/// columns that touch) at a time.
+///
+/// A word has more columns than are searched at once: its letters are
+/// taken one after another, the nearest next, each from where the last
+/// left the thread. (Each is searched as it would be alone: a word's
+/// letters are cut no oftener than they are one at a time.) `None` if one
+/// letter has too many, or a column no way to sew it.
+///
+/// `drawn`: the columns in the order given, a way of each chosen (see
+/// [`in_turn`]). `below`: only an order of fewer cuts than that is wanted
+/// (`None` if there's none): what [`through`] has already found, which
+/// the search's bound then cuts it short at.
+#[allow(clippy::too_many_arguments)]
+fn fewest_cuts(
+    outlines: &[&Vec<Polyline>],
+    ends: &[ColumnWay],
+    from: Option<P>,
+    reaches_next: Option<&dyn Fn(P) -> bool>,
+    near: f64,
+    drawn: bool,
+    known: &HashMap<Step, bool>,
+    below: usize,
+) -> Option<ColumnOrder> {
+    let n = outlines.len();
+    if n <= SEARCH_COLUMNS {
+        return letter_cuts(
+            outlines,
+            ends,
+            from,
+            reaches_next,
+            near,
+            drawn,
+            known,
+            below,
+        );
+    }
+    // The columns that touch (a point of one's outline in the other, or
+    // a hop from it), a letter each.
+    let boxes: Vec<Bounds> = outlines
+        .iter()
+        .map(|rings| {
+            let mut b = Bounds::empty();
+            rings.iter().flatten().for_each(|&p| b.add(p));
+            Bounds {
+                min: P::new(b.min.x - near, b.min.y - near),
+                max: P::new(b.max.x + near, b.max.y + near),
+            }
+        })
+        .collect();
+    let at = |p: P, i: usize| {
+        crate::geom::point_inside(outlines[i], FillRule::EvenOdd, p)
+            || outlines[i].iter().any(|r| dist_to_ring(r, p) <= near)
+    };
+    let touch = |i: usize, j: usize| {
+        overlaps(&boxes[i], &boxes[j])
+            && (outlines[i].iter().flatten().any(|&p| at(p, j))
+                || outlines[j].iter().flatten().any(|&p| at(p, i)))
+    };
+    let mut letters: Vec<Vec<usize>> = Vec::new();
+    let mut placed = vec![false; n];
+    for i in 0..n {
+        if placed[i] {
+            continue;
+        }
+        let mut letter = vec![i];
+        placed[i] = true;
+        let mut k = 0;
+        while k < letter.len() {
+            let from = letter[k];
+            for (j, done) in placed.iter_mut().enumerate() {
+                if !*done && touch(from, j) {
+                    *done = true;
+                    letter.push(j);
+                }
+            }
+            k += 1;
+        }
+        letters.push(letter);
+    }
+    if drawn {
+        letters = in_turn(&letters, n);
+    }
+    let mut here = from;
+    let mut found = ColumnOrder {
+        cuts: 0,
+        order: Vec::with_capacity(n),
+        first: Vec::with_capacity(n),
+    };
+    while !letters.is_empty() {
+        let reach = |letter: &Vec<usize>| {
+            here.map_or(0.0, |p| {
+                ends.iter()
+                    .filter(|w| letter.contains(&w.piece))
+                    .map(|w| p.dist(w.start))
+                    .fold(f64::INFINITY, f64::min)
+            })
+        };
+        let k = (0..letters.len())
+            .filter(|_| !drawn)
+            .min_by(|&a, &b| reach(&letters[a]).total_cmp(&reach(&letters[b])))
+            .unwrap_or(0);
+        let letter = letters.remove(k);
+        if letter.len() > SEARCH_COLUMNS {
+            return None;
+        }
+        // The letter's columns and ways, by their places among its own.
+        let its: Vec<&Vec<Polyline>> = letter.iter().map(|&i| outlines[i]).collect();
+        let which: Vec<usize> = (0..ends.len())
+            .filter(|&w| letter.contains(&ends[w].piece))
+            .collect();
+        let ways: Vec<ColumnWay> = which
+            .iter()
+            .map(|&w| ColumnWay {
+                piece: letter.iter().position(|&i| i == ends[w].piece).unwrap_or(0),
+                turned: ends[w].turned,
+                start: ends[w].start,
+                end: ends[w].end,
+            })
+            .collect();
+        // (Only the last letter leads on to the next object.)
+        let next = reaches_next.filter(|_| letters.is_empty());
+        // (A word too long to search at once isn't told of steps cut.)
+        let one = letter_cuts(
+            &its,
+            &ways,
+            here,
+            next,
+            near,
+            drawn,
+            &HashMap::new(),
+            usize::MAX,
+        )?;
+        found.cuts += one.cuts;
+        here = one.order.last().map(|&w| ways[w].end).or(here);
+        found.order.extend(one.order.iter().map(|&w| which[w]));
+        found.first.extend(one.first.iter().map(|&w| which[w]));
+    }
+    Some(found)
+}
+
+/// [`fewest_cuts`], of no more columns than [`SEARCH_COLUMNS`].
+#[allow(clippy::too_many_arguments)]
+fn letter_cuts(
+    outlines: &[&Vec<Polyline>],
+    ends: &[ColumnWay],
+    from: Option<P>,
+    reaches_next: Option<&dyn Fn(P) -> bool>,
+    near: f64,
+    drawn: bool,
+    known: &HashMap<Step, bool>,
+    below: usize,
+) -> Option<ColumnOrder> {
+    let n = outlines.len();
+    if n == 0 || n > SEARCH_COLUMNS {
+        return None;
+    }
+    let boxes: Vec<Bounds> = outlines
+        .iter()
+        .map(|rings| {
+            let mut b = Bounds::empty();
+            rings.iter().flatten().for_each(|&p| b.add(p));
+            Bounds {
+                min: P::new(b.min.x - near, b.min.y - near),
+                max: P::new(b.max.x + near, b.max.y + near),
+            }
+        })
+        .collect();
+    // A point is at a column when it's in it or a hop from its outline:
+    // how far from it (nothing, in it), or infinitely far if further.
+    let at = |p: P, i: usize| -> f64 {
+        let b = &boxes[i];
+        if p.x < b.min.x || p.x > b.max.x || p.y < b.min.y || p.y > b.max.y {
+            return f64::INFINITY;
+        }
+        let rings = outlines[i];
+        if crate::geom::point_inside(rings, FillRule::EvenOdd, p) {
+            return 0.0;
+        }
+        let d = rings
+            .iter()
+            .map(|r| dist_to_ring(r, p))
+            .fold(f64::INFINITY, f64::min);
+        if d <= near { d } else { f64::INFINITY }
+    };
+    // Columns touch when a point of one's outline is at the other; and
+    // they're one piece of ground when it's on the other, or all but.
+    let mut touch = vec![false; n * n];
+    let mut joined = vec![false; n * n];
+    for i in 0..n {
+        for j in i + 1..n {
+            if !overlaps(&boxes[i], &boxes[j]) {
+                continue;
+            }
+            let d = outlines[i]
+                .iter()
+                .flatten()
+                .map(|&p| at(p, j))
+                .chain(outlines[j].iter().flatten().map(|&p| at(p, i)))
+                .fold(f64::INFINITY, f64::min);
+            for k in [i * n + j, j * n + i] {
+                touch[k] = d.is_finite();
+                joined[k] = d <= ONE_GROUND;
+            }
+        }
+    }
+    // Each way of sewing each piece, and the columns its end is at (how
+    // far from each).
+    struct Way {
+        piece: usize,
+        start: P,
+        end: P,
+        end_at: Vec<f64>,
+        reach: Reach,
+    }
+    let ways: Vec<Way> = ends
+        .iter()
+        .map(|w| {
+            let end_at: Vec<f64> = (0..n).map(|j| at(w.end, j)).collect();
+            Way {
+                piece: w.piece,
+                start: w.start,
+                end: w.end,
+                reach: Reach::of(&end_at),
+                end_at,
+            }
+        })
+        .collect();
+    let (joined_bits, touch_bits) = (bit_masks(&joined, n), bit_masks(&touch, n));
+    let hidden = |here: &Reach, to: usize, sewn: u64| {
+        hidden_way_from(here, to, sewn, &joined_bits, &touch_bits)
+    };
+    // The columns that touch, a letter at a time: each is sewn whole, the
+    // nearest next.
+    let mut letters: Vec<Vec<usize>> = Vec::new();
+    let mut placed = vec![false; n];
+    for i in 0..n {
+        if placed[i] {
+            continue;
+        }
+        let mut letter = vec![i];
+        placed[i] = true;
+        let mut k = 0;
+        while k < letter.len() {
+            for j in 0..n {
+                if touch[letter[k] * n + j] && !placed[j] {
+                    placed[j] = true;
+                    letter.push(j);
+                }
+            }
+            k += 1;
+        }
+        letters.push(letter);
+    }
+    if drawn {
+        letters = in_turn(&letters, n);
+    }
+    // Every order of a letter's columns, nearest next first (so the first
+    // one finished is the order sewing would take anyway), keeping the
+    // one with fewest cuts. (Drawn, only the next column's ways.)
+    struct Search<'a> {
+        ways: &'a [Way],
+        /// The pieces to order (a bit each), and how many.
+        letter: u64,
+        count: usize,
+        near: f64,
+        /// The columns the thread is at as it comes to the letter.
+        from_at: &'a Reach,
+        hidden: &'a dyn Fn(&Reach, usize, u64) -> bool,
+        /// Which columns each touches, a bit each.
+        touch: &'a [u64],
+        reaches_next: Option<&'a dyn Fn(P) -> bool>,
+        drawn: bool,
+        /// Steps tried out (see [`Step`]): whether each was cut, whatever
+        /// the hop or the ground says; and the way sewn before the letter,
+        /// for those.
+        known: &'a HashMap<Step, bool>,
+        before: usize,
+        budget: usize,
+        /// Only orders of fewer cuts than this are wanted.
+        below: usize,
+        first: Option<(usize, Vec<usize>)>,
+        best: Option<(usize, Vec<usize>)>,
+        path: Vec<usize>,
+        /// The fewest cuts each state has been come to with: the columns
+        /// sewn, and the way the last was.
+        seen: std::collections::HashMap<(u64, usize), usize>,
+    }
+    impl Search<'_> {
+        /// The fewest cuts sewing what's left takes: thread goes on
+        /// unseen only under columns still to sew (or a hop, to one that
+        /// touches), so every group of them that touches no other, but
+        /// the one it goes on to, is come to by a cut (branch and bound's
+        /// lower bound).
+        fn least(&self, sewn: u64) -> usize {
+            let mut left = self.letter & !sewn;
+            let mut groups: usize = 0;
+            while left != 0 {
+                left &= !flood(1 << left.trailing_zeros(), left, self.touch);
+                groups += 1;
+            }
+            groups.saturating_sub(1)
+        }
+        fn go(&mut self, here: Option<P>, sewn: u64, cuts: usize) {
+            if self
+                .best
+                .as_ref()
+                .map_or(self.below, |b| b.0.min(self.below))
+                <= cuts + self.least(sewn)
+                || (self.budget == 0 && (self.first.is_some() || self.below != usize::MAX))
+            {
+                return;
+            }
+            // (What's left to sew and where the thread is are all that
+            // what follows depends on: come to again with as many cuts
+            // made, there's nothing better to find from here.)
+            let state = (sewn, self.path.last().copied().unwrap_or(usize::MAX));
+            match self.seen.get_mut(&state) {
+                Some(least) if *least <= cuts => return,
+                Some(least) => *least = cuts,
+                None => {
+                    self.seen.insert(state, cuts);
+                }
+            }
+            self.budget = self.budget.saturating_sub(1);
+            if self.path.len() == self.count {
+                let last = &self.ways[*self.path.last().unwrap()];
+                let cuts = cuts + self.reaches_next.is_some_and(|f| !f(last.end)) as usize;
+                if self.first.is_none() {
+                    self.first = Some((cuts, self.path.clone()));
+                }
+                if self.best.as_ref().is_none_or(|b| cuts < b.0) {
+                    self.best = Some((cuts, self.path.clone()));
+                }
+                return;
+            }
+            let first_left = (self.letter & !sewn).trailing_zeros() as usize;
+            let mut next: Vec<(f64, usize)> = (0..self.ways.len())
+                .filter(|&w| {
+                    let bit = 1 << self.ways[w].piece;
+                    self.letter & bit != 0
+                        && sewn & bit == 0
+                        && (!self.drawn || self.ways[w].piece == first_left)
+                })
+                // (Squared distances: they sort the same, and need no root.)
+                .map(|w| {
+                    let d = here.map_or(0.0, |p| {
+                        let v = p - self.ways[w].start;
+                        v.x * v.x + v.y * v.y
+                    });
+                    (d, w)
+                })
+                .collect();
+            next.sort_by(|a, b| a.0.total_cmp(&b.0));
+            for (d, w) in next {
+                let way = &self.ways[w];
+                let last = self.path.last().copied().unwrap_or(self.before);
+                let cut = here.is_some()
+                    && match self.known.get(&(sewn, last, w)) {
+                        Some(&cut) => cut,
+                        None => {
+                            d > self.near * self.near && {
+                                let here_at: &Reach = match self.path.last() {
+                                    Some(&last) => &self.ways[last].reach,
+                                    None => self.from_at,
+                                };
+                                !(self.hidden)(here_at, way.piece, sewn)
+                            }
+                        }
+                    };
+                self.path.push(w);
+                self.go(Some(way.end), sewn | 1 << way.piece, cuts + cut as usize);
+                self.path.pop();
+            }
+        }
+    }
+    let mut here: Option<P> = from;
+    let mut here_at = Reach::of(
+        &(0..n)
+            .map(|j| from.map_or(f64::INFINITY, |p| at(p, j)))
+            .collect::<Vec<f64>>(),
+    );
+    let mut sewn: u64 = 0;
+    let mut order: Vec<usize> = Vec::with_capacity(n);
+    let mut first_order: Vec<usize> = Vec::with_capacity(n);
+    let mut total = 0;
+    while !letters.is_empty() {
+        let reach = |letter: &Vec<usize>| {
+            here.map_or(0.0, |p| {
+                ways.iter()
+                    .filter(|w| letter.contains(&w.piece))
+                    .map(|w| p.dist(w.start))
+                    .fold(f64::INFINITY, f64::min)
+            })
+        };
+        let k = (0..letters.len())
+            .filter(|_| !drawn)
+            .min_by(|&a, &b| reach(&letters[a]).total_cmp(&reach(&letters[b])))
+            .unwrap_or(0);
+        let letter = letters.remove(k);
+        let mut search = Search {
+            ways: &ways,
+            letter: letter.iter().fold(0, |m, &i| m | 1 << i),
+            count: letter.len(),
+            near,
+            from_at: &here_at,
+            hidden: &hidden,
+            touch: &touch_bits,
+            // (Only the last letter leads on to the next object.)
+            reaches_next: reaches_next.filter(|_| letters.is_empty()),
+            drawn,
+            known,
+            before: order.last().copied().unwrap_or(usize::MAX),
+            // (A letter of many columns as long as one of few: the best
+            // order it finds in that time. In the order drawn, there are
+            // only a few ways to each.)
+            budget: if drawn { usize::MAX } else { ORDER_BUDGET },
+            below,
+            first: None,
+            best: None,
+            path: Vec::new(),
+            seen: std::collections::HashMap::new(),
+        };
+        search.go(here, sewn, 0);
+        let (first, (cuts, path)) = (search.first?, search.best?);
+        total += cuts;
+        first_order.extend(first.1);
+        let last = &ways[*path.last()?];
+        let letter = search.letter;
+        here = Some(last.end);
+        here_at = Reach::of(&last.end_at);
+        sewn |= letter;
+        order.extend(path);
+    }
+    Some(ColumnOrder {
+        cuts: total,
+        order,
+        first: first_order,
+    })
+}
+
+/// Columns that touch (`letters`, of `n` columns) taken in the order
+/// they're drawn: each run of them one after another in the same letter,
+/// in turn. (A column of one letter sewn between two of another's parts
+/// it in two, as sewing does.)
+fn in_turn(letters: &[Vec<usize>], n: usize) -> Vec<Vec<usize>> {
+    let mut of = vec![0; n];
+    for (k, letter) in letters.iter().enumerate() {
+        for &i in letter {
+            of[i] = k;
+        }
+    }
+    let mut runs: Vec<Vec<usize>> = Vec::new();
+    for i in 0..n {
+        match runs.last_mut() {
+            Some(run) if run.last().is_some_and(|&j| of[j] == of[i]) => run.push(i),
+            _ => runs.push(vec![i]),
+        }
+    }
+    runs
+}
+
+/// How far the stitches of a column that ends against the side of another
+/// are carried on under it, units.
+const BUTT_LAP: f64 = 4.0;
+
+/// Where the stitches of each of a part's columns run on past its ends:
+/// one that ends against the side of another (a stem at its serif, a bar
+/// at a stem, a bowl at its stem) is sewn a little way under it.
+///
+/// Ended at the cut between them, the stem's last stitch lies along the
+/// cut, and the serif's come down to it end on: a row of points, with the
+/// fabric showing between them. A row of the stem's stitches
+/// [`BUTT_LAP`] past the cut lies across those points.
+///
+/// Not an end that meets the end of another column (the halves
+/// [`through`] makes, a stroke cut across): their stitches lie side by
+/// side there, as they do within a column. And the columns are left as
+/// they are, ending where they meet: it's only stitches that lap.
+fn laps(columns: &[Rails], inside: &dyn Fn(P) -> bool) -> Vec<satin::Laps> {
+    // Each open column's ends: the column, whether it's the end it starts
+    // at, and where its rails end there.
+    let ends: Vec<(usize, bool, P, P)> = columns
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| !r.closed && r.a.len() > 1 && r.b.len() > 1)
+        .flat_map(|(k, r)| {
+            [
+                (k, true, r.a[0], r.b[0]),
+                (k, false, r.a[r.a.len() - 1], r.b[r.b.len() - 1]),
+            ]
+        })
+        .collect();
+    // The way a rail runs out of its end (from a few units back along it).
+    let out = |rail: &[P], start: bool| -> P {
+        let tip = if start { rail[0] } else { rail[rail.len() - 1] };
+        let mut back = tip;
+        for k in 1..rail.len() {
+            back = if start {
+                rail[k]
+            } else {
+                rail[rail.len() - 1 - k]
+            };
+            if back.dist(tip) >= 3.0 {
+                break;
+            }
+        }
+        tip - back
+    };
+    let mut laps = vec![satin::NO_LAPS; columns.len()];
+    for (i, &(k, start, pa, pb)) in ends.iter().enumerate() {
+        let met = ends.iter().enumerate().any(|(j, &(_, _, qa, qb))| {
+            j != i
+                && ((pa.dist(qa) < 1.0 && pb.dist(qb) < 1.0)
+                    || (pa.dist(qb) < 1.0 && pb.dist(qa) < 1.0))
+        });
+        let r = &columns[k];
+        let u = out(&r.a, start).norm() + out(&r.b, start).norm();
+        if pa.dist(pb) < 1.0 || met || u.len() < 1e-6 {
+            continue;
+        }
+        let u = u.norm();
+        // An end on the shape's own outline has nothing beyond it.
+        let mid = pa.lerp(pb, 0.5);
+        if !inside(mid) || !inside(mid + u) {
+            continue;
+        }
+        // (Less far under a thin column: no further than halfway
+        // through it, where its own stitches hide the row.)
+        laps[k][if start { 0 } else { 1 }] = [BUTT_LAP, BUTT_LAP * 0.5]
+            .into_iter()
+            .find(|&lap| {
+                [pa, pb, mid]
+                    .iter()
+                    .all(|&p| inside(p + u * lap) && inside(p + u * (2.0 * lap)))
+            })
+            .map(|lap| (pa + u * lap, pb + u * lap));
+    }
+    laps
+}
+
+/// The shortest part [`through`] cuts a column into, and the hop it takes
+/// the thread to make without a cut, units: the planner's usual one
+/// (`PlanOptions::max_jump_no_trim`, 10) less the most a stitch reaches
+/// past its rails (pull compensation, 0.3 mm at most). `through` works
+/// from the outline alone, before there are stitches or settings, from
+/// where the rails end; an order that needs a whole hop there needs more
+/// than one from where the stitches end, and is cut after all. (Its
+/// guess is the one thing in a satin's order not tried out: see
+/// `plan_shown`. Measured on the letter census, this margin saves CAT's
+/// letters 23 cuts and costs Cut's 3.)
+const THROUGH_PART: f64 = 12.0;
+const THROUGH_HOP: f64 = 7.0;
+/// The most choices of joins [`through`] tries (a bound on its time:
+/// every choice of up to 6 joins). Capitals with a serif on every stroke
+/// need several cut: every choice of up to 4 (15 tries) cost the letter
+/// census over a hundred cuts.
+const THROUGH_TRIES: usize = 63;
+
+/// A part's columns, with those cut in two that the thread couldn't
+/// otherwise get past without a cut of its own.
+///
+/// A column that another ends against the side of (the serif under a
+/// stem) is a dead end: sewn from one tip to the other, the thread comes
+/// out at a tip, with the stem it has to go on from back in the middle
+/// and the serif just sewn in the way. A letter can end on one of those,
+/// but not on two (the feet of an n, the serifs of a v). Cut in two where
+/// the stem meets it, each half is sewn from its tip in to the stem, and
+/// the thread is where it needs to be. (The halves' stitches lie the same
+/// way, side by side, so the join doesn't show as one.) Only where that
+/// saves a cut, and at as few joins as do.
+fn through(columns: Vec<Rails>, touching: &[P]) -> Vec<Rails> {
+    let n = columns.len();
+    if !(2..=ORDER_COLUMNS).contains(&n) || columns.iter().any(|r| r.closed) {
+        if trim_report() && n >= 2 {
+            eprintln!(
+                "through: {n} columns, not cut ({})",
+                if n > ORDER_COLUMNS {
+                    "too many"
+                } else {
+                    "a ring among them"
+                }
+            );
+        }
+        return columns;
+    }
+    let tips = |r: &Rails| -> Option<(P, P)> {
+        Some((
+            r.a.first()?.lerp(*r.b.first()?, 0.5),
+            r.a.last()?.lerp(*r.b.last()?, 0.5),
+        ))
+    };
+    let outline = Rails::outline;
+    // (The fewest cuts an order of them takes, if fewer than `below`.)
+    let cuts = |columns: &[Rails], below: usize| -> Option<usize> {
+        let outlines: Vec<Vec<Polyline>> = columns.iter().map(outline).collect();
+        let mut ends = Vec::with_capacity(columns.len() * 2);
+        for (piece, r) in columns.iter().enumerate() {
+            let (start, end) = tips(r)?;
+            // (It can end on either side: see `end_stitch`.)
+            for (turned, start, sides) in [
+                (false, start, [r.a.last()?, r.b.last()?]),
+                (true, end, [r.a.first()?, r.b.first()?]),
+            ] {
+                for &end in sides {
+                    ends.push(ColumnWay {
+                        piece,
+                        turned,
+                        start,
+                        end,
+                    });
+                }
+            }
+        }
+        let outlines: Vec<&Vec<Polyline>> = outlines.iter().collect();
+        fewest_cuts(
+            &outlines,
+            &ends,
+            None,
+            None,
+            THROUGH_HOP,
+            false,
+            &HashMap::new(),
+            below,
+        )
+        .map(|found| found.cuts)
+    };
+    let Some(whole) = cuts(&columns, usize::MAX) else {
+        return columns;
+    };
+    if whole == 0 {
+        return columns;
+    }
+    // Where a column's end is against another's side, far enough from
+    // that one's ends to cut it there: the column to cut, and where.
+    let mut joins: Vec<(usize, P)> = Vec::new();
+    for (i, r) in columns.iter().enumerate() {
+        let Some((start, end)) = tips(r) else {
+            continue;
+        };
+        for tip in [start, end] {
+            for (j, bar) in columns.iter().enumerate() {
+                let ring = &outline(bar)[0];
+                if j != i
+                    && (crate::geom::point_inside(
+                        std::slice::from_ref(ring),
+                        FillRule::EvenOdd,
+                        tip,
+                    ) || dist_to_ring(ring, tip) <= THROUGH_HOP)
+                    && satin::split_at(bar, tip, THROUGH_PART).is_some()
+                {
+                    joins.push((j, tip));
+                }
+            }
+        }
+    }
+    // And where two parts of the letter touch at a point (`touching`),
+    // each column that runs past it: the thread goes from one part to the
+    // other there, and nowhere else.
+    for &at in touching {
+        for (j, bar) in columns.iter().enumerate() {
+            if dist_to_ring(&outline(bar)[0], at) <= THROUGH_HOP
+                && satin::split_at(bar, at, THROUGH_PART).is_some()
+            {
+                joins.push((j, at));
+            }
+        }
+    }
+    if joins.is_empty() {
+        return columns;
+    }
+    // The columns with some of the joins cut (a bit each).
+    let cut_at = |chosen: u32| -> Vec<Rails> {
+        let mut out = Vec::with_capacity(n + joins.len());
+        for (j, bar) in columns.iter().enumerate() {
+            let mut parts = vec![bar.clone()];
+            for (k, &(at, tip)) in joins.iter().enumerate() {
+                if at != j || chosen & (1 << k) == 0 {
+                    continue;
+                }
+                // (A column two others end against is cut at each: the
+                // part this one is on is the one that can be.)
+                if let Some((i, (head, tail))) = parts
+                    .iter()
+                    .enumerate()
+                    .find_map(|(i, part)| Some((i, satin::split_at(part, tip, THROUGH_PART)?)))
+                {
+                    parts.splice(i..=i, [head, tail]);
+                }
+            }
+            out.extend(parts);
+        }
+        out
+    };
+    // Every choice of them, fewest joins first (at most 31: a bit each),
+    // for as many tries as `THROUGH_TRIES`: the first that saves most.
+    let m = joins.len().min(31) as u32;
+    let mut best: Option<(usize, Vec<Rails>)> = None;
+    let mut tries = 0;
+    'sizes: for k in 1..=m {
+        // (The choices of k of them in turn: Gosper's hack.)
+        let mut chosen: u32 = (1 << k) - 1;
+        while chosen < 1 << m {
+            if tries == THROUGH_TRIES {
+                break 'sizes;
+            }
+            tries += 1;
+            let cut = cut_at(chosen);
+            if cut.len() <= ORDER_COLUMNS
+                && let Some(c) = cuts(&cut, best.as_ref().map_or(whole, |b| b.0))
+            {
+                best = Some((c, cut));
+                if c == 0 {
+                    break 'sizes;
+                }
+            }
+            let low = chosen & chosen.wrapping_neg();
+            let up = chosen + low;
+            chosen = up | (((chosen ^ up) >> 2) / low);
+        }
+    }
+    if trim_report() {
+        eprintln!(
+            "through: {n} columns, expected {whole} cuts whole; {}",
+            match &best {
+                Some((c, cut)) => format!("cut at {} joins, expecting {c}", cut.len() - n),
+                None => "no join cut saves one".to_string(),
+            }
+        );
+    }
+    best.map_or(columns, |b| b.1)
 }
 
 /// The order to sew a fill's sections in, and which way each (true: from
@@ -3128,6 +5548,7 @@ impl Design {
 
 #[cfg(test)]
 mod tests {
+    use super::measure::{Lettered, layers, lettered, seams};
     use super::*;
     use crate::params::Params;
     use crate::svg::Part;
@@ -3149,6 +5570,7 @@ mod tests {
             groups: Vec::new(),
             outline: false,
             origin: P::default(),
+            joined: Vec::new(),
         }
     }
 
@@ -3210,6 +5632,7 @@ mod tests {
             groups: Vec::new(),
             outline: false,
             origin: P::default(),
+            joined: Vec::new(),
         };
         let shapes = [sq(0.0), sq(105.0), sq(210.0)];
         let whole = plan("t", &shapes, &PlanOptions::default());
@@ -4477,6 +6900,1326 @@ mod tests {
         assert!(pos(2) < pos(3), "the object underneath still sews first");
     }
 
+    /// An axis-aligned box: x0, y0, x1, y1.
+    type Box4 = (f64, f64, f64, f64);
+
+    /// The outline of the stems and arms given (each a box), joined into
+    /// one shape.
+    fn boxes(parts: &[Box4]) -> Geometry {
+        let rings: Vec<(Vec<Polyline>, FillRule)> = parts
+            .iter()
+            .map(|&(x0, y0, x1, y1)| {
+                (
+                    vec![vec![
+                        P::new(x0, y0),
+                        P::new(x1, y0),
+                        P::new(x1, y1),
+                        P::new(x0, y1),
+                    ]],
+                    FillRule::NonZero,
+                )
+            })
+            .collect();
+        Geometry::Fill {
+            rings: boolean::union(&rings),
+            rule: FillRule::NonZero,
+        }
+    }
+
+    /// A geometric e: a ring 35 thick, a bar 20 deep across it whose
+    /// lower edge runs out to the right, the ring cut off level below it.
+    fn round_e() -> Shape {
+        let arc = |r: f64, from: f64, to: f64| -> Vec<P> {
+            let n = ((to - from).abs() / 0.08).ceil() as usize;
+            (0..=n)
+                .map(|k| {
+                    let t = from + (to - from) * k as f64 / n as f64;
+                    P::new(r * t.cos(), r * t.sin())
+                })
+                .collect()
+        };
+        // (y down: angles run clockwise on the page from 3 o'clock.)
+        let (out, inn) = (70.0f64, 35.0f64);
+        let at = |r: f64, y: f64| (y / r).asin();
+        let tau = std::f64::consts::TAU;
+        // From the terminal round under, up the left and over to the arm's
+        // foot…
+        let mut outer: Vec<P> = arc(out, at(out, 24.0), at(out, 12.0) + tau);
+        // …in along the bar's lower edge, round the inside under the bar,
+        // and out along the cut.
+        let mut inside = arc(inn, at(inn, 24.0), std::f64::consts::PI - at(inn, 12.0));
+        inside.reverse();
+        outer.extend(inside);
+        // The counter over the bar.
+        let counter = arc(inn, std::f64::consts::PI + at(inn, 8.0), tau - at(inn, 8.0));
+        shape(
+            Geometry::Fill {
+                rings: vec![outer, counter],
+                rule: FillRule::EvenOdd,
+            },
+            Kind::Satin,
+            [0, 0, 0],
+        )
+    }
+
+    #[test]
+    fn a_shape_that_touches_itself_at_a_point_is_the_shapes_either_side() {
+        // Two bars that meet corner to corner, drawn as one outline that
+        // goes through the corner twice (as the arm and leg of a k meet
+        // its stem in some faces): two shapes, touching.
+        let ring = vec![
+            P::new(0.0, 0.0),
+            P::new(100.0, 0.0),
+            P::new(100.0, 20.0),
+            P::new(200.0, 20.0),
+            P::new(200.0, 40.0),
+            P::new(100.0, 40.0),
+            P::new(100.0, 20.0),
+            P::new(0.0, 20.0),
+        ];
+        let (rings, at) = unpinched(std::slice::from_ref(&ring)).expect("it touches itself");
+        assert_eq!(rings.len(), 2);
+        assert_eq!(at, vec![P::new(100.0, 20.0)]);
+        assert!(rings.iter().all(|r| r.len() == 4));
+        assert!(
+            (rings
+                .iter()
+                .map(|r| boolean::ring_area(r).abs())
+                .sum::<f64>()
+                - 4000.0)
+                .abs()
+                < 1e-6
+        );
+        // (Not a ring that doesn't, or one with a point doubled.)
+        assert!(unpinched(&[ring[..4].to_vec()]).is_none());
+        let doubled = vec![ring[0], ring[1], ring[1], ring[2], ring[7]];
+        assert!(unpinched(&[doubled]).is_none());
+        // A column each, and wherever it's put: no cut across a neck of
+        // no width, placed by the last bit of where the letter lies.
+        for by in [P::new(0.0, 0.0), P::new(0.37, 913.11), P::new(-77.7, 3.3)] {
+            let bars = shape(
+                Geometry::Fill {
+                    rings: vec![ring.iter().map(|p| *p + by).collect()],
+                    rule: FillRule::EvenOdd,
+                },
+                Kind::Satin,
+                [0, 0, 0],
+            );
+            let columns = satin_rails(&bars);
+            assert_eq!(columns.len(), 2, "moved {by:?}");
+            assert!(columns.iter().all(|c| c.is_ok()));
+        }
+    }
+
+    #[test]
+    fn a_column_can_leave_the_thread_back_along_its_last_stitch() {
+        // A column's last stitches across its end: from (0, 90) to
+        // (20, 100), then over to (0, 100).
+        let pts = vec![P::new(0.0, 90.0), P::new(20.0, 100.0), P::new(0.0, 100.0)];
+        // Back where that stitch began, or halfway: the middle of the end.
+        assert_eq!(
+            end_stitch(&pts, 4.0),
+            vec![P::new(20.0, 100.0), P::new(10.0, 100.0)]
+        );
+        // Not by a stitch shorter than the shortest to be sewn, nor with no
+        // stitch across to go back along.
+        assert_eq!(end_stitch(&pts, 15.0), vec![P::new(20.0, 100.0)]);
+        assert!(end_stitch(&pts, 25.0).is_empty());
+        assert!(end_stitch(&pts[..2].to_vec(), 4.0).is_empty());
+        // Ending with the needle down twice in the last place, the same.
+        let mut twice = pts.clone();
+        twice.push(P::new(0.0, 100.0));
+        assert_eq!(end_stitch(&twice, 4.0), end_stitch(&pts, 4.0));
+    }
+
+    #[test]
+    fn a_words_letters_are_ordered_as_each_would_be_alone() {
+        // A T: a bar, and a stem that ends against the middle of it.
+        // `count` of them in a row, well apart.
+        let word = |count: usize| -> (Vec<Vec<Polyline>>, Vec<ColumnWay>) {
+            let (mut outlines, mut ends) = (Vec::new(), Vec::new());
+            for k in 0..count {
+                let x = k as f64 * 160.0;
+                let rect = |x0: f64, y0: f64, x1: f64, y1: f64| {
+                    vec![vec![
+                        P::new(x0, y0),
+                        P::new(x1, y0),
+                        P::new(x1, y1),
+                        P::new(x0, y1),
+                    ]]
+                };
+                let bar = (P::new(x, 5.0), P::new(x + 60.0, 5.0));
+                let stem = (P::new(x + 30.0, 80.0), P::new(x + 30.0, 10.0));
+                outlines.push(rect(x, 0.0, x + 60.0, 10.0));
+                outlines.push(rect(x + 25.0, 10.0, x + 35.0, 80.0));
+                for (piece, (a, b)) in [(2 * k, bar), (2 * k + 1, stem)] {
+                    for (turned, start, end) in [(false, a, b), (true, b, a)] {
+                        ends.push(ColumnWay {
+                            piece,
+                            turned,
+                            start,
+                            end,
+                        });
+                    }
+                }
+            }
+            (outlines, ends)
+        };
+        let cuts = |count: usize| {
+            let (outlines, ends) = word(count);
+            let outlines: Vec<&Vec<Polyline>> = outlines.iter().collect();
+            let found = fewest_cuts(
+                &outlines,
+                &ends,
+                None,
+                None,
+                10.0,
+                false,
+                &HashMap::new(),
+                usize::MAX,
+            )
+            .expect("an order");
+            // Every column once, and each letter's two together.
+            let pieces: Vec<usize> = found.order.iter().map(|&w| ends[w].piece).collect();
+            let mut sorted = pieces.clone();
+            sorted.sort();
+            assert_eq!(sorted, (0..2 * count).collect::<Vec<_>>());
+            assert!(pieces.chunks(2).all(|c| c[0] / 2 == c[1] / 2), "{pieces:?}");
+            found.cuts
+        };
+        // One T takes no cut: its stem up to the bar, then the bar.
+        assert_eq!(cuts(1), 0);
+        // A word of them takes one between each two, and no more: thirty
+        // (sixty columns, searched all at once), and forty (eighty: more
+        // than are searched at once, so a letter at a time).
+        assert_eq!(cuts(30), 29);
+        assert_eq!(cuts(40), 39);
+    }
+
+    #[test]
+    fn thread_gets_to_a_column_by_one_hop_not_hop_after_hop() {
+        // Four serifs in a row, each within a hop of the next and none
+        // joined to another; the first is sewn, and the thread is at the
+        // second (3 units from it).
+        let n = 4;
+        let mut touch = vec![false; n * n];
+        for (i, j) in [(0, 1), (1, 2), (2, 3)] {
+            touch[i * n + j] = true;
+            touch[j * n + i] = true;
+        }
+        let none = vec![false; n * n];
+        let far = f64::INFINITY;
+        let here = [0.0, 3.0, far, far];
+        // To the second: it's on it. To the third: on to the second, and
+        // a hop from that. To the fourth: two hops, which travel isn't
+        // given.
+        assert!(hidden_way(&here, 1, 1, &none, &touch));
+        assert!(hidden_way(&here, 2, 1, &none, &touch));
+        assert!(!hidden_way(&here, 3, 1, &none, &touch));
+        // With the third and fourth one piece of ground (a stem and its
+        // serif), the fourth is a hop from the second's ground.
+        let mut joined = none.clone();
+        joined[2 * n + 3] = true;
+        joined[3 * n + 2] = true;
+        assert!(hidden_way(&here, 3, 1, &joined, &touch));
+        // Not through a column that's sewn: with the third done too, the
+        // fourth is cut off.
+        assert!(!hidden_way(&here, 3, 1 | 1 << 2, &joined, &touch));
+        // And from nowhere near a column still to sew, there's no way.
+        assert!(!hidden_way(&[0.0, far, far, far], 1, 1, &none, &touch));
+    }
+
+    #[test]
+    fn a_hairline_is_wide_enough_to_travel_under() {
+        // A hairline 0.2 mm wide, 18 mm long, on the slant: narrower than
+        // the cells travel is routed over, so as it's drawn there's no way
+        // along it.
+        let line = [P::new(0.0, 0.0), P::new(150.0, 100.0)];
+        let hair = satin::rails_from_centerline(&line, false, 2.0);
+        let mut drawn = hair.a.clone();
+        drawn.extend(hair.b.iter().rev());
+        let mut bounds = Bounds::empty();
+        drawn.iter().for_each(|&p| bounds.add(p));
+        let bounds = Bounds {
+            min: bounds.min - P::new(20.0, 20.0),
+            max: bounds.max + P::new(20.0, 20.0),
+        };
+        let way = |ring: &Polyline| {
+            Zone::new(&[(std::slice::from_ref(ring), FillRule::EvenOdd)], bounds)
+                .and_then(|z| z.route(P::new(6.0, 4.0), P::new(144.0, 96.0), 500.0))
+        };
+        assert!(way(&drawn).is_none());
+        // Taken as wide as travel needs, there is: down its middle, under
+        // its stitches.
+        let ground = thin_ground(&hair).expect("a hairline");
+        let route = way(&ground).expect("a way along it");
+        assert!(route.iter().all(|p| {
+            let t = ((p.x * 150.0 + p.y * 100.0) / (150.0 * 150.0 + 100.0 * 100.0)).clamp(0.0, 1.0);
+            p.dist(P::new(150.0 * t, 100.0 * t)) <= GROUND_WIDTH * 0.5 + 0.5
+        }));
+        // A column that's wide all along is its own ground; so is a ring.
+        assert!(thin_ground(&satin::rails_from_centerline(&line, false, 30.0)).is_none());
+    }
+
+    #[test]
+    fn columns_that_cross_cover_where_they_cross() {
+        // A plus: two two-rail satins, one across the other, sewn as one
+        // satin (grouped, the same settings). Where they cross is covered
+        // (by both), not a hole between them: travel can hide there.
+        let column = |a: Polyline, b: Polyline| {
+            let mut s = shape(
+                Geometry::Stroke {
+                    lines: vec![(a, false), (b, false)],
+                    width: 0.0,
+                },
+                Kind::Satin,
+                [0, 0, 0],
+            );
+            s.groups = vec!["plus".into()];
+            s.params.rails = Some((1, 2));
+            s
+        };
+        let shapes = [
+            column(
+                vec![P::new(-20.0, -100.0), P::new(-20.0, 100.0)],
+                vec![P::new(20.0, -100.0), P::new(20.0, 100.0)],
+            ),
+            column(
+                vec![P::new(-100.0, -20.0), P::new(100.0, -20.0)],
+                vec![P::new(-100.0, 20.0), P::new(100.0, 20.0)],
+            ),
+        ];
+        let (_, plus) = joined_satin(&shapes, &[0, 1], 0).expect("one satin");
+        for cover in [coverage(&plus), Kept::default().coverage(&plus)] {
+            let (rings, rule) = cover.expect("a satin covers");
+            assert!(
+                crate::geom::point_inside(&rings, rule, P::new(0.0, 0.0)),
+                "where they cross"
+            );
+            assert!(
+                crate::geom::point_inside(&rings, rule, P::new(0.0, 60.0)),
+                "one alone"
+            );
+            assert!(
+                !crate::geom::point_inside(&rings, rule, P::new(60.0, 60.0)),
+                "neither"
+            );
+        }
+    }
+
+    #[test]
+    fn overlap_lays_a_letters_strokes_over_each_other() {
+        // An H: stems 3 mm wide, a bar 2 mm.
+        let h = vec![vec![
+            P::new(100.0, 100.0),
+            P::new(130.0, 100.0),
+            P::new(130.0, 190.0),
+            P::new(270.0, 190.0),
+            P::new(270.0, 100.0),
+            P::new(300.0, 100.0),
+            P::new(300.0, 300.0),
+            P::new(270.0, 300.0),
+            P::new(270.0, 210.0),
+            P::new(130.0, 210.0),
+            P::new(130.0, 300.0),
+            P::new(100.0, 300.0),
+        ]];
+        let mut shape = shape(
+            Geometry::Fill {
+                rings: h,
+                rule: FillRule::NonZero,
+            },
+            Kind::Satin,
+            [0, 0, 0],
+        );
+        let outline = |r: &Rails| r.outline().remove(0);
+        // How far into another column each column's ends reach.
+        let overlap = |cols: &[Rails]| -> f64 {
+            let mut most: f64 = 0.0;
+            for (i, r) in cols.iter().enumerate() {
+                for (j, other) in cols.iter().enumerate() {
+                    if i == j {
+                        continue;
+                    }
+                    let ring = outline(other);
+                    for p in [r.a[0], r.b[0], *r.a.last().unwrap(), *r.b.last().unwrap()] {
+                        if crate::geom::point_inside(
+                            std::slice::from_ref(&ring),
+                            FillRule::EvenOdd,
+                            p,
+                        ) {
+                            most = most.max(dist_to_ring(&ring, p));
+                        }
+                    }
+                }
+            }
+            most
+        };
+        let cut: Vec<Rails> = satin_rails(&shape)
+            .into_iter()
+            .map(|r| r.unwrap())
+            .collect();
+        assert!(overlap(&cut) < 0.1, "cut: the columns meet edge to edge");
+        shape.params.overlap = Some(true);
+        let laid: Vec<Rails> = satin_rails(&shape)
+            .into_iter()
+            .map(|r| r.unwrap())
+            .collect();
+        // (A square join has no bracket to fill: the bar ends just inside
+        // each stem, as wide as it is, and its stitches lap on under.)
+        assert!(
+            overlap(&laid) > 0.1,
+            "overlapping: the bar runs on into the stems"
+        );
+        assert!(
+            overlap(&laid) < 5.0,
+            "no wider into the join than the bar is"
+        );
+        // Either way it sews in one piece.
+        let d = plan("t", &[shape], &PlanOptions::default());
+        assert_eq!(d.trim_count(), 0);
+    }
+
+    #[test]
+    fn a_letter_has_the_same_columns_wherever_it_lies() {
+        // Its columns are found for its shape, read from its own first
+        // point: the same ones, moved, wherever it's put on the design
+        // (and so found once for a line of text that's moved about).
+        let e = round_e();
+        let was: Vec<Rails> = satin_rails(&e).into_iter().map(|r| r.unwrap()).collect();
+        for by in [P::new(1234.5678, -987.6543), P::new(-0.3, 77_777.7)] {
+            let mut moved = e.clone();
+            if let Geometry::Fill { rings, .. } = &mut moved.geometry {
+                rings.iter_mut().flatten().for_each(|p| *p = *p + by);
+            }
+            let now: Vec<Rails> = satin_rails(&moved)
+                .into_iter()
+                .map(|r| r.unwrap())
+                .collect();
+            assert_eq!(was.len(), now.len());
+            for (w, n) in was.iter().zip(&now) {
+                assert_eq!((w.a.len(), w.b.len()), (n.a.len(), n.b.len()));
+                assert_eq!(w.sync, n.sync);
+                for (p, q) in w.a.iter().zip(&n.a).chain(w.b.iter().zip(&n.b)) {
+                    assert!((*p + by).dist(*q) < 1e-6, "{p:?} + {by:?} is not {q:?}");
+                }
+            }
+        }
+        // A rail's point that's a point of the outline is that point, to
+        // the bit.
+        let Geometry::Fill { rings, .. } = &e.geometry else {
+            unreachable!()
+        };
+        let near = |p: P| rings.iter().flatten().find(|q| q.dist(p) < 1e-6);
+        let on: Vec<(P, &P)> = was
+            .iter()
+            .flat_map(|r| r.a.iter().chain(&r.b))
+            .filter_map(|p| near(*p).map(|q| (*p, q)))
+            .collect();
+        assert!(on.len() > 4);
+        assert!(on.iter().all(|(p, q)| p == *q));
+    }
+
+    #[test]
+    fn the_bar_of_an_e_ends_square_and_its_bowl_on_its_cuts() {
+        // The bar butts into the end of the bowl where the counter's curve
+        // meets it at a slant: cut along that curve, the bar's end slants
+        // and its stitches fan to meet it. And the bowl's foot is cut
+        // level where the stroke is still climbing: its end is the cut,
+        // not the sharp corner of it. (As cut into columns, corners
+        // squared: the `cut` setting. By the chordal axis the bar and bowl
+        // meet on a mitre instead.)
+        let mut e = round_e();
+        e.params.cut = Some(true);
+        let columns: Vec<Rails> = satin_rails(&e).into_iter().map(|r| r.unwrap()).collect();
+        assert_eq!(columns.len(), 2, "a bar and a bowl");
+        let bar = columns
+            .iter()
+            .min_by(|x, y| {
+                crate::geom::polyline_length(&x.a).total_cmp(&crate::geom::polyline_length(&y.a))
+            })
+            .unwrap();
+        let bowl = columns.iter().find(|c| !std::ptr::eq(*c, bar)).unwrap();
+        // Every stitch of the bar stands straight up.
+        for (a, b) in satin::pairs(bar, 3.0) {
+            assert!((a.x - b.x).abs() < 1.5, "a bar stitch leans: {a:?} {b:?}");
+        }
+        // The bowl's two ends lie level: along the bar's lower edge (y 12)
+        // and along the cut across its foot (y 24), each a stroke wide.
+        let ends = [
+            (bowl.a[0], bowl.b[0]),
+            (*bowl.a.last().unwrap(), *bowl.b.last().unwrap()),
+        ];
+        for y in [12.0, 24.0] {
+            assert!(
+                ends.iter().any(|(a, b)| {
+                    (a.y - y).abs() < 1.0 && (b.y - y).abs() < 1.0 && a.dist(*b) > 25.0
+                }),
+                "no end along y {y}: {ends:?}"
+            );
+        }
+    }
+
+    /// How a letter's satin columns came out: what a change to how
+    /// columns are found, ended or ordered must not make worse.
+    /// How many degrees further a letter's worst column may lean than it
+    /// did before [`letters_in_faces_of_your_own`] says it's worse.
+    const LEAN_MORE: usize = 5;
+    /// And how many more of its stitches may be skewed.
+    const SKEWED_MORE: usize = 3;
+    /// And how much more of it may be bare (hundredths of a square mm).
+    const BARE_MORE: usize = 30;
+
+    fn bar(a: (f64, f64), b: (f64, f64), across: f64, lean: f64) -> Rails {
+        // A straight column from `a` to `b`, `across` wide, its stitches
+        // leaning `lean` units along it (rail b's points moved on).
+        let (a, b) = (P::new(a.0, a.1), P::new(b.0, b.1));
+        let n = (b - a).norm().perp() * across;
+        let along = (b - a).norm() * lean;
+        Rails {
+            a: vec![a, b],
+            b: vec![a + n + along, b + n + along],
+            closed: false,
+            sync: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn the_seam_measure_sees_a_stroke_sewn_in_pieces_whose_stitches_jump() {
+        let outline = vec![vec![
+            P::new(0.0, 0.0),
+            P::new(200.0, 0.0),
+            P::new(200.0, 30.0),
+            P::new(0.0, 30.0),
+        ]];
+        // One bar in two pieces end to end, stitches square in both: no
+        // seam (a column cut in two for the thread is sewn so).
+        let square = [
+            bar((0.0, 0.0), (100.0, 0.0), 30.0, 0.0),
+            bar((100.0, 0.0), (200.0, 0.0), 30.0, 0.0),
+        ];
+        assert_eq!(seams(&outline, FillRule::NonZero, &square), 0);
+        // The second piece's stitches leaning 40°: a seam where they meet.
+        let lean = 30.0 * 40f64.to_radians().tan();
+        let jumps = [
+            bar((0.0, 0.0), (100.0, 0.0), 30.0, 0.0),
+            bar((100.0, 0.0), (200.0, 0.0), 30.0, lean),
+        ];
+        assert!(seams(&outline, FillRule::NonZero, &jumps) > 0);
+        // A bar meeting a stem across it (an L): a join, not a seam.
+        let l = vec![vec![
+            P::new(0.0, 0.0),
+            P::new(30.0, 0.0),
+            P::new(30.0, 170.0),
+            P::new(200.0, 170.0),
+            P::new(200.0, 200.0),
+            P::new(0.0, 200.0),
+        ]];
+        let join = [
+            bar((0.0, 0.0), (0.0, 200.0), -30.0, 0.0),
+            bar((30.0, 170.0), (200.0, 170.0), 30.0, 0.0),
+        ];
+        assert_eq!(seams(&l, FillRule::NonZero, &join), 0);
+    }
+
+    #[test]
+    fn the_layer_measure_counts_three_columns_over_each_other() {
+        let two = [
+            bar((0.0, 0.0), (100.0, 0.0), 30.0, 0.0),
+            bar((50.0, -50.0), (50.0, 80.0), -30.0, 0.0),
+        ];
+        assert_eq!(layers(&two), 0, "two crossing is how a crossing is sewn");
+        let three = [
+            two[0].clone(),
+            two[1].clone(),
+            bar((0.0, 10.0), (100.0, 10.0), 10.0, 0.0),
+        ];
+        assert!(layers(&three) > 30);
+    }
+
+    #[test]
+    fn overlapping_strokes_that_cross_are_two_layers_at_most() {
+        // A t without its curl: a stem 3 mm wide, a bar 2 mm across it.
+        let t = vec![vec![
+            P::new(100.0, 0.0),
+            P::new(130.0, 0.0),
+            P::new(130.0, 60.0),
+            P::new(180.0, 60.0),
+            P::new(180.0, 80.0),
+            P::new(130.0, 80.0),
+            P::new(130.0, 250.0),
+            P::new(100.0, 250.0),
+            P::new(100.0, 80.0),
+            P::new(50.0, 80.0),
+            P::new(50.0, 60.0),
+            P::new(100.0, 60.0),
+        ]];
+        let mut s = shape(
+            Geometry::Fill {
+                rings: t,
+                rule: FillRule::NonZero,
+            },
+            Kind::Satin,
+            [0, 0, 0],
+        );
+        s.params.overlap = Some(true);
+        let l = lettered(&[s]);
+        assert_eq!(l.layers, 0, "{l:?}");
+        assert_eq!(l.trims, 0, "{l:?}");
+    }
+
+    /// The font families installed, one per line as `FAMILY\t<name>`:
+    /// what `tools/census/census.sh` sweeps.
+    #[test]
+    #[ignore]
+    fn installed_font_families() {
+        for family in crate::document::font_families() {
+            println!("FAMILY\t{family}");
+        }
+    }
+
+    /// Every letter and digit as a satin, in typefaces of your own: the
+    /// faces `ZIGZAG_FACES` names (`Futura:bold;Georgia;Times New
+    /// Roman:italic`), and every `.svg` in the folder `ZIGZAG_DESIGNS`
+    /// names, if it does. With `ZIGZAG_LETTERS` naming a file, what each
+    /// came to is written there the first time, and held to after: a
+    /// letter with more of it filled, more trims, more stitches off the
+    /// shape, more travel in plain sight or stitches leaning clearly
+    /// further than they did fails. (Delete the file to take what there is
+    /// now as the measure.) With `ZIGZAG_OVERLAP` set, the faces' letters
+    /// are sewn with the `overlap` setting; `ZIGZAG_FONT_SIZE` sets how
+    /// big they're set, in mm (21, letters about 15 mm tall, unless it
+    /// says; 11 is about the 8 mm new text starts at).
+    /// `cargo test --lib -- --ignored letters_in_faces_of_your_own --nocapture`
+    #[test]
+    #[ignore]
+    fn letters_in_faces_of_your_own() {
+        let mut found: Vec<(String, Lettered)> = Vec::new();
+        // (The letters as one setting or another sews them: `ZIGZAG_AUTO`,
+        // mitred where that's clean, else cut; `ZIGZAG_MITRED`, every corner
+        // mitred; `ZIGZAG_OVERLAP`, strokes laid over each other. Cut, the
+        // default, otherwise; `ZIGZAG_CUT` says so too.)
+        let id = if std::env::var_os("ZIGZAG_OVERLAP").is_some() {
+            "satin_overlap"
+        } else if std::env::var_os("ZIGZAG_CUT").is_some() {
+            "satin_cut"
+        } else if std::env::var_os("ZIGZAG_MITRED").is_some() {
+            "satin_mitred"
+        } else if std::env::var_os("ZIGZAG_AUTO").is_some() {
+            "satin_cut=0"
+        } else {
+            "satin"
+        };
+        let size: f64 = std::env::var("ZIGZAG_FONT_SIZE")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .filter(|v: &f64| *v > 0.0)
+            .unwrap_or(21.0);
+        for face in std::env::var("ZIGZAG_FACES")
+            .unwrap_or_default()
+            .split(';')
+            .map(str::trim)
+            .filter(|f| !f.is_empty())
+        {
+            let mut parts = face.split(':');
+            let family = parts.next().unwrap();
+            let rest: Vec<&str> = parts.collect();
+            let weight = if rest.contains(&"bold") {
+                "bold"
+            } else {
+                "normal"
+            };
+            let style = if rest.contains(&"italic") {
+                "italic"
+            } else {
+                "normal"
+            };
+            for ch in ('a'..='z').chain('A'..='Z').chain('0'..='9') {
+                let svg = format!(
+                    r##"<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="40mm" viewBox="0 0 40 40"><text id="{id}" x="6" y="28" font-family="{family}" font-weight="{weight}" font-style="{style}" font-size="{size}" fill="#000000">{ch}</text></svg>"##
+                );
+                let shapes = crate::svg::load(svg.as_bytes()).unwrap_or_default();
+                // (For tools/census/trims.py: whose trims the report's
+                // lines that follow are.)
+                if trim_report() {
+                    eprintln!("LETTER {face} {ch}");
+                }
+                found.push((format!("{face} {ch}"), lettered(&shapes)));
+            }
+        }
+        if let Ok(dir) = std::env::var("ZIGZAG_DESIGNS") {
+            let mut paths: Vec<_> = std::fs::read_dir(&dir)
+                .unwrap()
+                .map(|e| e.unwrap().path())
+                .filter(|p| p.extension().is_some_and(|e| e == "svg"))
+                .collect();
+            paths.sort();
+            for path in paths {
+                let shapes = crate::svg::load_file(&path).unwrap_or_default();
+                let name = path.file_stem().unwrap().to_string_lossy().into_owned();
+                found.push((name, lettered(&shapes)));
+            }
+        }
+        assert!(
+            !found.is_empty(),
+            "ZIGZAG_FACES or ZIGZAG_DESIGNS: something to sew"
+        );
+        let sum = |f: &dyn Fn(&Lettered) -> usize| found.iter().map(|(_, l)| f(l)).sum::<usize>();
+        println!(
+            "{} letters: {} columns, {} filled, {} pointed ends, {} stitches astray, {} trims",
+            found.len(),
+            sum(&|l| l.columns),
+            sum(&|l| l.fills),
+            sum(&|l| l.pointed),
+            sum(&|l| l.astray),
+            sum(&|l| l.trims),
+        );
+        // A letter in one piece is one piece of thread: the trims over
+        // what its separate parts take.
+        let broken: Vec<&(String, Lettered)> =
+            found.iter().filter(|(_, l)| l.trims > l.owed).collect();
+        println!(
+            "{} letters break the thread ({} trims more than their parts take)",
+            broken.len(),
+            broken.iter().map(|(_, l)| l.trims - l.owed).sum::<usize>(),
+        );
+        println!(
+            "{} letters with travel in plain sight ({} stretches)",
+            found.iter().filter(|(_, l)| l.exposed > 0).count(),
+            sum(&|l| l.exposed),
+        );
+        println!(
+            "{:.1} sq mm bare inside satin letters, {} letters with over 1 sq mm",
+            found
+                .iter()
+                .filter(|(_, l)| l.fills == 0)
+                .map(|(_, l)| l.bare)
+                .sum::<usize>() as f64
+                / 100.0,
+            found
+                .iter()
+                .filter(|(_, l)| l.fills == 0 && l.bare > 100)
+                .count(),
+        );
+        if std::env::var("ZIGZAG_BROKEN").is_ok() {
+            for (name, l) in &broken {
+                println!(
+                    "  {name}: {} columns, {} filled, {} trims, {} owed",
+                    l.columns, l.fills, l.trims, l.owed
+                );
+            }
+            for (name, l) in found.iter().filter(|(_, l)| l.exposed > 0) {
+                println!("  {name}: {} stretches of travel in plain sight", l.exposed);
+            }
+        }
+        let Ok(file) = std::env::var("ZIGZAG_LETTERS") else {
+            return;
+        };
+        let line = |name: &str, l: &Lettered| {
+            format!(
+                "{name}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                l.columns,
+                l.fills,
+                l.pointed,
+                l.astray,
+                l.trims,
+                l.exposed,
+                l.lean,
+                l.skewed,
+                l.bare,
+                l.off_edge,
+                l.seams,
+                l.layers,
+                l.outside,
+                l.crowded
+            )
+        };
+        let Ok(was) = std::fs::read_to_string(&file) else {
+            let all: Vec<String> = found.iter().map(|(n, l)| line(n, l)).collect();
+            std::fs::write(&file, all.join("\n") + "\n").unwrap();
+            println!("written to {file}");
+            return;
+        };
+        let was: std::collections::HashMap<&str, Vec<usize>> = was
+            .lines()
+            .filter_map(|l| {
+                let mut f = l.split('\t');
+                let name = f.next()?;
+                Some((name, f.filter_map(|v| v.parse().ok()).collect()))
+            })
+            .collect();
+        let mut worse = Vec::new();
+        for (name, l) in &found {
+            let Some(w) = was.get(name.as_str()).filter(|w| w.len() >= 5) else {
+                continue;
+            };
+            // (A file from before travel in plain sight was counted: none
+            // to hold it to.)
+            let exposed = w.get(5).copied().unwrap_or(usize::MAX);
+            // (A letter that was filled had no stitches to go astray:
+            // made into columns, it's held to what it comes to next time.)
+            let astray = l.fills >= w[1] && l.astray > w[3] + 1;
+            // (Nor to how its stitches leaned: and a file from before
+            // that was measured has none to hold it to.)
+            let leans = l.fills >= w[1]
+                && (w.get(6).is_some_and(|was| l.lean > was + LEAN_MORE)
+                    || w.get(7).is_some_and(|was| l.skewed > was + SKEWED_MORE));
+            // (Nor to how much of it was bare.)
+            let barer = l.fills >= w[1] && w.get(8).is_some_and(|was| l.bare > was + BARE_MORE);
+            if l.fills > w[1] || astray || leans || barer || l.trims > w[4] || l.exposed > exposed {
+                worse.push(format!(
+                    "{name}: filled {} → {}, astray {} → {}, trims {} → {}, travel in sight {} → {}, lean {} → {}, skewed {} → {}, bare {} → {}",
+                    w[1],
+                    l.fills,
+                    w[3],
+                    l.astray,
+                    w[4],
+                    l.trims,
+                    w.get(5).map_or("?".to_string(), |e| e.to_string()),
+                    l.exposed,
+                    w.get(6).map_or("?".to_string(), |e| e.to_string()),
+                    l.lean,
+                    w.get(7).map_or("?".to_string(), |e| e.to_string()),
+                    l.skewed,
+                    w.get(8).map_or("?".to_string(), |e| e.to_string()),
+                    l.bare
+                ));
+            }
+        }
+        assert!(
+            worse.is_empty(),
+            "{} worse:\n{}",
+            worse.len(),
+            worse.join("\n")
+        );
+    }
+
+    #[test]
+    fn a_letter_drawn_in_overlapping_pieces_is_split_as_one_shape() {
+        // A T as a variable font draws it: a bar, and a stem laid over
+        // it from inside the bar down, the two outlines crossing. Filled
+        // by the nonzero rule that's one shape, and it's sewn as that
+        // shape is: a bar and a stem butted under it, nothing filled, the
+        // same as if its outline had been drawn in one piece.
+        let rect = |x0: f64, y0: f64, x1: f64, y1: f64| -> Vec<P> {
+            vec![
+                P::new(x0, y0),
+                P::new(x1, y0),
+                P::new(x1, y1),
+                P::new(x0, y1),
+            ]
+        };
+        let (bar, stem) = (rect(0.0, 0.0, 120.0, 14.0), rect(53.0, 5.0, 67.0, 140.0));
+        let pieces = shape(
+            Geometry::Fill {
+                rings: vec![bar.clone(), stem.clone()],
+                rule: FillRule::NonZero,
+            },
+            Kind::Satin,
+            [0, 0, 0],
+        );
+        let columns = satin_rails(&pieces);
+        assert!(
+            columns.iter().all(Result::is_ok),
+            "filled: {:?}",
+            columns
+                .iter()
+                .filter_map(|c| c.as_ref().err().map(|e| e.1.clone()))
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(columns.len(), 2, "a bar and a stem");
+        // (No stitch of the stem's inside the bar: it stops under it.)
+        for r in columns.iter().flatten() {
+            let tall = r.a.iter().chain(&r.b).any(|q| q.y > 100.0);
+            if tall {
+                assert!(r.a.iter().chain(&r.b).all(|q| q.y > 13.0), "{r:?}");
+            }
+        }
+        let d = plan("t", std::slice::from_ref(&pieces), &PlanOptions::default());
+        assert_eq!(d.trim_count(), 0, "one piece of thread");
+        // Rings that don't cross are handed back as they were: the
+        // letters either side of such a one are none the worse.
+        let apart = vec![bar.clone(), rect(200.0, 0.0, 214.0, 140.0)];
+        let none = untangled(&apart, FillRule::NonZero);
+        assert!(none.tangles.is_empty());
+        assert!(matches!(none.plain, std::borrow::Cow::Borrowed(_)));
+        // And with a tangle after them, they still come first, in order.
+        let mut mixed = apart.clone();
+        mixed.push(rect(400.0, 0.0, 520.0, 14.0));
+        mixed.push(rect(453.0, 5.0, 467.0, 140.0));
+        let out = untangled(&mixed, FillRule::NonZero);
+        assert_eq!(out.plain[..], apart[..]);
+        assert_eq!(out.tangles.len(), 1);
+        assert_eq!(out.tangles[0].0.len(), 2, "the two that crossed");
+        assert_eq!(out.tangles[0].1.len(), 1, "are one outline together");
+        // A contour that crosses itself inside another that does (a B's
+        // two counters drawn as one, in an outline drawn as one) is that
+        // one's: its counters, not shapes of their own.
+        let knot = |x: f64, y: f64, w: f64, h: f64| -> Vec<P> {
+            vec![
+                P::new(x, y),
+                P::new(x + w, y + h),
+                P::new(x + w, y),
+                P::new(x, y + h),
+            ]
+        };
+        let nested = vec![knot(0.0, 0.0, 200.0, 200.0), knot(20.0, 80.0, 20.0, 40.0)];
+        assert_eq!(untangled(&nested, FillRule::NonZero).tangles.len(), 1);
+    }
+
+    #[test]
+    fn an_eight_is_two_rings_one_over_the_other() {
+        // Two rings that run into each other at the waist, heavy enough
+        // that there's one bar of it between the two counters. Each ring
+        // is sewn round its own counter, the waist cut along between the
+        // nips in the outline: not a ring round both with a bar across
+        // it, whose stitches would lean all the way round, nor a fill.
+        let circle = |cy: f64, r: f64, from: f64, to: f64| -> Vec<P> {
+            let n = ((to - from).abs() / 0.1).ceil() as usize;
+            (0..=n)
+                .map(|k| {
+                    let t = from + (to - from) * k as f64 / n as f64;
+                    P::new(r * t.cos(), cy + r * t.sin())
+                })
+                .collect()
+        };
+        // (Each outer circle from one nip round to the other: they cross
+        // where y is 0.)
+        let (r, off) = (40.0f64, 30.0f64);
+        let nip = (off / r).asin();
+        let tau = std::f64::consts::TAU;
+        let pi = std::f64::consts::PI;
+        let mut outer = circle(off, r, -nip, pi + nip);
+        outer.extend(circle(-off, r, pi - nip, tau + nip));
+        let mut eight = shape(
+            Geometry::Fill {
+                rings: vec![
+                    outer.clone(),
+                    circle(off, 16.0, 0.0, tau - 0.1),
+                    circle(-off, 16.0, 0.0, tau - 0.1),
+                ],
+                rule: FillRule::EvenOdd,
+            },
+            Kind::Satin,
+            [0, 0, 0],
+        );
+        // By its chordal axis (the default), one stroke round both counters
+        // and across the waist, as a pen draws an 8: all satin, its
+        // stitches square to the stroke, in one piece of thread.
+        let axis: Vec<Rails> = satin_rails(&eight)
+            .into_iter()
+            .map(|r| r.expect("a column, not a fill"))
+            .collect();
+        for c in &axis {
+            let lean = satin::lean(std::slice::from_ref(c));
+            assert!(lean < 5.0, "stitches lean {lean:.1}°");
+        }
+        let d = plan("8", std::slice::from_ref(&eight), &PlanOptions::default());
+        assert_eq!(d.trim_count(), 0, "one piece of thread");
+        // Cut into columns (the `cut` setting): two rings, as below.
+        eight.params.cut = Some(true);
+        let columns: Vec<Rails> = satin_rails(&eight)
+            .into_iter()
+            .map(|r| r.expect("a column, not a fill"))
+            .collect();
+        assert_eq!(columns.len(), 2);
+        assert!(columns.iter().all(|c| c.closed), "two rings");
+        // (Their stitches square to the stroke all the way round.)
+        for c in &columns {
+            let lean = satin::lean(std::slice::from_ref(c));
+            assert!(lean < 5.0, "stitches lean {lean:.1}°");
+        }
+        let d = plan("8", std::slice::from_ref(&eight), &PlanOptions::default());
+        assert_eq!(d.trim_count(), 0, "one piece of thread");
+    }
+
+    #[test]
+    fn a_letter_with_two_serifs_is_still_one_piece_of_thread() {
+        // A serif across the end of a stem is a dead end: sewn tip to
+        // tip, the thread comes out at a tip, with the stem back in the
+        // middle. A letter can end on one; with two, one of them is cut
+        // in two at its stem and each half sewn in to it, so the thread
+        // goes on from there.
+        let with = |mut s: Shape, center: bool| {
+            s.params.underlay = None;
+            s.params.satin_underlay = Some(if center { underlay::CENTER } else { 0 });
+            s
+        };
+        let letters: [(&str, Vec<Box4>, usize); 4] = [
+            // A stem with a bar across its top: nothing to cut.
+            (
+                "T",
+                vec![(0.0, 0.0, 120.0, 14.0), (53.0, 14.0, 67.0, 140.0)],
+                2,
+            ),
+            // A stem between two serifs: one of them in two halves.
+            (
+                "I",
+                vec![
+                    (0.0, 0.0, 120.0, 14.0),
+                    (53.0, 14.0, 67.0, 126.0),
+                    (0.0, 126.0, 120.0, 140.0),
+                ],
+                4,
+            ),
+            // Two stems, a foot under each, a bar across their tops.
+            (
+                "n",
+                vec![
+                    (20.0, 0.0, 34.0, 126.0),
+                    (0.0, 126.0, 54.0, 140.0),
+                    (106.0, 0.0, 120.0, 126.0),
+                    (86.0, 126.0, 140.0, 140.0),
+                    (34.0, 0.0, 106.0, 14.0),
+                ],
+                6,
+            ),
+            // Two stems with a serif across each end, and a bar between
+            // them: more joins than every choice of can be tried, and no
+            // one of them cut that saves a trim alone.
+            (
+                "H",
+                vec![
+                    (20.0, 14.0, 34.0, 126.0),
+                    (0.0, 0.0, 54.0, 14.0),
+                    (0.0, 126.0, 54.0, 140.0),
+                    (106.0, 14.0, 120.0, 126.0),
+                    (86.0, 0.0, 140.0, 14.0),
+                    (86.0, 126.0, 140.0, 140.0),
+                    (34.0, 63.0, 106.0, 77.0),
+                ],
+                0,
+            ),
+        ];
+        for (name, parts, columns) in &letters {
+            for center in [false, true] {
+                let s = with(shape(boxes(parts), Kind::Satin, [0, 0, 0]), center);
+                // (However many the H is cut into: as few as do.)
+                if *columns > 0 {
+                    assert_eq!(satin_rails(&s).len(), *columns, "{name}: columns");
+                }
+                let d = plan("t", std::slice::from_ref(&s), &PlanOptions::default());
+                assert!(d.notes.is_empty(), "{name}: {:?}", d.notes);
+                assert_eq!(
+                    d.trim_count(),
+                    0,
+                    "{name}, center walk {center}: one piece of thread"
+                );
+                let shows = crate::checks::exposed_travel(&d);
+                assert!(shows.is_empty(), "{name}, center walk {center}: {shows:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_satins_part_thats_filled_instead_isnt_travelled_across_once_sewn() {
+        // A ring 14 mm deep (too wide for satin: it's filled instead),
+        // with a bar 3 mm wide beside it that is sewn as a column. The
+        // ring's rows are sewn in several sections, round its hole.
+        let circle = |r: f64| -> Polyline {
+            (0..72)
+                .map(|k| {
+                    let t = k as f64 / 72.0 * std::f64::consts::TAU;
+                    P::new(r * t.cos(), r * t.sin())
+                })
+                .collect()
+        };
+        let mut rings = boolean::union(&[(vec![circle(200.0), circle(60.0)], FillRule::EvenOdd)]);
+        rings.extend(boolean::union(&[(
+            vec![vec![
+                P::new(230.0, -150.0),
+                P::new(260.0, -150.0),
+                P::new(260.0, 150.0),
+                P::new(230.0, 150.0),
+            ]],
+            FillRule::NonZero,
+        )]));
+        let mixed = shape(
+            Geometry::Fill {
+                rings,
+                rule: FillRule::EvenOdd,
+            },
+            Kind::Satin,
+            [0, 0, 0],
+        );
+        let parts = satin_rails(&mixed);
+        assert_eq!(parts.iter().filter(|r| r.is_err()).count(), 1);
+        assert_eq!(parts.iter().filter(|r| r.is_ok()).count(), 1);
+        // No travel lies on top of the ring's finished rows: the way from
+        // one section of it to the next, and on to the bar, is under rows
+        // still to come, or the thread is cut. (The rows of a part that's
+        // filled are top stitching, as a fill's are, though the satin's
+        // columns are sewn after them.)
+        let d = plan("t", std::slice::from_ref(&mixed), &PlanOptions::default());
+        let shows: Vec<_> = crate::checks::exposed_travel(&d)
+            .into_iter()
+            .filter(|e| e.rows >= crate::checks::EXPOSED_ROWS)
+            .collect();
+        assert!(shows.is_empty(), "{shows:?}");
+        // And it's cut no oftener than the same ring is as a plain fill.
+        let mut fill = mixed.clone();
+        fill.params.kind = Some(Kind::Fill);
+        let as_fill = plan("t", std::slice::from_ref(&fill), &PlanOptions::default());
+        assert!(
+            d.trim_count() <= as_fill.trim_count() + 1,
+            "{} {}",
+            d.trim_count(),
+            as_fill.trim_count()
+        );
+    }
+
+    #[test]
+    fn an_arm_that_meets_a_stem_at_a_sharp_angle_is_sewn_square_to_itself() {
+        // A stem 3 mm wide, and an arm nearly as wide rising from its
+        // side at 35° to it (a k's, a Y's), its far end square: where the
+        // arm ends against the stem it's cut off 55° from square.
+        let (sin, cos) = 35f64.to_radians().sin_cos();
+        let (arm, across) = (P::new(sin, -cos), P::new(cos, sin));
+        let top = P::new(15.0, 65.0) + arm * 110.0;
+        let rings = boolean::union(&[
+            (
+                vec![vec![
+                    P::new(0.0, -30.0),
+                    P::new(30.0, -30.0),
+                    P::new(30.0, 140.0),
+                    P::new(0.0, 140.0),
+                ]],
+                FillRule::NonZero,
+            ),
+            (
+                vec![vec![
+                    P::new(15.0, 115.0),
+                    P::new(15.0, 65.0),
+                    top,
+                    top + across * (50.0 * sin),
+                ]],
+                FillRule::NonZero,
+            ),
+        ]);
+        // (As cut into columns, corners squared: the `cut` setting. By the
+        // chordal axis the arm and stem meet on a mitre instead.)
+        let mut k = shape(
+            Geometry::Fill {
+                rings,
+                rule: FillRule::NonZero,
+            },
+            Kind::Satin,
+            [0, 0, 0],
+        );
+        k.params.cut = Some(true);
+        let columns: Vec<Rails> = satin_rails(&k).into_iter().map(|r| r.unwrap()).collect();
+        assert!(columns.len() >= 2, "{}", columns.len());
+        // Every stitch of the arm is within 30° of square to it, right
+        // down to the stem: none lies along the cut, with the ones before
+        // it fanned round. And the stem's are straight across it.
+        let (mut seen, mut leaning) = (0, 0);
+        for r in &columns {
+            for (a, b) in satin::pairs(r, 3.0) {
+                let mid = a.lerp(b, 0.5);
+                if a.dist(b) < 10.0 {
+                    continue;
+                }
+                let stroke = if mid.x > 31.0 { arm } else { P::new(0.0, 1.0) };
+                seen += 1;
+                leaning += usize::from((b - a).norm().dot(stroke).abs() > 0.5);
+            }
+        }
+        assert!(seen > 60, "{seen}");
+        assert_eq!(leaning, 0, "of {seen}");
+        // And it's all one piece of thread.
+        let d = plan("t", std::slice::from_ref(&k), &PlanOptions::default());
+        assert_eq!(d.trim_count(), 0);
+    }
+
+    #[test]
+    fn a_column_that_ends_against_the_side_of_another_is_sewn_on_under_it() {
+        // A T, the bar 3 mm deep: the stem ends at the underside of the
+        // bar, where the bar's stitches come down end on. Sewn to there
+        // and no further, fabric shows between the points of them.
+        let mut t = shape(
+            boxes(&[(0.0, 0.0, 120.0, 30.0), (53.0, 30.0, 67.0, 140.0)]),
+            Kind::Satin,
+            [0, 0, 0],
+        );
+        t.params.underlay = None;
+        t.params.satin_underlay = Some(0);
+        // The stem's stitches run on under the bar, and nothing else's
+        // anywhere: a row across it, the lap past the cut.
+        let sewn: Vec<Sewn> = satin_rails_sewn(&t)
+            .into_iter()
+            .map(|r| r.unwrap())
+            .collect();
+        let rows: Vec<(P, P)> = sewn
+            .iter()
+            .flat_map(|(_, laps)| laps)
+            .flatten()
+            .copied()
+            .collect();
+        assert_eq!(rows.len(), 1, "{rows:?}");
+        let (a, b) = rows[0];
+        assert!((a.y - (30.0 - BUTT_LAP)).abs() < 1e-6 && (b.y - a.y).abs() < 1e-6);
+        assert!((a.x.min(b.x) - 53.0).abs() < 1e-6 && (a.x.max(b.x) - 67.0).abs() < 1e-6);
+        // The columns themselves end where they meet: what's shown,
+        // measured and planned with is as it was.
+        let stem = sewn
+            .iter()
+            .find(|(_, laps)| *laps != satin::NO_LAPS)
+            .unwrap();
+        assert!(stem.0.a.iter().chain(&stem.0.b).all(|p| p.y >= 30.0 - 1e-6));
+        // And so is the thread: one piece of it, with stitches of the
+        // stem's under the bar that the bar's own never make (theirs run
+        // from its top edge to its bottom one).
+        let d = plan("t", std::slice::from_ref(&t), &PlanOptions::default());
+        assert_eq!(d.trim_count(), 0);
+        assert!(crate::checks::exposed_travel(&d).is_empty());
+        let under: Vec<P> = d
+            .blocks
+            .iter()
+            .flat_map(|b| &b.runs)
+            .flat_map(|r| &r.pts)
+            .copied()
+            .filter(|p| (p.y - (30.0 - BUTT_LAP)).abs() < 1e-6 && p.x > 45.0 && p.x < 75.0)
+            .collect();
+        assert_eq!(under.len(), 2, "{under:?}");
+        assert!((under[0].x - under[1].x).abs() > 14.0, "across the stem");
+        // Not a stem that ends on the shape's own outline, or a column
+        // cut across (the halves of a serif cut in two at its stem).
+        let i = shape(
+            boxes(&[
+                (0.0, 0.0, 120.0, 14.0),
+                (53.0, 14.0, 67.0, 126.0),
+                (0.0, 126.0, 120.0, 140.0),
+            ]),
+            Kind::Satin,
+            [0, 0, 0],
+        );
+        let laps = satin_rails_sewn(&i)
+            .into_iter()
+            .flat_map(|r| r.unwrap().1)
+            .flatten()
+            .count();
+        assert_eq!(laps, 2, "the stem at each serif, and nothing else");
+    }
+
+    #[test]
+    fn a_letters_columns_are_sewn_in_the_order_that_needs_no_cut() {
+        // Letters whose columns end against the side of another: sewn
+        // after the one they lean on, there's no way to them but across
+        // it, and the thread is cut. Sewn before it, the thread goes on
+        // under the column still to come.
+        // (With a center walk under it a column ends where it began;
+        // without, at its other end. As cut into columns, corners squared:
+        // the `cut` setting, whose columns these are.)
+        let with = |mut s: Shape, center: bool| {
+            s.params.underlay = None;
+            s.params.satin_underlay = Some(if center { underlay::CENTER } else { 0 });
+            s.params.cut = Some(true);
+            s
+        };
+        let letters: [(&str, Vec<Box4>); 4] = [
+            // A stem with a bar across its top.
+            (
+                "T",
+                vec![(0.0, 0.0, 120.0, 14.0), (53.0, 14.0, 67.0, 140.0)],
+            ),
+            // A stem and three arms.
+            (
+                "E",
+                vec![
+                    (0.0, 0.0, 14.0, 140.0),
+                    (14.0, 0.0, 90.0, 14.0),
+                    (14.0, 63.0, 70.0, 77.0),
+                    (14.0, 126.0, 90.0, 140.0),
+                ],
+            ),
+            // A stem with a foot and two arms to one side.
+            (
+                "F",
+                vec![
+                    (30.0, 0.0, 44.0, 126.0),
+                    (0.0, 126.0, 74.0, 140.0),
+                    (44.0, 0.0, 110.0, 14.0),
+                    (44.0, 56.0, 96.0, 70.0),
+                ],
+            ),
+            // A stem on a slab serif, with an arm.
+            (
+                "r",
+                vec![
+                    (30.0, 0.0, 44.0, 126.0),
+                    (0.0, 126.0, 74.0, 140.0),
+                    (44.0, 20.0, 100.0, 34.0),
+                ],
+            ),
+        ];
+        for (name, parts) in &letters {
+            for center in [false, true] {
+                let s = with(shape(boxes(parts), Kind::Satin, [0, 0, 0]), center);
+                let d = plan("t", std::slice::from_ref(&s), &PlanOptions::default());
+                assert!(d.notes.is_empty(), "{name}: {:?}", d.notes);
+                assert_eq!(
+                    d.trim_count(),
+                    0,
+                    "{name}, center walk {center}: one piece of thread"
+                );
+                // And none of the travel is over satin already sewn.
+                let shows = crate::checks::exposed_travel(&d);
+                assert!(shows.is_empty(), "{name}, center walk {center}: {shows:?}");
+            }
+        }
+        // Two letters in one object: each sewn whole, one cut between.
+        let two: Vec<Box4> = letters[0]
+            .1
+            .iter()
+            .copied()
+            .chain(
+                letters[3]
+                    .1
+                    .iter()
+                    .map(|&(a, b, c, d)| (a + 200.0, b, c + 200.0, d)),
+            )
+            .collect();
+        let d = plan(
+            "t",
+            &[shape(boxes(&two), Kind::Satin, [0, 0, 0])],
+            &PlanOptions::default(),
+        );
+        assert_eq!(d.trim_count(), 1);
+    }
+
+    #[test]
+    fn a_satin_is_sewn_toward_the_next_when_the_way_is_under_what_comes_later() {
+        // Three columns, each its own object, sewn in this order: a stem,
+        // a second stem some way off, and last a bar that lies across the
+        // tops of both. The way from the first stem to the second is under
+        // the bar, from the first stem's top: so that's where it's left,
+        // though its bottom is where sewing began (at the end of a line
+        // that leads up to it).
+        let lead = stroke(&[(0.0, 220.0), (0.0, 156.0)], 3.0, Kind::Run);
+        // (Whether a column ends where it began, with a center walk
+        // under it, or at its other end, without.)
+        for center in [false, true] {
+            let satin = |pts: &[(f64, f64)]| {
+                let mut s = stroke(pts, 14.0, Kind::Satin);
+                s.params.underlay = None;
+                s.params.satin_underlay = Some(if center { underlay::CENTER } else { 0 });
+                s
+            };
+            let stem = |x: f64| satin(&[(x, 150.0), (x, 0.0)]);
+            let bar = satin(&[(-10.0, 5.0), (110.0, 5.0)]);
+            let d = plan(
+                "t",
+                &[lead.clone(), stem(0.0), stem(100.0), bar],
+                &PlanOptions::default(),
+            );
+            assert_eq!(d.trim_count(), 0, "center walk {center}");
+            assert!(
+                crate::checks::exposed_travel(&d).is_empty(),
+                "center walk {center}"
+            );
+        }
+    }
+
     #[test]
     fn satin_on_filled_bar_is_a_column() {
         let bar = vec![
@@ -4607,6 +8350,7 @@ mod concave_fill_tests {
                 groups: Vec::new(),
                 outline: false,
                 origin: P::default(),
+                joined: Vec::new(),
             };
             let d = plan("t", &[s], &PlanOptions::default());
             for r in d.blocks.iter().flat_map(|b| &b.runs) {
@@ -4621,5 +8365,30 @@ mod concave_fill_tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn a_panic_on_a_shared_core_is_the_callers_and_as_caught() {
+        if std::thread::available_parallelism().map_or(1, |c| c.get()) < 2 {
+            return;
+        }
+        // Work shared among the cores is inside the caller's `caught`...
+        let inside = caught(|| in_parallel(vec![0; 8], |_| catching())).unwrap();
+        assert_eq!(inside, vec![true; 8]);
+        assert_eq!(in_parallel(vec![0; 8], |_| catching()), vec![false; 8]);
+        // ...and what fails there comes back as what it was.
+        let before = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let r = caught(|| {
+            in_parallel((0..8).collect(), |k: usize| {
+                if k == 3 {
+                    panic!("odd outline");
+                }
+                k
+            })
+        });
+        std::panic::set_hook(before);
+        let why = r.expect_err("the panic is the caller's");
+        assert_eq!(why.downcast_ref::<&str>().copied(), Some("odd outline"));
     }
 }

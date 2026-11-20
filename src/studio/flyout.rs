@@ -454,7 +454,19 @@ impl Studio {
                             resp.widget_info(|| {
                                 egui::WidgetInfo::labeled(egui::Role::Button, true, g.title())
                             });
-                            ui.painter().rect_filled(bar, 3.0, p.header);
+                            if resp.hovered() || resp.dragged() {
+                                ui.painter().rect_filled(bar, 3.0, p.hover);
+                            }
+                            crate::icons::grip_dots(
+                                ui.painter(),
+                                bar.center(),
+                                false,
+                                if resp.hovered() || resp.dragged() {
+                                    p.secondary
+                                } else {
+                                    p.tertiary
+                                },
+                            );
                             if resp.dragged() {
                                 let d = resp.drag_delta();
                                 if let Some(t) = self.flyouts.torn.get_mut(n) {

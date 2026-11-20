@@ -7,7 +7,7 @@
 
 use crate::app::Studio;
 use crate::icons::{self, Icon};
-use crate::theme::{caption, pal_ui, space};
+use crate::theme::{pal_ui, space};
 use eframe::egui::{self, Color32, Key, Rect, Sense, Stroke, Vec2};
 use serde_json::Value;
 use std::io::{BufRead, BufReader, Write};
@@ -16,6 +16,33 @@ use std::process::{Child, Command, Stdio};
 use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+
+/// The platform the studio runs on, for install steps and wording.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Os {
+    Mac,
+    Windows,
+    /// Linux and other Unixes.
+    Linux,
+}
+
+impl Os {
+    const CURRENT: Os = if cfg!(target_os = "macos") {
+        Os::Mac
+    } else if cfg!(windows) {
+        Os::Windows
+    } else {
+        Os::Linux
+    };
+
+    /// Where to run a command: the Mac's Terminal app, or any terminal.
+    fn terminal(self) -> &'static str {
+        match self {
+            Os::Mac => "Terminal",
+            Os::Windows | Os::Linux => "a terminal",
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum AgentKind {
@@ -32,28 +59,72 @@ impl AgentKind {
         self as usize
     }
 
-    /// How to install its command-line tool on a Mac: (how, command) pairs,
-    /// the first recommended, then how to sign in.
+    /// How to install its command-line tool on this computer: (how, command)
+    /// pairs, the first recommended, then how to sign in.
     pub fn install_steps(self) -> (&'static [(&'static str, &'static str)], &'static str) {
-        match self {
-            AgentKind::Codex => (
+        self.install_steps_on(Os::CURRENT)
+    }
+
+    /// How to install its command-line tool on `os`.
+    fn install_steps_on(self, os: Os) -> (&'static [(&'static str, &'static str)], &'static str) {
+        match (os, self) {
+            (Os::Mac, AgentKind::Codex) => (
                 &[
-                    ("npm ile", "npm install -g @openai/codex"),
-                    ("Ya da winget ile", "winget install OpenAI.Codex"),
+                    ("Homebrew ile", "brew install --cask codex"),
+                    ("Ya da npm ile", "npm install -g @openai/codex"),
                 ],
                 "Sonra Terminal'de `codex` komutunu bir kez çalıştırıp Sign in with ChatGPT'yi seçin.",
             ),
-            AgentKind::Claude => (
+            (Os::Mac, AgentKind::Claude) => (
+                &[
+                    (
+                        "Önerilen",
+                        "curl -fsSL https://claude.ai/install.sh | bash",
+                    ),
+                    ("Ya da Homebrew ile", "brew install --cask claude-code"),
+                ],
+                "Sonra oturum açmak için Terminal'de `claude` komutunu bir kez çalıştırın.",
+            ),
+            (Os::Windows | Os::Linux, AgentKind::Codex) => (
+                &[("npm ile", "npm install -g @openai/codex")],
+                "Sonra bir terminalde `codex` komutunu bir kez çalıştırıp Sign in with ChatGPT'yi seçin.",
+            ),
+            (Os::Windows, AgentKind::Claude) => (
                 &[
                     (
                         "Önerilen (PowerShell)",
                         "irm https://claude.ai/install.ps1 | iex",
                     ),
+                    ("Ya da WinGet ile", "winget install Anthropic.ClaudeCode"),
+                ],
+                "Sonra oturum açmak için bir terminalde `claude` komutunu bir kez çalıştırın.",
+            ),
+            (Os::Linux, AgentKind::Claude) => (
+                &[
+                    (
+                        "Önerilen",
+                        "curl -fsSL https://claude.ai/install.sh | bash",
+                    ),
                     ("Ya da npm ile", "npm install -g @anthropic-ai/claude-code"),
                 ],
-                "Sonra oturum açmak için PowerShell'de `claude` komutunu bir kez çalıştırın.",
+                "Sonra oturum açmak için bir terminalde `claude` komutunu bir kez çalıştırın.",
             ),
         }
+    }
+
+    /// Said in the transcript when a prompt is sent but its tool is missing.
+    fn not_installed_message(self, os: Os) -> String {
+        let (ways, sign_in) = self.install_steps_on(os);
+        format!(
+            "{} kurulu değil (`{}` komutu bulunamadı). {} içinde `{}`{} ile kurun. {sign_in} Sonra yeniden deneyin.",
+            self.name(),
+            self.program(),
+            os.terminal(),
+            ways[0].1,
+            ways.get(1)
+                .map(|w| format!(" (ya da `{}`)", w.1))
+                .unwrap_or_default(),
+        )
     }
 
     pub fn name(self) -> &'static str {
@@ -85,6 +156,8 @@ pub enum Entry {
     Tool(String, String, Option<bool>),
     Error(String),
     Done(String),
+    /// The notes pinned on the canvas that went with the prompt above.
+    Notes(Vec<String>),
 }
 
 /// Something the agent process reported.
@@ -118,6 +191,9 @@ pub struct AgentState {
     pub chrome_h: f32,
     /// Tool calls by id → their line in the log (to mark results).
     calls: std::collections::HashMap<String, usize>,
+    /// The runs of steps opened out in the transcript (by the log index of
+    /// their first step); the rest show as one line each.
+    pub open_steps: std::collections::HashSet<usize>,
     /// The user's login-shell PATH (GUI apps on macOS don't get it).
     path: Option<Option<String>>,
     config: Option<PathBuf>,
@@ -135,11 +211,17 @@ using the ZigZag MCP tools (get_design first; add_svg for artwork you write as S
 transform_objects to size and place, set_object for stitch types and thread colors). Keep everything inside the hoop. \
 Embroidery wants bold, simple shapes: no gradients, no hairlines, few colors, nothing smaller than about 1.5 mm. \
 After making changes, call render_preview to look at the stitches and fix problems, then check_design. \
+When they ask for options, alternatives or a few versions, make them with start_variants and save_variant: \
+the person sees them side by side with the original and picks one (show_comparison shows them again, or puts them away). \
 Don't save or export unless asked. Finish with one or two sentences on what you made.";
 
 /// PATH from the login shell, so `claude` and `codex` (and node) are found
 /// even when the app is opened from Finder.
 fn login_path() -> Option<String> {
+    // Windows apps get the user's PATH already, and there's no login shell.
+    if cfg!(windows) {
+        return None;
+    }
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
     let out = Command::new(&shell)
         .args(["-ilc", "printf '__TL__%s__TL__' \"$PATH\""])
@@ -153,6 +235,12 @@ fn login_path() -> Option<String> {
     Some(s[a..b].to_string())
 }
 
+/// Held by a test that points `ZIGZAG_CLAUDE` at a stand-in, for as long as
+/// it's set: the environment is the whole process's, and tests run side by
+/// side.
+#[cfg(test)]
+pub(crate) static AGENT_ENV: Mutex<()> = Mutex::new(());
+
 /// Where `kind`'s program is: $ZIGZAG_<NAME> (for tests), the login PATH,
 /// this process's PATH, then the usual install places.
 fn locate(kind: AgentKind, login: Option<&str>) -> Option<PathBuf> {
@@ -160,7 +248,9 @@ fn locate(kind: AgentKind, login: Option<&str>) -> Option<PathBuf> {
     if let Some(p) = std::env::var_os(env) {
         return Some(PathBuf::from(p));
     }
-    let home = std::env::var("HOME").unwrap_or_default();
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_default();
     let mut dirs: Vec<PathBuf> = Vec::new();
     for p in [login.map(str::to_string), std::env::var("PATH").ok()]
         .into_iter()
@@ -178,27 +268,27 @@ fn locate(kind: AgentKind, login: Option<&str>) -> Option<PathBuf> {
         dirs.push(PathBuf::from(&home).join(d));
     }
     if cfg!(windows) {
-        if let Ok(up) = std::env::var("USERPROFILE") {
-            for d in [".local/bin", ".claude/local", ".bun/bin", ".cargo/bin"] {
-                dirs.push(PathBuf::from(&up).join(d));
-            }
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            dirs.push(PathBuf::from(appdata).join("npm"));
         }
-        if let Ok(ad) = std::env::var("APPDATA") {
-            dirs.push(PathBuf::from(ad).join("npm"));
-        }
+    } else {
+        dirs.push("/opt/homebrew/bin".into());
+        dirs.push("/usr/local/bin".into());
     }
-    dirs.push("/opt/homebrew/bin".into());
-    dirs.push("/usr/local/bin".into());
+    // On Windows a program has an extension: a bare `claude` there is the
+    // npm shim for sh, which Windows can't run (os error 193). Prefer the
+    // native .exe anywhere on the PATH, then npm's .cmd launcher.
     let names: Vec<String> = if cfg!(windows) {
-        ["exe", "cmd", "bat"]
+        [".exe", ".cmd"]
             .iter()
-            .map(|e| format!("{}.{e}", kind.program()))
+            .map(|ext| format!("{}{ext}", kind.program()))
             .collect()
     } else {
         vec![kind.program().to_string()]
     };
-    dirs.into_iter()
-        .flat_map(|d| names.iter().map(move |n| d.join(n)).collect::<Vec<_>>())
+    names
+        .iter()
+        .flat_map(|n| dirs.iter().map(move |d| d.join(n)))
         .find(|p| p.is_file())
 }
 
@@ -267,6 +357,7 @@ impl AgentState {
         self.stop();
         self.log.clear();
         self.calls.clear();
+        self.open_steps.clear();
         self.session = None;
     }
 
@@ -402,12 +493,36 @@ impl AgentState {
     }
 
     /// Send the prompt. `mcp`: the studio's MCP endpoint (if it's running).
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn send(&mut self, mcp: Option<std::net::SocketAddr>, ctx: &egui::Context) {
+        self.send_with(mcp, ctx, Vec::new(), "");
+    }
+
+    /// Send the prompt, with `notes` (the canvas notes going with it, as
+    /// the transcript shows them) and `extra` (what the agent is told
+    /// about them, and anything else it needs, after the prompt).
+    pub fn send_with(
+        &mut self,
+        mcp: Option<std::net::SocketAddr>,
+        ctx: &egui::Context,
+        notes: Vec<String>,
+        extra: &str,
+    ) {
         let text = self.prompt.trim().to_string();
-        if text.is_empty() || self.running() {
+        if (text.is_empty() && extra.is_empty()) || self.running() {
             return;
         }
-        self.log.push(Entry::You(text.clone()));
+        if !text.is_empty() {
+            self.log.push(Entry::You(text.clone()));
+        }
+        if !notes.is_empty() {
+            self.log.push(Entry::Notes(notes));
+        }
+        let text = match (text.is_empty(), extra.is_empty()) {
+            (_, true) => text,
+            (true, false) => extra.to_string(),
+            (false, false) => format!("{text}\n\n{extra}"),
+        };
         let Some(addr) = mcp else {
             self.log.push(Entry::Error(
                 "Ajan stüdyonun MCP sunucusu üzerinden çalışır, ancak sunucu kapalı (--no-mcp ile başlatıldı).".into(),
@@ -415,21 +530,16 @@ impl AgentState {
             return;
         };
         let Some(program) = self.find(self.kind) else {
-            let (ways, sign_in) = self.kind.install_steps();
-            self.log.push(Entry::Error(format!(
-                "{} kurulu değil (`{}` komutu bulunamadı). Terminal'de `{}`{} ile kurun. {sign_in} Sonra yeniden deneyin.",
-                self.kind.name(),
-                self.kind.program(),
-                ways[0].1,
-                ways.get(1)
-                    .map(|w| format!(" (ya da `{}`)", w.1))
-                    .unwrap_or_default(),
-            )));
+            self.log
+                .push(Entry::Error(self.kind.not_installed_message(Os::CURRENT)));
             return;
         };
         let bridge = std::env::current_exe()
             .ok()
-            .and_then(|e| e.parent().map(|d| d.join("zigzag-mcp")))
+            .and_then(|e| {
+                e.parent()
+                    .map(|d| d.join(format!("zigzag-mcp{}", std::env::consts::EXE_SUFFIX)))
+            })
             .filter(|p| p.is_file());
         let url = format!("http://{addr}/mcp");
         let mut cmd = self.command(program, &url, bridge, addr.port());
@@ -569,7 +679,7 @@ impl AgentState {
                 .log
                 .iter()
                 .rev()
-                .take_while(|x| !matches!(x, Entry::You(_)))
+                .take_while(|x| !matches!(x, Entry::You(_) | Entry::Notes(_)))
                 .any(|x| matches!(x, Entry::Error(n) if n == m))
         {
             return;
@@ -897,15 +1007,23 @@ pub fn activity(tool: &str) -> &'static str {
         "duplicate_objects" => "Çoğaltıyor",
         "delete_object" => "Kaldırıyor",
         "round_corners" => "Köşeleri yuvarlıyor",
+        "break_into_columns" | "create_outlines" => "Parçalara ayırıyor",
+        "get_path" => "Okuyor",
+        "edit_path" => "Yeniden şekillendiriyor",
         "add_outline" => "Dış hat ekliyor",
         "simplify_design" => "Sadeleştiriyor",
         "trace_image" => "İzliyor",
         "render_preview" => "Bakıyor",
-        "check_design" => "Denetliyor",
+        "check_design" | "measure_stitching" => "Denetliyor",
         "get_design" | "get_svg" | "select" => "Okuyor",
         "set_document" => "Ayarlıyor",
         "batch" => "Değişiklik yapıyor",
         "undo" => "Geri alıyor",
+        "get_annotations" => "Notları okuyor",
+        "resolve_note" => "Bir notu çözüyor",
+        "start_variants" => "Sürümleri hazırlıyor",
+        "save_variant" => "Bir sürümü saklıyor",
+        "show_comparison" => "Karşılaştırıyor",
         "save" | "export" => "Kaydediyor",
         _ => "Çalışıyor",
     }
@@ -930,7 +1048,7 @@ pub fn spinner(p: &egui::Painter, at: egui::Pos2, r: f32, color: Color32, time: 
 }
 
 /// A cheap fingerprint of a shape, to tell which ones a call changed.
-fn fingerprint(s: &zigzag::svg::Shape) -> u64 {
+pub(crate) fn fingerprint(s: &zigzag::svg::Shape) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
     s.color.hash(&mut h);
@@ -953,6 +1071,10 @@ impl Studio {
     /// Take in the agent's output; every frame, whether its panel shows or not.
     pub fn agent_tick(&mut self, ctx: &egui::Context) {
         self.agent.poll();
+        if !self.agent.running() {
+            self.end_turn();
+            self.send_queued_notes(ctx);
+        }
         if self.agent.running() {
             ctx.request_repaint_after(Duration::from_millis(100));
         }
@@ -1012,6 +1134,7 @@ impl Studio {
             }
         }
         self.agent.work.note(name, &touched);
+        self.agent_changed();
         result
     }
 
@@ -1157,6 +1280,45 @@ impl Studio {
         self.agent.focus = true;
     }
 
+    /// The issues popover's Fix: the design's issues to the agent, as a
+    /// message in its chat (the panel opened to show it), with the objects
+    /// they're about selected for it to start on. A message being written
+    /// there is kept for after, and so are the notes pinned on the canvas.
+    pub fn fix_issues_with_agent(&mut self, ctx: &egui::Context) {
+        if self.issues.is_empty() || self.agent.running() {
+            return;
+        }
+        let mut lines = Vec::new();
+        let mut objects = Vec::new();
+        for (k, issue) in self.issues.iter().enumerate() {
+            let what = match issue.shape {
+                Some(i) => {
+                    if !objects.contains(&i) {
+                        objects.push(i);
+                    }
+                    self.names.get(i).cloned().unwrap_or_default()
+                }
+                None => "Tasarım".to_string(),
+            };
+            lines.push(format!("{}. {what}: {}", k + 1, issue.message));
+        }
+        let prompt = format!(
+            "Fix these problems the studio found in the design (its Issues list):\n\n{}\n\nChange only what each one needs, and keep the design looking as it does.",
+            lines.join("\n")
+        );
+        if !objects.is_empty() {
+            self.set_selection(&objects);
+        }
+        let draft = std::mem::replace(&mut self.agent.prompt, prompt);
+        self.ask_agent();
+        // (On their own: notes pinned on the canvas wait for a message of
+        // the user's.)
+        self.agent_send_with(ctx, false);
+        // What was being written goes back in the box, sent or not (an
+        // agent that didn't start says so in the chat).
+        self.agent.prompt = draft;
+    }
+
     /// Whether the Agent panel is out where you can use it.
     pub fn agent_showing(&self) -> bool {
         use crate::dock::{PanelId, Place};
@@ -1223,19 +1385,23 @@ impl Studio {
         let mut send = false;
         let top = ui.cursor().top();
 
+        let review = &self.review;
+        let here = self.session.rec;
+        let mut act: Option<crate::review::TurnAction> = None;
         let a = &mut self.agent;
         // The conversation: plain, on the panel itself.
         let transcript_h = egui::Frame::new()
-            .inner_margin(egui::Margin::symmetric(0, space::S as i8))
+            // (Room round the conversation, and between its lines.)
+            .inner_margin(egui::Margin::symmetric(space::XS as i8, space::M as i8))
             .show(ui, |ui| {
                 ui.set_width(ui.available_width());
-                let inner_h = h - 2.0 * space::S;
+                let inner_h = h - 2.0 * space::M;
                 if a.log.is_empty() && !a.running() {
                     let (r, _) = ui.allocate_exact_size(
                         Vec2::new(ui.available_width(), inner_h),
                         Sense::hover(),
                     );
-                    // Its program isn't on this Mac: how to install it instead.
+                    // Its program isn't on this computer: how to install it instead.
                     let kind = a.kind;
                     if a.installed(kind, &ui.ctx().clone()) == Some(false) {
                         let mut child = ui.new_child(
@@ -1268,7 +1434,7 @@ impl Studio {
                                 "{} ajanından bir tasarım ya da bu tasarımda bir değişiklik isteyin. Siz izlerken tuval üzerinde çalışır.",
                                 a.kind.name()
                             ))
-                            .size(12.0)
+                            .size(PANEL_PT)
                             .color(p.secondary),
                         )
                         .halign(egui::Align::Center)
@@ -1284,7 +1450,7 @@ impl Studio {
                         "Bunu 4x4 kasnak için sadeleştir",
                     ] {
                         if child
-                            .add(egui::Button::new(egui::RichText::new(idea).size(11.5)).corner_radius(10))
+                            .add(egui::Button::new(egui::RichText::new(idea).size(PANEL_PT)).corner_radius(10))
                             .clicked()
                         {
                             a.prompt = idea.to_string();
@@ -1300,10 +1466,82 @@ impl Studio {
                     .stick_to_bottom(true)
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        ui.spacing_mut().item_spacing.y = space::S;
+                        // (Room between the conversation's lines.)
+                        ui.spacing_mut().item_spacing.y = FEED_GAP;
                         let time = ui.input(|i| i.time);
-                        for e in &a.log {
-                            entry(ui, e, time);
+                        let mut k = 0;
+                        while k < a.log.len() {
+                            // Steps one after another are one line, opened
+                            // out with a click (one alone is just itself).
+                            let run = a.log[k..]
+                                .iter()
+                                .take_while(|e| matches!(e, Entry::Tool(..)))
+                                .count();
+                            if run >= 1 {
+                                let open = a.open_steps.contains(&k);
+                                if steps(ui, k, &a.log[k..k + run], open, time) {
+                                    if open {
+                                        a.open_steps.remove(&k);
+                                    } else {
+                                        a.open_steps.insert(k);
+                                    }
+                                }
+                                if open {
+                                    opened(ui, |ui| {
+                                        for e in &a.log[k..k + run] {
+                                            entry(ui, e, time);
+                                        }
+                                    });
+                                }
+                                k += run;
+                            } else {
+                                // A turn that ended here: its before, after and
+                                // side by side, on its Done line (or under how
+                                // it ended, if it didn't finish).
+                                let ended = review.turn_ending_at(k);
+                                let done = match &a.log[k] {
+                                    Entry::Done(t) => Some(t),
+                                    _ => None,
+                                };
+                                match (ended, done) {
+                                    (Some(t), done) => {
+                                        if done.is_none() {
+                                            entry(ui, &a.log[k], time);
+                                        }
+                                        // Done, and at the right end of its line,
+                                        // the turn's view buttons.
+                                        ui.horizontal(|ui| {
+                                            ui.spacing_mut().item_spacing.x = space::S;
+                                            if let Some(text) = done {
+                                                done_line(ui, text);
+                                            }
+                                            let w = crate::review::turn_controls_width(t);
+                                            ui.with_layout(
+                                                egui::Layout::right_to_left(egui::Align::Center),
+                                                |ui| {
+                                                    ui.allocate_ui_with_layout(
+                                                        Vec2::new(w, crate::review::BUTTON),
+                                                        egui::Layout::left_to_right(
+                                                            egui::Align::Center,
+                                                        ),
+                                                        |ui| {
+                                                            if let Some(x) =
+                                                                crate::review::turn_controls(
+                                                                    ui, review, t, here,
+                                                                )
+                                                            {
+                                                                act = Some(x);
+                                                            }
+                                                        },
+                                                    );
+                                                },
+                                            );
+                                        });
+                                    }
+                                    (None, _) => entry(ui, &a.log[k], time),
+                                }
+                                k += 1;
+                            }
                         }
                         // Between steps: thinking (a step running shows its own spinner).
                         if a.running() && !matches!(a.log.last(), Some(Entry::Tool(_, _, None))) {
@@ -1311,7 +1549,7 @@ impl Studio {
                                 let (r, _) = ui.allocate_exact_size(Vec2::splat(12.0), Sense::hover());
                                 spinner(ui.painter(), r.center(), 4.5, p.accent, time);
                                 let secs = a.started.map_or(0, |t| t.elapsed().as_secs());
-                                caption(ui, format!("{}… {secs} s", a.status()));
+                                quiet(ui, format!("{}… {secs} s", a.status()));
                             });
                         }
                     });
@@ -1319,6 +1557,10 @@ impl Studio {
             .response
             .rect
             .height();
+        // The notes pinned for the next prompt, and the ways to add more.
+        let has_notes = self.review.pending(self.session.rec) > 0;
+        let annotating = self.review.annotating;
+        let mut annotate = false;
         // Just a divider between the conversation and the prompt.
         let (line, _) =
             ui.allocate_exact_size(Vec2::new(ui.available_width(), 1.0), Sense::hover());
@@ -1327,6 +1569,9 @@ impl Studio {
             line.center().y,
             Stroke::new(1.0, p.separator),
         );
+        // The comments pinned on the canvas, as an attachment to the prompt.
+        let notes_act = self.notes_list(ui);
+        let a = &mut self.agent;
         // The prompt: one line (it grows with Shift-Enter), Send beside it.
         let field_id = ui.make_persistent_id("agent-prompt");
         // (Above it, its own space; below, the panel's padding is enough.)
@@ -1340,11 +1585,11 @@ impl Studio {
             .show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 ui.horizontal(|ui| {
-                    let button_w = 56.0;
-                    let button_h = 24.0;
-                    // The text inset like the button's label.
+                    let button_w = crate::review::BUTTON;
+                    let button_h = crate::review::BUTTON;
                     ui.add_space(space::S);
-                    let field_w = ui.available_width() - button_w - space::S;
+                    // (Room for Annotate and Send at the right.)
+                    let field_w = ui.available_width() - 2.0 * button_w - 2.0 * space::S;
                     let r = ui.add_sized(
                         [field_w, button_h],
                         egui::TextEdit::multiline(&mut a.prompt)
@@ -1356,7 +1601,11 @@ impl Studio {
                             // As tall as the button, the text centered on it.
                             .min_size(Vec2::new(field_w, button_h))
                             .align(egui::Align2::LEFT_CENTER)
-                            .hint_text("Bir tasarım ya da değişiklik tarif edin…")
+                            .font(egui::FontId::proportional(crate::review::FIELD_PT))
+                            .hint_text(
+                                egui::RichText::new("Bir tasarım ya da değişiklik tarif edin…")
+                                    .color(crate::review::hint_color(p)),
+                            )
                             .return_key(None),
                     );
                     r.widget_info(|| {
@@ -1377,23 +1626,19 @@ impl Studio {
                     {
                         a.prompt.push('\n');
                     }
-                    if a.running() {
-                        if ui
-                            .add_sized([button_w, button_h], egui::Button::new("Durdur"))
-                            .clicked()
-                        {
+                    let ok = !a.prompt.trim().is_empty() || has_notes;
+                    let running = a.running();
+                    // Beside Send: pin comments on the canvas.
+                    if crate::review::annotate_button(ui, annotating)
+                        .on_hover_text("Not ekle: ajana yorum iğnelemek için tuvale tıklayın ya da bir alanın çevresine kutu sürükleyin (N)")
+                        .clicked()
+                    {
+                        annotate = true;
+                    }
+                    if crate::review::send_button(ui, ok, running).clicked() {
+                        if running {
                             a.stop();
-                        }
-                    } else {
-                        let ok = !a.prompt.trim().is_empty();
-                        let b =
-                            egui::Button::new(egui::RichText::new("Gönder").color(Color32::WHITE))
-                                .fill(p.accent);
-                        if ui
-                            .add_enabled_ui(ok, |ui| ui.add_sized([button_w, button_h], b))
-                            .inner
-                            .clicked()
-                        {
+                        } else {
                             send = true;
                         }
                     }
@@ -1401,19 +1646,50 @@ impl Studio {
             });
         // Everything but the transcript, to size it next frame.
         a.chrome_h = (ui.cursor().top() - top - transcript_h).max(0.0);
+        if annotate {
+            self.set_annotating(!annotating);
+        }
+        if let Some(x) = notes_act {
+            self.notes_action(x);
+        }
+        if let Some(x) = act {
+            self.turn_action(x);
+        }
         if send {
             self.agent_send(ui.ctx());
         }
     }
 
-    /// Send the prompt. What's selected is what the agent starts on.
+    /// Send the prompt. What's selected is what the agent starts on; the
+    /// notes pinned on the canvas go with it; and the document as it is
+    /// now is kept, to compare with what the agent makes of it.
     pub fn agent_send(&mut self, ctx: &egui::Context) {
-        if self.agent.prompt.trim().is_empty() || self.agent.running() {
+        self.agent_send_with(ctx, true);
+    }
+
+    /// Send the prompt, with the canvas's notes or (`notes` false) on its
+    /// own, the notes left open for a later message.
+    fn agent_send_with(&mut self, ctx: &egui::Context, notes: bool) {
+        let here = self.session.rec;
+        let has_notes = notes && self.review.pending(here) > 0;
+        if (self.agent.prompt.trim().is_empty() && !has_notes) || self.agent.running() {
             return;
         }
         let addr = self.mcp.as_ref().map(|m| m.addr);
-        self.agent.send(addr, ctx);
+        let (shown, extra) = if notes {
+            self.notes_for_prompt()
+        } else {
+            (Vec::new(), String::new())
+        };
+        let prompt = self.agent.prompt.trim().to_string();
+        let start = self.agent.log.len();
+        self.agent.send_with(addr, ctx, shown, &extra);
         if self.agent.running() {
+            if notes {
+                self.begin_turn(prompt, start);
+            } else {
+                self.begin_turn_without_notes(prompt, start);
+            }
             let sel: Vec<usize> = self
                 .sel_indices()
                 .iter()
@@ -1526,19 +1802,14 @@ fn entry(ui: &mut egui::Ui, e: &Entry, time: f64) {
     let p = pal_ui(ui);
     match e {
         Entry::You(t) => {
-            egui::Frame::new()
-                .fill(p.accent.gamma_multiply(0.18))
-                .corner_radius(8)
-                .inner_margin(egui::Margin::symmetric(space::S as i8, space::XS as i8 + 2))
-                .show(ui, |ui| {
-                    ui.set_width(ui.available_width());
-                    ui.add(
-                        egui::Label::new(egui::RichText::new(t).size(12.5).color(p.text)).wrap(),
-                    );
-                });
+            you_bubble(ui, |ui| {
+                ui.add(
+                    egui::Label::new(egui::RichText::new(t).size(PANEL_PT).color(p.text)).wrap(),
+                );
+            });
         }
         Entry::Said(t) => {
-            ui.add(egui::Label::new(egui::RichText::new(t).size(12.5).color(p.text)).wrap());
+            ui.add(egui::Label::new(egui::RichText::new(t).size(PANEL_PT).color(p.text)).wrap());
         }
         Entry::Tool(name, args, state) => {
             ui.horizontal(|ui| {
@@ -1560,31 +1831,245 @@ fn entry(ui: &mut egui::Ui, e: &Entry, time: f64) {
                     } else {
                         activity(name).to_string()
                     })
-                    .size(11.5)
-                    .color(if state.is_none() { p.text } else { p.secondary }),
+                    .size(PANEL_PT)
+                    .color(if state.is_none() {
+                        p.secondary
+                    } else {
+                        p.tertiary
+                    }),
                 );
+                let dim = crate::review::hint_color(p);
                 ui.label(
                     egui::RichText::new(name)
-                        .size(10.5)
+                        .size(PANEL_PT)
                         .monospace()
-                        .color(p.tertiary),
+                        .color(dim),
                 );
                 if !args.is_empty() {
                     ui.add(
-                        egui::Label::new(egui::RichText::new(args).size(10.5).color(p.tertiary))
+                        egui::Label::new(egui::RichText::new(args).size(PANEL_PT).color(dim))
                             .truncate(),
                     )
                     .on_hover_text(args);
                 }
             });
         }
+        // The comments pinned on the canvas that went with it: each one a
+        // message like the person's own, a comment's icon at its right.
+        Entry::Notes(notes) => {
+            ui.scope(|ui| {
+                ui.spacing_mut().item_spacing.y = space::XS;
+                for n in notes {
+                    you_bubble(ui, |ui| {
+                        ui.horizontal_top(|ui| {
+                            ui.spacing_mut().item_spacing.x = space::S;
+                            let icon = crate::review::ICON - 2.0;
+                            let w = ui.available_width() - icon - space::S;
+                            ui.allocate_ui_with_layout(
+                                Vec2::new(w, 0.0),
+                                egui::Layout::top_down(egui::Align::Min),
+                                |ui| {
+                                    ui.set_min_width(w);
+                                    ui.add(
+                                        egui::Label::new(
+                                            egui::RichText::new(n).size(PANEL_PT).color(p.text),
+                                        )
+                                        .wrap(),
+                                    );
+                                },
+                            );
+                            // At the right: the canvas comment's icon, outlined.
+                            let line = ui.text_style_height(&egui::TextStyle::Body);
+                            let (r, _) =
+                                ui.allocate_exact_size(Vec2::new(icon, line), Sense::hover());
+                            icons::paint(
+                                ui.painter(),
+                                Rect::from_center_size(r.center(), Vec2::splat(icon)),
+                                Icon::Comment,
+                                p.text,
+                            );
+                        });
+                    });
+                }
+            });
+        }
         Entry::Error(t) => crate::theme::callout(ui, p.warning, Icon::Warning, t),
-        Entry::Done(t) => {
-            if !t.is_empty() {
-                caption(ui, format!("Bitti · {t}"));
+        Entry::Done(t) => done_line(ui, t),
+    }
+}
+
+/// The Agent panel's one text size: what matters more is brighter, not bigger.
+const PANEL_PT: f32 = crate::review::PANEL_PT;
+
+/// A quieter line in the Agent panel (the panel's size, a dimmer color).
+fn quiet(ui: &mut egui::Ui, text: impl Into<String>) -> egui::Response {
+    let p = pal_ui(ui);
+    ui.add(
+        egui::Label::new(
+            egui::RichText::new(text.into())
+                .size(PANEL_PT)
+                .color(p.tertiary),
+        )
+        .wrap(),
+    )
+}
+
+/// Between the lines of the conversation.
+const FEED_GAP: f32 = 16.0;
+
+/// The person's message: a soft blue box the panel's width.
+fn you_bubble(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui)) {
+    let p = pal_ui(ui);
+    egui::Frame::new()
+        .fill(p.accent.gamma_multiply(0.18))
+        .corner_radius(8)
+        .inner_margin(egui::Margin::symmetric(space::M as i8, space::S as i8))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            add(ui);
+        });
+}
+
+/// "Done · 6 turns · 8 s", dim (nothing, if there's nothing to say).
+fn done_line(ui: &mut egui::Ui, t: &str) {
+    if !t.is_empty() {
+        let p = pal_ui(ui);
+        ui.label(
+            egui::RichText::new(format!("Bitti · {t}"))
+                .size(PANEL_PT)
+                .color(crate::review::hint_color(p)),
+        );
+    }
+}
+
+/// Steps one after another, as one line (a click opens it out): how they went, and
+/// what they were (`Checking ×12 · Reading ×7`); the one running, while
+/// one is. `first`: the first step's place in the log (the line's id).
+/// Returns whether it was clicked (to open it out, or fold it away).
+fn steps(ui: &mut egui::Ui, first: usize, run: &[Entry], open: bool, time: f64) -> bool {
+    let p = pal_ui(ui);
+    let mut counts: Vec<(&'static str, usize)> = Vec::new();
+    let mut failed = 0;
+    let mut current = None;
+    for e in run {
+        if let Entry::Tool(name, _, state) = e {
+            let what = activity(name);
+            match counts.iter_mut().find(|c| c.0 == what) {
+                Some(c) => c.1 += 1,
+                None => counts.push((what, 1)),
+            }
+            match state {
+                Some(false) => failed += 1,
+                None => current = Some(name.as_str()),
+                _ => {}
             }
         }
     }
+    let mut what: Vec<String> = counts
+        .iter()
+        .map(|(w, n)| {
+            if *n > 1 {
+                format!("{w} ×{n}")
+            } else {
+                w.to_string()
+            }
+        })
+        .collect();
+    if failed > 0 {
+        what.push(format!("{failed} failed"));
+    }
+    let n = run.len();
+    let count = if n == 1 {
+        "1 step".to_string()
+    } else {
+        format!("{n} steps")
+    };
+    let row = ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = space::XS;
+        // How they went: a spinner while one runs, a warning if one failed,
+        // else a dot.
+        let (r, _) = ui.allocate_exact_size(Vec2::splat(12.0), Sense::hover());
+        match current {
+            Some(_) => spinner(ui.painter(), r.center(), 4.0, p.accent, time),
+            None if failed > 0 => icons::paint(ui.painter(), r, Icon::Warning, p.warning),
+            None => {
+                ui.painter()
+                    .circle_filled(r.center(), 3.5, p.accent.gamma_multiply(0.7));
+            }
+        }
+        let (title, rest) = match current {
+            Some(name) => (
+                format!("{}…", activity(name)),
+                format!("{count} · {}", what.join(" · ")),
+            ),
+            None => (count.clone(), what.join(" · ")),
+        };
+        // (Quieter than what was said: the steps are how, not what.)
+        ui.label(
+            egui::RichText::new(title)
+                .size(PANEL_PT)
+                .color(if current.is_some() {
+                    p.secondary
+                } else {
+                    p.tertiary
+                }),
+        );
+        ui.add(
+            egui::Label::new(
+                egui::RichText::new(rest)
+                    .size(PANEL_PT)
+                    .color(crate::review::hint_color(p)),
+            )
+            .truncate(),
+        );
+    });
+    let resp = ui
+        .interact(
+            row.response.rect,
+            ui.make_persistent_id(("agent-steps", first)),
+            Sense::click(),
+        )
+        .on_hover_cursor(egui::CursorIcon::PointingHand);
+    resp.widget_info(|| {
+        egui::WidgetInfo::labeled(
+            egui::Role::Button,
+            true,
+            format!(
+                "{} {count}: {}",
+                if open { "Gizle" } else { "Göster" },
+                what.join(" · ")
+            ),
+        )
+    });
+    if resp.hovered() {
+        ui.painter().rect_filled(
+            row.response.rect.expand2(Vec2::new(3.0, 1.0)),
+            4.0,
+            p.text.gamma_multiply(0.05),
+        );
+    }
+    resp.clicked()
+}
+
+/// A run of steps opened out: each one, set in under its line.
+fn opened(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui)) {
+    let p = pal_ui(ui);
+    let r = egui::Frame::new()
+        .inner_margin(egui::Margin {
+            left: 18,
+            right: 0,
+            top: 0,
+            bottom: 0,
+        })
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.spacing_mut().item_spacing.y = space::XS;
+            add(ui);
+        })
+        .response
+        .rect;
+    ui.painter()
+        .vline(r.left() + 6.0, r.y_range(), Stroke::new(1.0, p.separator));
 }
 
 /// The agent's command-line tool isn't installed: the commands to install
@@ -1600,15 +2085,15 @@ fn install_steps(ui: &mut egui::Ui, a: &mut AgentState) {
         icons::paint(ui.painter(), r, Icon::Info, p.secondary);
         ui.label(
             egui::RichText::new(format!("{} bu bilgisayarda kurulu değil", kind.name()))
-                .size(13.0)
+                .size(PANEL_PT)
                 .strong()
                 .color(p.text),
         );
     });
-    caption(
+    quiet(
         ui,
         format!(
-            "ZigZag, {} komut satırı aracıyla (`{}`) çalışır. Terminal'de kurun:",
+            "ZigZag, {} komut satırı aracıyla (`{}`) çalışır. Bir terminalde kurun:",
             kind.name(),
             kind.program()
         ),
@@ -1616,7 +2101,7 @@ fn install_steps(ui: &mut egui::Ui, a: &mut AgentState) {
     for (how, command) in ways {
         crate::mcp_chip::copy_block(ui, how, command);
     }
-    caption(ui, sign_in);
+    quiet(ui, sign_in);
     ui.add_space(space::XS);
     ui.horizontal(|ui| {
         if ui
@@ -1839,6 +2324,7 @@ mod tests {
 
     #[test]
     fn runs_an_agent_program_and_streams_its_output() {
+        let _env = AGENT_ENV.lock().unwrap_or_else(|e| e.into_inner());
         // A stand-in for `claude`: echoes stream-json and checks its stdin.
         let dir = std::env::temp_dir().join(format!("tl-agent-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
@@ -1890,6 +2376,7 @@ mod tests {
             a.log
         );
         assert!(matches!(a.log.last(), Some(Entry::Done(_))));
+        unsafe { std::env::remove_var("ZIGZAG_CLAUDE") };
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2022,9 +2509,23 @@ mod tests {
         h.state_mut().agent.found = [Some(None), Some(None)]; // neither installed
         h.state_mut().dock.reveal(PanelId::Agent);
         h.run_steps(5);
-        h.get_by_label_contains("Codex isn't installed");
-        h.get_by_label("brew install --cask codex");
-        h.get_by_label("npm install -g @openai/codex");
+        h.get_by_label("Codex isn't installed on this computer");
+        // This platform's install commands, each with its Copy button.
+        for (_, command) in AgentKind::Codex.install_steps().0 {
+            h.get_by_label(command);
+        }
+        if Os::CURRENT == Os::Mac {
+            h.get_by_label("brew install --cask codex");
+        } else {
+            assert!(
+                h.query_by_label_contains("this Mac").is_none(),
+                "no Mac here"
+            );
+            assert!(
+                h.query_by_label_contains("brew install").is_none(),
+                "no Homebrew"
+            );
+        }
         h.get_by_label_contains("Sign in with ChatGPT");
         assert!(
             h.query_by_label("A round camp badge with a pine tree")
@@ -2050,9 +2551,83 @@ mod tests {
         // Its own steps when it's missing.
         h.state_mut().agent.found = [Some(None), Some(None)];
         h.run_steps(3);
-        h.get_by_label("curl -fsSL https://claude.ai/install.sh | bash");
-        h.get_by_label("brew install --cask claude-code");
+        h.get_by_label("Claude Code isn't installed on this computer");
+        for (_, command) in AgentKind::Claude.install_steps().0 {
+            h.get_by_label(command);
+        }
+        if Os::CURRENT != Os::Mac {
+            assert!(
+                h.query_by_label_contains("this Mac").is_none(),
+                "no Mac here"
+            );
+            assert!(
+                h.query_by_label_contains("brew install").is_none(),
+                "no Homebrew"
+            );
+        }
         h.get_by_label("Check Again");
+    }
+
+    #[test]
+    fn install_steps_fit_the_platform() {
+        let commands = |os, kind: AgentKind| -> Vec<&str> {
+            kind.install_steps_on(os).0.iter().map(|w| w.1).collect()
+        };
+        let all_text = |os, kind: AgentKind| {
+            let (ways, sign_in) = kind.install_steps_on(os);
+            let mut s = kind.not_installed_message(os);
+            for (how, command) in ways {
+                s += &format!(" {how} {command}");
+            }
+            s + " " + sign_in
+        };
+        // A Mac: Homebrew, and its Terminal app.
+        assert_eq!(
+            commands(Os::Mac, AgentKind::Codex),
+            ["brew install --cask codex", "npm install -g @openai/codex"]
+        );
+        assert_eq!(
+            commands(Os::Mac, AgentKind::Claude),
+            [
+                "curl -fsSL https://claude.ai/install.sh | bash",
+                "brew install --cask claude-code"
+            ]
+        );
+        assert!(all_text(Os::Mac, AgentKind::Codex).contains("in Terminal"));
+        // Windows: npm, PowerShell and WinGet.
+        assert_eq!(
+            commands(Os::Windows, AgentKind::Codex),
+            ["npm install -g @openai/codex"]
+        );
+        assert_eq!(
+            commands(Os::Windows, AgentKind::Claude),
+            [
+                "irm https://claude.ai/install.ps1 | iex",
+                "winget install Anthropic.ClaudeCode"
+            ]
+        );
+        // Linux: npm, and the shell installer.
+        assert_eq!(
+            commands(Os::Linux, AgentKind::Codex),
+            ["npm install -g @openai/codex"]
+        );
+        assert_eq!(
+            commands(Os::Linux, AgentKind::Claude),
+            [
+                "curl -fsSL https://claude.ai/install.sh | bash",
+                "npm install -g @anthropic-ai/claude-code"
+            ]
+        );
+        // Neither speaks of a Mac, Homebrew or the Terminal app.
+        for os in [Os::Windows, Os::Linux] {
+            for kind in AgentKind::ALL {
+                let text = all_text(os, kind);
+                for mac in ["Mac", "brew", "Homebrew", "Terminal"] {
+                    assert!(!text.contains(mac), "{os:?} {kind:?}: {text}");
+                }
+                assert!(text.contains("in a terminal"), "{os:?} {kind:?}: {text}");
+            }
+        }
     }
 
     #[test]
@@ -2155,6 +2730,48 @@ mod tests {
             vec![added],
             "a new object is one it's on"
         );
+    }
+
+    #[test]
+    fn steps_one_after_another_are_one_line_that_opens() {
+        use crate::dock::PanelId;
+        use egui_kittest::kittest::Queryable;
+        let mut h = studio();
+        h.state_mut().dock.reveal(PanelId::Agent);
+        let a = &mut h.state_mut().agent;
+        a.log.push(Entry::You("tidy".into()));
+        for (k, t) in [
+            "get_path",
+            "measure_stitching",
+            "measure_stitching",
+            "edit_path",
+        ]
+        .iter()
+        .enumerate()
+        {
+            a.push(
+                Some(k.to_string()),
+                Entry::Tool((*t).into(), format!("object: {k}"), Some(k != 3)),
+            );
+        }
+        a.log.push(Entry::Said("Done tidying.".into()));
+        a.push(
+            Some("9".into()),
+            Entry::Tool("render_preview".into(), String::new(), Some(true)),
+        );
+        h.run_steps(4);
+        // Four steps: one line, saying what they were.
+        h.get_by_label("Show 4 steps: Reading · Checking ×2 · Reshaping · 1 failed");
+        assert!(h.query_by_label("object: 1").is_none(), "folded away");
+        // One alone is folded away too.
+        h.get_by_label("Show 1 step: Looking");
+        assert!(h.query_by_label("render_preview").is_none());
+        h.get_by_label_contains("Show 4 steps").click();
+        h.run_steps(3);
+        h.get_by_label("object: 1");
+        h.get_by_label_contains("Hide 4 steps").click();
+        h.run_steps(3);
+        assert!(h.query_by_label("object: 1").is_none());
     }
 
     #[test]

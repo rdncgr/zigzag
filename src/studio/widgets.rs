@@ -450,8 +450,8 @@ pub fn stitch_type_guide(ui: &mut egui::Ui) {
         Kind::Cross,
         Kind::Tartan,
     ];
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = crate::theme::space::XS;
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing = Vec2::splat(crate::theme::space::XS);
         for k in kinds {
             kind_button(ui, k, false, false).on_hover_ui(|ui| {
                 ui.label(egui::RichText::new(kind_name(k)).strong());

@@ -8,15 +8,25 @@ use crate::theme::{caption, icon_button, pal_ui};
 use crate::widgets::fmt_int;
 use eframe::egui::{self, Color32, Pos2, Rect, Sense, Stroke, Vec2};
 
+/// The issues popover's width.
+const ISSUES_W: f32 = 340.0;
+/// The least height of its list, under its header.
+const ISSUES_MIN_H: f32 = 96.0;
+
 /// The toolbar's height. On the Mac the window's close, minimise and zoom
 /// buttons are centred in it too (`lights`).
 pub const TITLEBAR_H: f32 = 48.0;
+/// Room at the toolbar's ends, inside it.
+pub const TITLEBAR_PAD: i8 = 10;
 
 impl Studio {
     pub fn titlebar(&mut self, ui: &mut egui::Ui) {
         let p = pal_ui(ui);
         let ctx = ui.ctx().clone();
-        let rect = ui.max_rect();
+        // The whole bar, its padding at the ends too.
+        let rect = ui
+            .max_rect()
+            .expand2(Vec2::new(f32::from(TITLEBAR_PAD), 0.0));
         // Empty toolbar space moves and zooms the window, as on macOS.
         let bg = ui.interact(
             rect,
@@ -44,21 +54,9 @@ impl Studio {
             if icon_button(ui, Icon::LeftPanel, "Katmanları Göster/Gizle", false, 28.0).clicked() {
                 self.run_action(Action::ToggleLeftDock);
             }
-            ui.add_space(4.0);
-            // The document's name, and whether it has unsaved changes.
-            let name = if self.doc.name.is_empty() {
-                "Adsız"
-            } else {
-                &self.doc.name
-            };
-            ui.label(egui::RichText::new(name).size(13.0).color(p.text));
-            if self.modified {
-                ui.label(
-                    egui::RichText::new("— Düzenlendi")
-                        .size(13.0)
-                        .color(p.secondary),
-                );
-            }
+            // (No document name here: the tabs show it and its edited dot,
+            // and the window's own title, for the Window menu and Mission
+            // Control, is kept by `update_title`.)
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if icon_button(ui, Icon::RightPanel, "Panelleri Göster/Gizle", false, 28.0).clicked() {
                     self.run_action(Action::ToggleRightDock);
@@ -476,7 +474,9 @@ impl Studio {
             Some(2) => (p.error, Icon::Warning),
             Some(1) => (p.warning, Icon::Warning),
             Some(_) => (p.secondary, Icon::Info),
-            None => (p.tertiary, Icon::Check),
+            // (The machine's and the agent's gray beside it: a fainter
+            // one makes its thin diagonals look lighter than they are.)
+            None => (p.secondary, Icon::Check),
         };
         let text = if n == 0 { String::new() } else { n.to_string() };
         let galley = ui
@@ -492,7 +492,10 @@ impl Studio {
         }
         crate::icons::paint(
             ui.painter(),
-            Rect::from_center_size(Pos2::new(r.left() + 13.0, r.center().y), Vec2::splat(13.0)),
+            Rect::from_center_size(
+                Pos2::new(r.left() + 13.0, r.center().y),
+                Vec2::splat(crate::theme::STATUS_ICON),
+            ),
             icon,
             color,
         );
@@ -511,26 +514,100 @@ impl Studio {
         if std::mem::take(&mut self.open_issues) && !open {
             egui::Popup::open_id(ui.ctx(), popup_id);
         }
+        let busy = self.agent.running();
+        let mut fix = false;
+        // As tall as there's room for above the status bar.
+        let room = (resp.rect.top() - ui.ctx().content_rect().top() - 120.0).clamp(120.0, 440.0);
         egui::Popup::from_toggle_button_response(&resp)
             .id(popup_id)
             .align(egui::RectAlign::TOP_END)
             .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
-            .width(320.0)
+            // (Its parts pad themselves, so the dividers go edge to edge.)
+            .frame(egui::Frame::popup(ui.style()).inner_margin(egui::Margin::ZERO))
+            .width(ISSUES_W)
             .show(|ui| {
-                ui.set_width(320.0);
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("Sorunlar").strong().size(13.0));
-                    if n > 0 {
-                        ui.label(
-                            egui::RichText::new(n.to_string())
-                                .size(12.0)
-                                .color(p.secondary),
-                        );
-                    }
+                ui.set_width(ISSUES_W);
+                ui.spacing_mut().item_spacing.y = 0.0;
+                // The agent can fix them: one is installed, and the
+                // studio's MCP server (which it works through) is running.
+                // (Asked here, with the list showing: finding the agent's
+                // program runs the login shell, the first time.)
+                let can_fix = n > 0
+                    && self.mcp.is_some()
+                    && self.agent.installed(self.agent.kind, ui.ctx()) == Some(true);
+                // The title, staying put while the list scrolls under it: a
+                // bar like a panel's header, as tall and with its text.
+                let radius = ui.style().visuals.menu_corner_radius;
+                let (bar, _) = ui.allocate_exact_size(
+                    Vec2::new(ui.available_width(), crate::dock::HEADER_H),
+                    Sense::hover(),
+                );
+                ui.painter().rect_filled(
+                    bar,
+                    egui::CornerRadius {
+                        nw: radius.nw,
+                        ne: radius.ne,
+                        sw: 0,
+                        se: 0,
+                    },
+                    p.header,
+                );
+                let pad = f32::from(crate::dock::ISSUE_PAD.left);
+                ui.scope_builder(
+                    egui::UiBuilder::new()
+                        .max_rect(bar.shrink2(Vec2::new(pad, 0.0)))
+                        .layout(egui::Layout::left_to_right(egui::Align::Center)),
+                    |ui| {
+                        ui.set_width(ui.available_width());
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new("Sorunlar").size(12.0).color(p.text));
+                            if n > 0 {
+                                ui.label(
+                                    egui::RichText::new(n.to_string())
+                                        .size(12.0)
+                                        .color(p.secondary),
+                                );
+                            }
+                            if can_fix {
+                                ui.with_layout(
+                                    egui::Layout::right_to_left(egui::Align::Center),
+                                    |ui| {
+                                        let b = ui
+                                            .add_enabled(
+                                                !busy,
+                                                egui::Button::new(
+                                                    egui::RichText::new("Düzelt")
+                                                        .size(12.0)
+                                                        .color(Color32::WHITE),
+                                                )
+                                                .small()
+                                                .fill(p.accent)
+                                                .stroke(Stroke::NONE),
+                                            )
+                                            .on_hover_text(format!(
+                                                "Bunları tasarımda düzeltmesini {} ajanından iste",
+                                                self.agent.kind.name()
+                                            ))
+                                            .on_disabled_hover_text("Ajan çalışıyor");
+                                        fix = b.clicked();
+                                    },
+                                );
+                            }
+                        });
+                    },
+                );
+                crate::dock::divider(ui);
+                // (Room for a couple of issues at least: with none, or one,
+                // it isn't a sliver over the status bar.)
+                ui.scope(|ui| {
+                    ui.set_min_height(ISSUES_MIN_H);
+                    self.issues_body(ui, room);
                 });
-                ui.add_space(4.0);
-                self.issues_body(ui);
             });
+        if fix {
+            egui::Popup::close_id(ui.ctx(), popup_id);
+            self.fix_issues_with_agent(ui.ctx());
+        }
     }
 
     fn status_message(&mut self, ui: &mut egui::Ui) {

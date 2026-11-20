@@ -193,7 +193,7 @@ impl Studio {
         }
         let icon_r = egui::Rect::from_center_size(
             Pos2::new(r.left() + 13.0, r.center().y),
-            Vec2::splat(14.0),
+            Vec2::splat(crate::theme::STATUS_ICON),
         );
         crate::icons::paint(ui.painter(), icon_r, crate::icons::Icon::Mcp, ink);
         if connected {

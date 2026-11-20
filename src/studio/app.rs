@@ -159,6 +159,9 @@ pub struct Studio {
     pub(crate) settings_ui: crate::settings::SettingsUi,
     /// The in-app agent (Claude Code or Codex) and its prompt bar.
     pub(crate) agent: crate::agent::AgentState,
+    /// Notes pinned for the agent, its turns' before and after, and the
+    /// versions it tries (see `review`).
+    pub(crate) review: crate::review::Review,
     /// Room taken from the bottom of the canvas for its HUD (none now).
     pub(crate) hud_lift: f32,
     /// Open the issues list (Window › Issues) next frame.
@@ -315,6 +318,7 @@ impl Studio {
                 Ok("settings-general") => s.open_settings(Section::General),
                 Ok("settings-agent") => s.open_settings(Section::Agent),
                 Ok("select") => s.select_index(Some(0)),
+                Ok("issues") => s.open_issues = true,
                 // (A selection box, part way through being dragged out.)
                 Ok("marquee") => s.marquee = Some((P::new(-220.0, -120.0), P::new(60.0, 90.0))),
                 // The windows about ZigZag itself.
@@ -469,6 +473,7 @@ impl Studio {
             picker: None,
             picker_for: None,
             agent: Default::default(),
+            review: Default::default(),
             hud_lift: 0.0,
             open_issues: false,
             replans: 0,
@@ -672,12 +677,43 @@ impl Studio {
         slot: usize,
         generation: u64,
     ) -> Option<Pos2> {
+        self.paint_stitches_in(painter, rect, &self.view, d, opt, slot, generation)
+    }
+
+    /// [`Studio::paint_stitches`] through any view. Slots from 2 are the
+    /// panes of a comparison (see `review`).
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn paint_stitches_in(
+        &self,
+        painter: &egui::Painter,
+        rect: Rect,
+        view: &crate::canvas::View,
+        d: &Design,
+        opt: &DrawOptions,
+        slot: usize,
+        generation: u64,
+    ) -> Option<Pos2> {
         if let Some(gpu) = &self.gpu
             && self.view_tools.gpu_stitches
         {
             return gpu
                 .borrow_mut()
-                .draw(painter, rect, &self.view, d, opt, slot, generation);
+                .draw(painter, rect, view, d, opt, slot, generation);
+        }
+        if slot >= 2 && opt.limit == usize::MAX {
+            let mut panes = self.review.meshes.borrow_mut();
+            if panes.len() <= slot - 2 {
+                panes.resize_with(slot - 1, || None);
+            }
+            return canvas::draw_design_cached(
+                painter,
+                rect,
+                view,
+                d,
+                opt,
+                generation,
+                &mut panes[slot - 2],
+            );
         }
         let cache = if opt.limit != usize::MAX {
             // The player, or what's sewn so far: kept apart from the whole
@@ -691,7 +727,7 @@ impl Studio {
         canvas::draw_design_cached(
             painter,
             rect,
-            &self.view,
+            view,
             d,
             opt,
             generation,
@@ -1344,7 +1380,7 @@ impl Studio {
             .frame(
                 egui::Frame::new()
                     .fill(pal.toolbar)
-                    .inner_margin(egui::Margin::symmetric(10, 0)),
+                    .inner_margin(egui::Margin::symmetric(crate::chrome::TITLEBAR_PAD, 0)),
             )
             .show(ui, |ui| self.titlebar(ui));
         egui::Panel::bottom("statusbar")
@@ -1364,6 +1400,9 @@ impl Studio {
         // The docks: full panels, or collapsed to a strip of icons.
         self.tidy_agent_dock();
         use crate::dock::Place;
+        // The docks' resizable edges, for their grabbers (painted after the
+        // canvas, which would cover the half of each over it).
+        let mut grabbers = Vec::new();
         for side in [Place::Left, Place::Right] {
             if !self.dock_shown(side) {
                 continue;
@@ -1380,16 +1419,48 @@ impl Studio {
             } else {
                 egui::Panel::right(id)
             };
-            panel = if self.dock_iconic(side) {
+            let resizable = !self.dock_iconic(side);
+            panel = if !resizable {
                 panel.exact_size(crate::dock::ICON_STRIP_W).resizable(false)
             } else if side == Place::Left {
                 panel.default_size(340.0).min_size(240.0).max_size(560.0)
             } else {
-                panel.default_size(300.0).min_size(270.0).max_size(460.0)
+                // (Room for the stitch types in one row, and the Transform
+                // panel's rows side by side; narrower, they wrap.)
+                panel.default_size(364.0).min_size(270.0).max_size(460.0)
             };
-            panel
+            // A wider band to take hold of the edge in (a finger's, on a
+            // touch screen) than egui's few points; the contents keep theirs.
+            let grab = ui.style().interaction.resize_grab_radius_side;
+            ui.style_mut().interaction.resize_grab_radius_side =
+                crate::dock::grab_radius(&ctx, grab);
+            let shown = panel
                 .frame(egui::Frame::new().fill(pal.dock))
-                .show(ui, |ui| self.dock_column(ui, side));
+                .show(ui, |ui| {
+                    ui.style_mut().interaction.resize_grab_radius_side = grab;
+                    // The dock is as wide as it's been made, and what's in it
+                    // is laid out in that width. (Not left to widen it: egui
+                    // keeps a panel as wide as its contents have ever been,
+                    // so a wider row, shown once, would widen it for good.)
+                    let rect = ui.max_rect();
+                    let mut inner =
+                        ui.new_child(egui::UiBuilder::new().max_rect(rect).layout(*ui.layout()));
+                    inner.set_clip_rect(rect.intersect(ui.clip_rect()));
+                    self.dock_column(&mut inner, side);
+                    ui.advance_cursor_after_rect(rect);
+                });
+            ui.style_mut().interaction.resize_grab_radius_side = grab;
+            if resizable {
+                let r = shown.response.rect;
+                let edge = if side == Place::Left {
+                    r.right()
+                } else {
+                    r.left()
+                };
+                // (egui's id for the panel's resize handle.)
+                let handle = ui.scope_id().with(id).with("__resize");
+                grabbers.push((edge, r.y_range(), handle));
+            }
         }
         crate::profile::mark("chrome+docks");
         // The open documents' tabs, over the canvas between the docks.
@@ -1399,13 +1470,24 @@ impl Studio {
             .show_separator_line(false)
             .frame(egui::Frame::new().fill(pal.dock))
             .show(ui, |ui| self.doc_tabs(ui));
-        egui::CentralPanel::no_frame().show(ui, |ui| self.canvas(ui));
+        egui::CentralPanel::no_frame().show(ui, |ui| {
+            if self.review.showing.is_some() {
+                self.review_canvas(ui);
+            } else {
+                self.canvas(ui);
+            }
+        });
+        for (x, ys, handle) in grabbers {
+            crate::dock::paint_grabber(ui, x, ys, handle);
+        }
         crate::profile::mark("canvas");
         self.floating_panels(&ctx);
         self.torn_toolbars(&ctx);
         self.panel_drag(&ctx);
         self.text_window(&ctx);
         self.typing_box(&ctx, self.canvas_rect);
+        self.note_editor(&ctx);
+        self.annotation_bar(&ctx);
         crate::profile::mark("typing_box");
         self.offset_window(&ctx);
         self.corner_window(&ctx);
@@ -1436,11 +1518,11 @@ impl Studio {
         // Structural edits (delete, move, paste…) push their own undo step and
         // update `stable`; only in-place edits are coalesced here. (Not a
         // dialog's preview: that isn't an edit until it's kept.)
-        if after != before
+        let edited = after != before
             && after != snapshot_of(&self.stable)
             && self.drag.is_none()
-            && !self.previewing()
-        {
+            && !self.previewing();
+        if edited {
             if !self.editing {
                 self.push_undo(self.stable.clone());
                 self.redo.clear();
@@ -1454,6 +1536,11 @@ impl Studio {
             self.stable = self.doc.clone();
         }
         self.keep_session(&ctx);
+        // Pinning comments ends with another tool or an edit of one's own.
+        // (Settings changed in place don't make a new revision: those are
+        // told by what the last undo step left.)
+        let edited = edited || (self.review.annotating && after != snapshot_of(&self.stable));
+        self.watch_annotating(edited);
         crate::profile::mark("undo+session");
         crate::profile::end();
     }
@@ -1500,6 +1587,11 @@ impl Studio {
         // Typing with the Type tool: every key is text (Escape ends it in
         // the typing box).
         if self.lettering.typing.is_some() {
+            return;
+        }
+        // Reviewing an agent's work: its own keys (and while something
+        // covers the canvas, nothing else).
+        if self.review_keys(ctx) {
             return;
         }
         if self.pen_keys(ctx)
@@ -1709,7 +1801,9 @@ impl Studio {
         egui::Area::new(id)
             .order(egui::Order::Foreground)
             .fixed_pos(rect.left_top() + Vec2::new(12.0, 10.0))
+            .constrain_to(rect)
             .show(ctx, |ui| {
+                ui.set_max_width(crate::theme::canvas_bar_width(rect));
                 let p = crate::theme::pal_ui(ui);
                 egui::Frame::new()
                     .fill(p.toolbar)
@@ -1720,7 +1814,7 @@ impl Studio {
                         crate::theme::space::XS as i8,
                     ))
                     .show(ui, |ui| {
-                        ui.horizontal(|ui| {
+                        ui.horizontal_wrapped(|ui| {
                             ui.spacing_mut().item_spacing.x = crate::theme::space::XS;
                             if ui
                                 .add(egui::Button::new("Gruptan Çık").small())
@@ -1770,6 +1864,18 @@ impl Studio {
     fn canvas(&mut self, ui: &mut egui::Ui) {
         let (resp, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         let rect = resp.rect;
+        // Pinning notes: clicks and drags are for that, not the tools
+        // (this sits over the canvas, so the tools' response sees none).
+        let notes = self.review.annotating.then(|| {
+            ui.interact(
+                rect,
+                ui.make_persistent_id("pin-notes"),
+                Sense::click_and_drag(),
+            )
+        });
+        let pointer = resp
+            .hover_pos()
+            .or_else(|| notes.as_ref().and_then(|n| n.hover_pos()));
         // (The panels beside the canvas find their widths over the first
         // frame or two: a fit made before then is made again.)
         let settled = self.canvas_rect == rect;
@@ -1801,7 +1907,7 @@ impl Studio {
         // trackpad's two-finger scroll (as in Illustrator), the Hand tool,
         // Space and a drag, or a middle or right drag. (Dragging the
         // Selection tool over empty canvas is its selection box.)
-        if let Some(hover) = resp.hover_pos() {
+        if let Some(hover) = pointer {
             let (scroll, zoom) = ctx.input(|i| {
                 for e in &i.events {
                     if let egui::Event::MouseWheel { unit, .. } = e {
@@ -2277,6 +2383,10 @@ impl Studio {
         }
         crate::profile::mark("c:selected");
         self.draw_agent_work(&painter, rect);
+        if let Some(n) = &notes {
+            self.annotate_canvas(&ctx, n, &painter, rect);
+        }
+        self.draw_notes(&painter, rect, pointer);
         if matches!(
             self.tool,
             Tool::Direct | Tool::Lasso | Tool::Anchor | Tool::AddAnchor | Tool::DeleteAnchor
@@ -2470,6 +2580,22 @@ pub struct SatinInfo {
     pub mean_width: f64,
 }
 
+impl SatinInfo {
+    /// The same columns moved, turned or scaled by `m`.
+    fn through(&self, m: zigzag::geom::Affine) -> SatinInfo {
+        let at = |p: &P| zigzag::geom::affine_apply(m, *p);
+        SatinInfo {
+            rails: self
+                .rails
+                .iter()
+                .map(|(a, b)| (a.iter().map(at).collect(), b.iter().map(at).collect()))
+                .collect(),
+            rungs: self.rungs.iter().map(|(a, b)| (at(a), at(b))).collect(),
+            mean_width: self.mean_width * (m[0] * m[3] - m[1] * m[2]).abs().sqrt(),
+        }
+    }
+}
+
 impl Studio {
     /// Object `i`'s [`SatinInfo`] for showing (its rails on the canvas,
     /// its width in the Stitch panel), unless the stitches for the
@@ -2484,12 +2610,40 @@ impl Studio {
     }
 
     /// Object `i`'s [`SatinInfo`], from the memo when it hasn't changed.
+    ///
+    /// An object a gesture is carrying has the columns it had when the
+    /// gesture began, gone through the gesture's transform, as its
+    /// stitches have (see `Studio::update_drag`): found again for where
+    /// the pointer has taken it, a line of text would stop the window at
+    /// every frame of the drag. They're found for where it lands when
+    /// it's dropped and planned.
     pub fn satin_info(&self, i: usize) -> std::rc::Rc<SatinInfo> {
+        let carried = self.drag.as_ref().filter(|d| {
+            d.carried.contains(&i)
+                && d.base
+                    .shapes
+                    .get(i)
+                    .is_some_and(|b| b.uid == self.doc.shapes[i].uid)
+        });
+        match carried {
+            Some(d) => {
+                let was = self.satin_info_of(&d.base.shapes[i], d.base.rev());
+                if d.m == zigzag::geom::IDENTITY {
+                    was
+                } else {
+                    std::rc::Rc::new(was.through(d.m))
+                }
+            }
+            None => self.satin_info_of(&self.doc.shapes[i], self.doc.rev()),
+        }
+    }
+
+    /// [`SatinInfo`] for `s`, an object of the document at revision `rev`.
+    fn satin_info_of(&self, s: &Shape, rev: u64) -> std::rc::Rc<SatinInfo> {
         use std::hash::{Hash, Hasher};
-        let s = &self.doc.shapes[i];
         let key = {
             let mut h = std::collections::hash_map::DefaultHasher::new();
-            (s.uid, self.doc.rev()).hash(&mut h);
+            (s.uid, rev).hash(&mut h);
             format!("{:?}", s.params).hash(&mut h);
             // Moved without the SVG changing (a drag): the first point says so.
             let first = match &s.geometry {
@@ -2944,6 +3098,8 @@ mod tests {
     #[test]
     fn document_toggles_replan_and_are_undoable() {
         let mut h = studio(None);
+        h.state_mut().prefs.advanced = true;
+        h.run_steps(2);
         let before = h.state().design.stitch_count();
         h.get_by_label("Remove overlaps").click();
         h.run_steps(3);

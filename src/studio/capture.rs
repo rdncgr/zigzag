@@ -9,8 +9,8 @@
 //!
 //! For pictures taken by a script, `ZIGZAG_CAPTURE_STILL=<seconds>` saves one
 //! screenshot that long after launch and then quits, and
-//! `ZIGZAG_CAPTURE_SHOW=settings` (or `settings-general`, `settings-agent`)
-//! opens that window first.
+//! `ZIGZAG_CAPTURE_SHOW=settings` (or `settings-general`, `settings-agent`,
+//! `issues`…) opens that window first.
 //!
 //! Nothing is drawn on screen for it (it would be in the pictures); what it
 //! did is printed on stderr. PNGs are encoded on worker threads; if they fall

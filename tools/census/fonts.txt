@@ -1,0 +1,69 @@
+# Popular fonts across the kinds of type, for the letter census
+# (census.sh's default). One family a line, `:bold` or `:italic` after it
+# for a weight or style; a family that isn't installed is skipped.
+
+# Sans: grotesque
+Helvetica
+Helvetica:bold
+Arial
+Arial:bold
+Inter
+Inter:bold
+# Sans: geometric
+Futura
+Futura:bold
+Montserrat:bold
+Avenir Next
+Century Gothic
+# Sans: humanist
+Gill Sans
+Verdana
+Optima
+Myriad Pro
+Segoe UI
+Calibri
+Trebuchet MS
+Source Sans Pro
+# Sans: condensed and rounded
+Avenir Next Condensed
+DIN Alternate
+Impact
+Arial Rounded MT Bold
+# Serif: old-style
+Garamond
+Adobe Garamond Pro
+Palatino
+Minion Pro
+Adobe Caslon Pro
+Iowan Old Style
+# Serif: transitional
+Times New Roman
+Times New Roman:bold
+Georgia
+Baskerville
+Charter
+# Serif: modern (Didone)
+Didot
+Bodoni 72
+# Slab
+Rockwell
+American Typewriter
+# Mono
+Courier New
+Menlo
+# Script
+Brush Script MT
+Snell Roundhand
+Zapfino
+Savoye LET
+# Handwriting and casual
+Marker Felt
+Chalkboard
+Comic Sans MS
+Bradley Hand
+# Display
+Cooper Black
+Copperplate
+Papyrus
+Trajan Pro
+Herculanum

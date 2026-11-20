@@ -104,6 +104,7 @@ fn system_font() -> Option<(String, Vec<u8>, u32)> {
     let db = zigzag::svg::fontdb();
     for family in [
         "Inter",
+        "Segoe UI",
         "Cantarell",
         "Helvetica Neue",
         "Helvetica",
@@ -310,8 +311,50 @@ pub mod space {
 
 /// Height of a row in a list (objects, threads, sewing order).
 pub const ROW_H: f32 = 24.0;
+/// An icon button in a panel (Transform's, the Layers list's…): an icon
+/// about 15 points, drawn with the toolbar's and the tool strip's stroke.
+/// (A smaller one rounds to a thinner stroke: see `icons::line_width`.)
+pub const PANEL_ICON: f32 = 26.0;
+/// An icon on its own, not in a button (the status bar's issues, machine
+/// and agent connection): as big, and drawn with the same stroke, as a
+/// panel's.
+pub const STATUS_ICON: f32 = 15.0;
 /// A color swatch in a list row.
 pub const LIST_SWATCH: f32 = 16.0;
+
+/// How wide a bar floating on the canvas may be (a tool's options, the
+/// selection's task bar): the canvas less a margin each side. What doesn't
+/// fit goes on to another row.
+pub fn canvas_bar_width(canvas: egui::Rect) -> f32 {
+    (canvas.width() - 2.0 * space::M).max(120.0)
+}
+
+/// Things kept together on one row of a row that wraps (a label and its
+/// slider, in a bar on the canvas): the group goes on to the next row whole.
+/// (A slider is a row of its own inside, which wouldn't move on by itself:
+/// the group is placed at the size it was last frame.)
+pub fn keep_together<R>(
+    ui: &mut egui::Ui,
+    id_salt: &str,
+    add: impl FnOnce(&mut egui::Ui) -> R,
+) -> R {
+    let id = ui.make_persistent_id(("keep-together", id_salt));
+    let was = ui.data(|d| d.get_temp::<Vec2>(id));
+    if was.is_none() {
+        // Not drawn till its size is known (no row jumping under it).
+        ui.ctx().request_discard("a group's size");
+    }
+    let size = was.unwrap_or(Vec2::new(0.0, ui.spacing().interact_size.y));
+    let r = ui.allocate_ui_with_layout(size, egui::Layout::left_to_right(egui::Align::Center), add);
+    let now = r.response.rect.size();
+    // (Past a rounding's difference: the same group at another x can come
+    // out a hair wider, and would have it drawn again for nothing.)
+    if was.is_none_or(|w| (w - now).abs().max_elem() > 0.5) {
+        ui.data_mut(|d| d.insert_temp(id, now));
+        ui.ctx().request_repaint();
+    }
+    r.inner
+}
 
 /// Inner margin for panels, popovers and windows.
 pub fn pad() -> Margin {
@@ -345,36 +388,183 @@ pub fn caption(ui: &mut egui::Ui, text: impl Into<String>) -> Response {
 
 /// A two-column form: labels right-aligned in a fixed column, controls after.
 pub fn form(ui: &mut egui::Ui, id: &str, add: impl FnOnce(&mut Form)) {
+    form_with(ui, id, true, None, add);
+}
+
+/// A form in a dock's panel whose advanced rows show only when `advanced`
+/// (or when they've been changed: see [`Form::advanced`]). Returns how many
+/// it left out. Like [`panel_form`], its rows wrap at the panel's edge.
+pub fn form_for(ui: &mut egui::Ui, id: &str, advanced: bool, add: impl FnOnce(&mut Form)) -> usize {
+    let right = ui.max_rect().right();
+    form_with(ui, id, advanced, Some(right), add)
+}
+
+/// A form in a dock's panel: a row's controls that don't fit beside its
+/// label go on under it, rather than past the panel's edge.
+pub fn panel_form(ui: &mut egui::Ui, id: &str, add: impl FnOnce(&mut Form)) {
+    form_for(ui, id, true, add);
+}
+
+fn form_with(
+    ui: &mut egui::Ui,
+    id: &str,
+    advanced: bool,
+    wrap_at: Option<f32>,
+    add: impl FnOnce(&mut Form),
+) -> usize {
+    // (The changed rows Basic showed last frame, and whether something is
+    // in hand: see [`Form::advanced`].)
+    let rows = ui.make_persistent_id(("form-rows-shown", id));
+    let was: Vec<usize> = ui.data(|d| d.get_temp(rows)).unwrap_or_default();
+    let in_hand = ui.ctx().egui_is_using_pointer() || ui.memory(|m| m.focused().is_some());
+    let (left_out, shown) = form_rows(ui, id, advanced, was, in_hand, wrap_at, add);
+    ui.data_mut(|d| d.insert_temp(rows, shown));
+    left_out
+}
+
+fn form_rows(
+    ui: &mut egui::Ui,
+    id: &str,
+    advanced: bool,
+    was: Vec<usize>,
+    in_hand: bool,
+    wrap_at: Option<f32>,
+    add: impl FnOnce(&mut Form),
+) -> (usize, Vec<usize>) {
+    let cell_ids = ui.make_persistent_id(("form-cell-heights", id));
     egui::Grid::new(id)
         .num_columns(2)
         .spacing([space::S, space::S])
         .min_col_width(LABEL_W)
         .show(ui, |ui| {
-            let mut f = Form { ui };
+            let mut f = Form {
+                ui,
+                all: advanced,
+                mark: false,
+                left_out: 0,
+                asked: 0,
+                was,
+                in_hand,
+                shown: Vec::new(),
+                wrap_at,
+                cells: Vec::new(),
+                last_label: egui::Id::unique("form-top"),
+                cell_ids,
+            };
             add(&mut f);
-        });
+            (f.left_out, f.shown)
+        })
+        .inner
 }
 
 pub const LABEL_W: f32 = 84.0;
 
 pub struct Form<'a> {
     pub ui: &'a mut egui::Ui,
+    /// Every row shows (Advanced), not only the basic ones.
+    all: bool,
+    /// The next row is an advanced one shown in Basic because it's been
+    /// changed: its label says so.
+    mark: bool,
+    /// Advanced rows left out.
+    left_out: usize,
+    /// How many times [`Form::advanced`] has been asked, this frame.
+    asked: usize,
+    /// Which of those askings Basic showed a row for last frame, whether
+    /// a control is in hand (the pointer down on one, or one typed in),
+    /// and which it shows this frame.
+    was: Vec<usize>,
+    in_hand: bool,
+    shown: Vec<usize>,
+    /// Where rows wrap (a panel's edge), or nowhere.
+    wrap_at: Option<f32>,
+    /// The wrapping cells there have been, this frame: each one's name (its
+    /// row's label; a wide row's, the label before it) and how many of that
+    /// name. A cell's height is remembered by these, not by how far down
+    /// the form it is: rows coming and going (another stitch type, Advanced)
+    /// leave the others' where they were.
+    cells: Vec<(egui::Id, usize)>,
+    /// The last row's label, naming the wide rows after it.
+    last_label: egui::Id,
+    /// Where they're remembered: this form's, by its own id.
+    cell_ids: egui::Id,
 }
 
 impl Form<'_> {
+    /// Whether to show an advanced row (or rows): always in Advanced; in
+    /// Basic only when `changed` from what the fabric would do, so that
+    /// nothing out of sight changes the stitches (an agent's change
+    /// included). Such a row's label is marked.
+    ///
+    /// A row that's showing stays while a control is in hand: dragged
+    /// through the value it had before it was changed (a slider across
+    /// its default), it would otherwise go from under the pointer.
+    pub fn advanced(&mut self, changed: bool) -> bool {
+        if self.all {
+            return true;
+        }
+        let k = self.asked;
+        self.asked += 1;
+        let show = changed || (self.in_hand && self.was.contains(&k));
+        self.mark = show;
+        if show {
+            self.shown.push(k);
+        } else {
+            self.left_out += 1;
+        }
+        show
+    }
+
     /// One row: a right-aligned label and whatever `add` puts next to it.
     /// Returns the label's id so controls can be `labelled_by` it.
     pub fn row<R>(&mut self, label: &str, add: impl FnOnce(&mut egui::Ui, egui::Id) -> R) -> R {
         let p = pal_ui(self.ui);
-        let l = self
-            .ui
-            .allocate_ui_with_layout(
+        let marked = std::mem::take(&mut self.mark);
+        let put_label = |ui: &mut egui::Ui| {
+            ui.allocate_ui_with_layout(
                 Vec2::new(LABEL_W, 22.0),
                 egui::Layout::right_to_left(egui::Align::Center),
-                |ui| ui.label(egui::RichText::new(label).color(p.secondary)),
+                |ui| {
+                    let l = ui.label(egui::RichText::new(label).color(p.secondary));
+                    if marked {
+                        // (A dot before the label: an advanced setting,
+                        // changed.)
+                        let (dot, _) = ui.allocate_exact_size(Vec2::splat(6.0), Sense::hover());
+                        ui.painter().circle_filled(dot.center(), 2.5, p.accent);
+                        l.on_hover_text(
+                            "Gelişmiş bir ayar; değiştirildiği için gösteriliyor. Varsayılanlara Sıfırla geri alır.",
+                        )
+                    } else {
+                        l
+                    }
+                },
             )
-            .inner;
-        let r = self.ui.horizontal(|ui| add(ui, l.id)).inner;
+            .inner
+        };
+        // A row whose controls wrap to more lines: its label level with the
+        // first of them, not halfway down.
+        self.last_label = egui::Id::unique(label);
+        let key = self.cell_key(egui::Id::unique(("row", label)));
+        let tall = self
+            .wrap_at
+            .and_then(|_| self.ui.data(|d| d.get_temp::<f32>(key)))
+            .filter(|&h| h > 22.0 + 1.0);
+        let l = match tall {
+            Some(h) => {
+                self.ui
+                    .allocate_ui_with_layout(
+                        Vec2::new(LABEL_W, h),
+                        egui::Layout::top_down(egui::Align::Max),
+                        put_label,
+                    )
+                    .inner
+            }
+            None => put_label(self.ui),
+        };
+        let r = match self.wrap_at {
+            Some(right) => self.wrapping_cell(right, key, |ui| add(ui, l.id)),
+            None => self.ui.horizontal(|ui| add(ui, l.id)).inner,
+        };
         self.ui.end_row();
         r
     }
@@ -382,8 +572,72 @@ impl Form<'_> {
     /// A full-width row without a label (notes, checkbox groups).
     pub fn wide(&mut self, add: impl FnOnce(&mut egui::Ui)) {
         self.ui.label("");
-        self.ui.horizontal_wrapped(add);
+        match self.wrap_at {
+            Some(right) => {
+                let key = self.cell_key(egui::Id::unique(("wide", self.last_label)));
+                self.wrapping_cell(right, key, add);
+            }
+            None => {
+                self.ui.horizontal_wrapped(add);
+            }
+        }
         self.ui.end_row();
+    }
+
+    /// Where a wrapping cell's height is remembered: by its name, and how
+    /// many of that name came before it in the form (two rows with one
+    /// label are two cells).
+    fn cell_key(&mut self, name: egui::Id) -> egui::Id {
+        let nth = match self.cells.iter_mut().find(|(n, _)| *n == name) {
+            Some((_, count)) => {
+                *count += 1;
+                *count
+            }
+            None => {
+                self.cells.push((name, 0));
+                0
+            }
+        };
+        self.cell_ids.with((name, nth))
+    }
+
+    /// A row's controls, wrapping at `right` (a panel's edge). Placed as
+    /// wide as the rest of the panel and as tall as they were last frame,
+    /// said outright: a grid lays a cell out at its first line's height,
+    /// centred in the row, and a cell that wraps to more lines would start
+    /// low and run into the row under it. (On a grid's first frame its
+    /// column is narrower than the panel, too.)
+    fn wrapping_cell<R>(
+        &mut self,
+        right: f32,
+        key: egui::Id,
+        add: impl FnOnce(&mut egui::Ui) -> R,
+    ) -> R {
+        let w = (right - self.ui.cursor().left()).max(0.0);
+        let line = self.ui.spacing().interact_size.y;
+        let was = self.ui.data(|d| d.get_temp::<f32>(key));
+        let (inner, content) = self
+            .ui
+            .allocate_ui_with_layout(
+                Vec2::new(w, was.unwrap_or(line)),
+                egui::Layout::left_to_right(egui::Align::Center).with_main_wrap(true),
+                |ui| {
+                    // (Measured on its own, in a line's height: the cell is
+                    // as tall as asked, and what's centred in it would move
+                    // down with it.)
+                    let first = Rect::from_min_size(ui.max_rect().min, Vec2::new(w, line));
+                    let r = ui.scope_builder(egui::UiBuilder::new().max_rect(first), add);
+                    (r.inner, r.response.rect.height())
+                },
+            )
+            .inner;
+        let now = content.max(line);
+        if was.is_none_or(|h| (h - now).abs() > 0.5) {
+            // (Not shown at the wrong height: laid out again.)
+            self.ui.data_mut(|d| d.insert_temp(key, now));
+            self.ui.ctx().request_discard("a form row's height");
+        }
+        inner
     }
 }
 
@@ -617,4 +871,25 @@ pub fn callout(ui: &mut egui::Ui, color: Color32, icon: Icon, text: &str) {
                 ui.add(egui::Label::new(egui::RichText::new(text).size(12.0).color(p.text)).wrap());
             });
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn panel_icons_have_the_toolbars_stroke() {
+        // An icon button's glyph is its size less 22% each side.
+        let stroke = |button: f32, ppp: f32| icons::line_width(button * 0.56, ppp);
+        for ppp in [1.0, 2.0] {
+            let panel = stroke(PANEL_ICON, ppp);
+            assert_eq!(panel, stroke(28.0, ppp), "the toolbar's, at {ppp}×");
+            assert_eq!(panel, stroke(30.0, ppp), "the tool strip's, at {ppp}×");
+            assert_eq!(
+                panel,
+                icons::line_width(STATUS_ICON, ppp),
+                "the status bar's, at {ppp}×"
+            );
+        }
+    }
 }

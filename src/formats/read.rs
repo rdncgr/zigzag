@@ -89,6 +89,55 @@ fn signed12(v: u16) -> i32 {
     if v > 0x7FF { v - 0x1000 } else { v }
 }
 
+/// Does the PEC stitch data at `i` start with the design box offset
+/// (`0x9000 | -left`, `0x9000 | -top`)? Brother's own files always have it.
+/// PES files ZigZag wrote before it was added go straight into the
+/// stitches, and their first record (a jump) has the same form, so check
+/// the geometry: with the offset, the stitches that follow reach exactly to
+/// the box's top-left corner.
+fn has_box_offset(d: &[u8], i: usize) -> bool {
+    let Some(w) = d.get(i..i + 4) else {
+        return false;
+    };
+    if w[0] & 0x80 == 0 || w[2] & 0x80 == 0 {
+        return false;
+    }
+    let left = -signed12(u16::from_be_bytes([w[0], w[1]]));
+    let top = -signed12(u16::from_be_bytes([w[2], w[3]]));
+    let (mut x, mut y) = (0i32, 0i32);
+    let (mut min_x, mut min_y) = (i32::MAX, i32::MAX);
+    let mut k = i + 4;
+    while let Some(&v1) = d.get(k) {
+        if v1 == 0xFF {
+            break;
+        }
+        if v1 == 0xFE && d.get(k + 1) == Some(&0xB0) {
+            k += 3;
+            continue;
+        }
+        let mut delta = [0i32; 2];
+        for v in &mut delta {
+            let Some(&b) = d.get(k) else { return false };
+            if b & 0x80 != 0 {
+                let Some(&b2) = d.get(k + 1) else {
+                    return false;
+                };
+                *v = signed12(u16::from_be_bytes([b, b2]));
+                k += 2;
+            } else {
+                *v = signed7(b);
+                k += 1;
+            }
+        }
+        x += delta[0];
+        y += delta[1];
+        min_x = min_x.min(x);
+        min_y = min_y.min(y);
+    }
+    // A unit or two of slack for writers that round the box differently.
+    min_x != i32::MAX && (min_x - left).abs() <= 2 && (min_y - top).abs() <= 2
+}
+
 fn i32le(d: &[u8], at: usize) -> Option<i32> {
     Some(i32::from_le_bytes(d.get(at..at + 4)?.try_into().ok()?))
 }
@@ -114,6 +163,9 @@ fn read_pec(d: &[u8], start: usize) -> Result<StitchFile> {
     let mut i = cc_at + 1 + ncolors + (0x1D0 - cc as usize);
     i += 3; // stitch block length (u24)
     i += 0x0B;
+    if has_box_offset(d, i) {
+        i += 4;
+    }
     let mut bld = Builder::new();
     while let (Some(&v1), Some(&v2)) = (d.get(i), d.get(i + 1)) {
         if v1 == 0xFF && v2 == 0x00 {
@@ -565,6 +617,86 @@ mod tests {
                 b.iter().any(|q| (*q - shift).dist(*p) < 1e-6),
                 "{p:?} moved (shift {shift:?})"
             );
+        }
+    }
+
+    /// Where the PEC stitch block starts in a PES file.
+    fn pec_stitch_block(pes: &[u8]) -> usize {
+        let g = i32le(pes, 8).unwrap() as usize + 512;
+        assert_eq!(&pes[g + 5..g + 8], &[0x31, 0xFF, 0xF0]);
+        g
+    }
+
+    /// Absolute positions of every PEC move from `k`, starting at the origin.
+    fn pec_positions(d: &[u8], mut k: usize) -> Vec<(i32, i32)> {
+        let (mut x, mut y, mut out) = (0, 0, Vec::new());
+        while d[k] != 0xFF {
+            if d[k] == 0xFE && d[k + 1] == 0xB0 {
+                k += 3;
+                continue;
+            }
+            let mut delta = [0i32; 2];
+            for v in &mut delta {
+                if d[k] & 0x80 != 0 {
+                    *v = signed12(u16::from_be_bytes([d[k], d[k + 1]]));
+                    k += 2;
+                } else {
+                    *v = signed7(d[k]);
+                    k += 1;
+                }
+            }
+            x += delta[0];
+            y += delta[1];
+            out.push((x, y));
+        }
+        out
+    }
+
+    /// A Brother machine reads the design box offset from the first two
+    /// words of the stitch block, decodes stitches after them and only sews
+    /// what lies inside the box. Every stitch must land inside it.
+    #[test]
+    fn pes_stitches_lie_inside_the_design_box_a_brother_machine_reads() {
+        let pes = pes::write_pes(&sample());
+        let g = pec_stitch_block(&pes);
+        let w = u16::from_le_bytes([pes[g + 8], pes[g + 9]]) as i32;
+        let h = u16::from_le_bytes([pes[g + 10], pes[g + 11]]) as i32;
+        let word = |at: usize| u16::from_be_bytes([pes[at], pes[at + 1]]);
+        assert_eq!(word(g + 16) & 0xF000, 0x9000, "x offset word");
+        assert_eq!(word(g + 18) & 0xF000, 0x9000, "y offset word");
+        let (left, top) = (-signed12(word(g + 16)), -signed12(word(g + 18)));
+        let pts = pec_positions(&pes, g + 20);
+        assert!(!pts.is_empty());
+        let min_x = pts.iter().map(|p| p.0).min().unwrap();
+        let min_y = pts.iter().map(|p| p.1).min().unwrap();
+        assert_eq!(
+            (left, top),
+            (min_x, min_y),
+            "box corner is the top-left stitch"
+        );
+        for &(x, y) in &pts {
+            assert!(
+                (left..=left + w).contains(&x) && (top..=top + h).contains(&y),
+                "({x}, {y}) is outside the box ({left}, {top}) {w}x{h}"
+            );
+        }
+    }
+
+    /// PES files written before the box offset was added still open with
+    /// every stitch in the same place.
+    #[test]
+    fn reads_pes_written_without_the_design_box_offset() {
+        let new = pes::write_pes(&sample());
+        let g = pec_stitch_block(&new);
+        let mut old = new.clone();
+        old.drain(g + 16..g + 20);
+        let len = u32::from_le_bytes([old[g + 2], old[g + 3], old[g + 4], 0]) - 4;
+        old[g + 2..g + 5].copy_from_slice(&len.to_le_bytes()[..3]);
+        let a = read_stitch_file(&new, "pes").unwrap();
+        let b = read_stitch_file(&old, "pes").unwrap();
+        assert_eq!(a.blocks.len(), b.blocks.len());
+        for (x, y) in a.blocks.iter().zip(&b.blocks) {
+            assert_eq!(x.runs, y.runs);
         }
     }
 

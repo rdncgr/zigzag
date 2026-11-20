@@ -347,12 +347,15 @@ impl Studio {
         egui::Area::new(id)
             .pivot(egui::Align2::CENTER_TOP)
             .fixed_pos(rect.center_top() + Vec2::new(0.0, space::M))
+            // (On the canvas, never over the docks beside it.)
+            .constrain_to(rect)
             .show(ctx, |ui| {
+                ui.set_max_width(crate::theme::canvas_bar_width(rect));
                 egui::Frame::popup(ui.style())
                     .corner_radius(9)
                     .inner_margin(egui::Margin::same(space::XS as i8))
                     .show(ui, |ui| {
-                        ui.horizontal(|ui| {
+                        ui.horizontal_wrapped(|ui| {
                             ui.spacing_mut().item_spacing.x = space::XS;
                             for k in KINDS {
                                 let tip = if k.key().is_empty() {
@@ -370,12 +373,14 @@ impl Studio {
                             ui.add_space(space::S);
                             let s = &mut self.shapes;
                             let field = |ui: &mut egui::Ui, label: &str, w: egui::DragValue| {
-                                ui.label(
-                                    egui::RichText::new(label)
-                                        .size(12.0)
-                                        .color(crate::theme::pal_ui(ui).secondary),
-                                );
-                                ui.add(w);
+                                crate::theme::keep_together(ui, label, |ui| {
+                                    ui.label(
+                                        egui::RichText::new(label)
+                                            .size(12.0)
+                                            .color(crate::theme::pal_ui(ui).secondary),
+                                    );
+                                    ui.add(w);
+                                });
                             };
                             match s.kind {
                                 ShapeKind::Rect => field(

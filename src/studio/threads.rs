@@ -626,7 +626,8 @@ impl Studio {
         }
         ui.spacing_mut().item_spacing.y = crate::theme::space::S;
         ui.add_space(crate::theme::space::S);
-        ui.horizontal(|ui| {
+        // (Wrapped: in a narrow dock the counts go under the buttons.)
+        ui.horizontal_wrapped(|ui| {
             if ui
                 .button("Renkleri Grupla")
                 .on_hover_text("Katman düzenini bozmadan daha az iplik değişimi")

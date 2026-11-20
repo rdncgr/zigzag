@@ -75,6 +75,14 @@ pub struct Prefs {
     pub agent_log: bool,
     /// Look for a newer ZigZag when it opens (and once a day).
     pub auto_update: bool,
+    /// The font text was last set in: what new text starts in.
+    pub last_font: Option<String>,
+    /// The Stitch and Document panels show every setting (Advanced), or
+    /// the few that change how a design looks, leaving the rest to the
+    /// fabric (Basic). Advanced unless it's turned off in Settings ›
+    /// General: most people keep what they're given, and Basic is for
+    /// someone who asks for less.
+    pub advanced: bool,
     path: Option<PathBuf>,
 }
 
@@ -89,6 +97,8 @@ impl Default for Prefs {
             folds: Default::default(),
             agent_log: true,
             auto_update: true,
+            last_font: None,
+            advanced: true,
             path: None,
         }
     }
@@ -111,6 +121,9 @@ impl Prefs {
         else {
             return p;
         };
+        if let Some(on) = v["advanced"].as_bool() {
+            p.advanced = on;
+        }
         if let Some(a) = v["appearance"]
             .as_str()
             .and_then(|s| Appearance::ALL.into_iter().find(|a| a.id() == s))
@@ -145,6 +158,9 @@ impl Prefs {
         if let Some(on) = v["auto_update"].as_bool() {
             p.auto_update = on;
         }
+        if let Some(font) = v["last_font"].as_str() {
+            p.last_font = Some(font.to_string());
+        }
         if let Some(port) = v["agent_port"]
             .as_u64()
             .and_then(|n| u16::try_from(n).ok())
@@ -166,6 +182,8 @@ impl Prefs {
             "sections": self.folds,
             "agent_log": self.agent_log,
             "auto_update": self.auto_update,
+            "last_font": self.last_font,
+            "advanced": self.advanced,
         });
         if let Some(dir) = path.parent() {
             let _ = std::fs::create_dir_all(dir);
@@ -796,6 +814,15 @@ impl Studio {
                 .on_hover_text("Uzunlukların hangi birimde gösterilip girileceği");
         });
 
+        group(ui, "Paneller", false);
+        row(ui, "Ayarlar", |ui, _| {
+            ui.checkbox(&mut prefs.advanced, "Gelişmiş ayarları göster");
+        });
+        note(
+            ui,
+            "Kapalıyken Dikiş ve Belge panelleri çoğu tasarımın ihtiyaç duyduğu birkaç ayarı gösterir, gerisini kumaş belirler. Değiştirilmiş bir ayar yine görünür.",
+        );
+
         group(ui, "Görünüm", false);
         row(ui, "Tema", |ui, _| {
             let options = Appearance::ALL.map(|a| (a, a.label()));
@@ -968,6 +995,7 @@ mod tests {
             std::env::temp_dir().join(format!("zigzag-settings-{}.json", std::process::id()));
         let _ = std::fs::remove_file(&file);
         let mut p = Prefs::load_from(Some(file.clone()));
+        assert!(p.advanced, "every setting, unless it's turned off");
         assert_eq!(p.appearance, Appearance::System);
         assert!(p.gpu && p.agent_server && p.agent_log && p.auto_update);
         assert!(p.fold_open("before-you-sew", true) && !p.fold_open("machine-details", false));
@@ -996,6 +1024,7 @@ mod tests {
         .unwrap();
         let odd = Prefs::load_from(Some(file.clone()));
         assert!(odd.folds.is_empty());
+        assert!(odd.advanced, "settings that don't say: every setting");
         std::fs::write(
             &file,
             r#"{"sew_checklist":false,"sections":{"mcp-tools":true,"x":"open"}}"#,

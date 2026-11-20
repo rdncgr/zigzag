@@ -1,0 +1,48 @@
+# Letters judged by eye (sheet.py renders, 15 mm), for checking the census's
+# measures against: each must find a fault where one is written here, and
+# none where the letter is clean. Only the clear cases; one per line:
+#   FAMILY<TAB>CHAR<TAB>MM<TAB>STYLE<TAB>VERDICT<TAB>WHERE
+# STYLE is the satin's id (satin: as ZigZag sews it, Auto; satin_mitred:
+# every corner mitred; satin_cut: Cut).
+# VERDICT: clean, or the fault: fan (stitches pivoting about a point),
+# outside (stitches well past the outline).
+# Judged 2026-11-19 (before Auto: the mitred lines were then `satin`), on sheets of
+# thin lines (SHEET_THIN=1 now), which show underlay and laps the satin
+# hides: the K's "arm join" fan is those, and Helvetica K is clean drawn as
+# thread (sheet.py's default). Rejudge in thread before relying on a call.
+Helvetica	N	15	satin_mitred	fan	both corners
+Helvetica	N	15	satin_cut	clean
+Helvetica	V	15	satin_mitred	fan	top ends, point
+Helvetica	W	15	satin_mitred	fan	top ends, points, middle apex
+Helvetica	W	15	satin_cut	clean
+Helvetica	M	15	satin_mitred	fan	top corners, middle point
+Helvetica	M	15	satin_cut	clean
+Helvetica	A	15	satin_mitred	fan	apex, feet
+Helvetica	K	15	satin_mitred	clean	(arm ends fixed by flat ends; the join fan was hidden laps)
+Helvetica	L	15	satin_mitred	clean
+Helvetica	L	15	satin_cut	clean
+Helvetica	O	15	satin_mitred	clean
+Helvetica	O	15	satin_cut	clean
+Helvetica	G	15	satin_cut	clean
+Helvetica	S	15	satin_cut	clean
+Helvetica	e	15	satin_cut	clean
+Helvetica	S	15	satin_mitred	fan	slanted ends
+Helvetica:bold	k	15	satin_mitred	fan	arm join
+Helvetica:bold	v	15	satin_mitred	fan	top ends, point
+Helvetica:bold	Z	15	satin_mitred	fan	corners
+Helvetica:bold	7	15	satin_mitred	fan	top end, corner, foot
+Helvetica:bold	X	15	satin_mitred	fan	ends
+Helvetica:bold	X	15	satin_cut	fan	ends
+Helvetica:bold	t	15	satin_mitred	fan	hook end
+Helvetica:bold	f	15	satin_mitred	fan	top terminal
+Helvetica:bold	f	15	satin_cut	fan	top terminal
+Helvetica:bold	e	15	satin_cut	clean
+Arial:bold	N	15	satin_mitred	fan	both corners
+Arial:bold	N	15	satin_cut	clean
+Arial:bold	V	15	satin_mitred	fan	top ends, point
+Arial:bold	A	15	satin_mitred	fan	apex, feet
+Times New Roman	V	15	satin_mitred	fan	point
+Times New Roman	A	15	satin_mitred	fan	apex
+Times New Roman	K	15	satin_mitred	fan	arm join
+Georgia	x	15	satin_cut	outside	bottom left serif
+Georgia	k	15	satin_cut	fan	arm end

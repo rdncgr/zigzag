@@ -1602,6 +1602,76 @@ mod tests {
     }
 
     #[test]
+    fn a_broken_out_column_is_picked_inside_and_its_rails_reshaped() {
+        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="100mm" viewBox="0 0 100 100">
+          <path id="H_satin" fill="#123456" d="M10 10 L13 10 L13 19 L27 19 L27 10 L30 10 L30 30 L27 30 L27 21 L13 21 L13 30 L10 30 Z"/>
+        </svg>"##;
+        let mut h = Harness::builder()
+            .with_size(Vec2::new(1400.0, 1000.0))
+            .build_ui_state(
+                |ui, s: &mut Studio| s.frame(ui),
+                Studio::with_file(None, None),
+            );
+        h.state_mut()
+            .set_document(Document::from_svg(svg, "t", None).unwrap());
+        h.run_steps(3);
+        h.state_mut().set_selection(&[0]);
+        h.state_mut().break_into_columns_selected();
+        h.run_steps(3);
+        let n = h.state().doc.shapes.len();
+        assert!(n >= 3, "{n} columns");
+        // In the middle of a column, nowhere near its rails' lines: halfway
+        // across it, halfway along. (Not the middle of its bounds, which a
+        // column that turns a corner needn't cover.)
+        let inside = match &h.state().doc.shapes[0].geometry {
+            Geometry::Stroke { lines, .. } if lines.len() >= 2 => {
+                let mid = |l: &[P]| l[0].lerp(l[l.len() - 1], 0.5);
+                mid(&lines[0].0).lerp(mid(&lines[1].0), 0.5)
+            }
+            _ => shape_bounds(&h.state().doc.shapes[0]).center(),
+        };
+        let at = screen(&h, inside);
+        h.state_mut().set_tool(Tool::Select);
+        h.state_mut().set_selection(&[]);
+        h.run_steps(2);
+        click(&mut h, at);
+        assert_eq!(
+            h.state().sel_indices(),
+            (0..n).collect::<Vec<_>>(),
+            "the group, as a group is"
+        );
+        h.state_mut().set_tool(Tool::Direct);
+        h.state_mut().set_selection(&[]);
+        h.run_steps(2);
+        click(&mut h, at);
+        assert_eq!(h.state().sel_indices(), vec![0], "the column itself");
+        // Its rails are a few points each, to drag.
+        let path = h.state_mut().editable_path().expect("its rails and rungs");
+        assert!(
+            path[0].anchors.len() <= 4 && path[1].anchors.len() <= 4,
+            "{:?}",
+            path.iter().map(|sp| sp.anchors.len()).collect::<Vec<_>>()
+        );
+        let a = path[0].anchors[0].p;
+        let was = h.state().doc.shapes.clone();
+        let undo = h.state().undo.len();
+        let from = screen(&h, a);
+        drag(&mut h, from, from + Vec2::new(30.0, 0.0));
+        let now = &h.state().doc.shapes;
+        assert_ne!(
+            format!("{:?}", now[0].geometry),
+            format!("{:?}", was[0].geometry),
+            "reshaped"
+        );
+        assert!(
+            (1..n).all(|k| format!("{:?}", now[k].geometry) == format!("{:?}", was[k].geometry)),
+            "the others as they were"
+        );
+        assert_eq!(now[0].params.rails, Some((1, 2)), "still two rails");
+        assert_eq!(h.state().undo.len(), undo + 1);
+    }
+
+    #[test]
     fn direct_selection_drags_a_point_and_its_handles() {
         let mut h = studio();
         h.key_press(Key::A);

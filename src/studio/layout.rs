@@ -213,11 +213,17 @@ pub fn reference_point(b: &Bounds, r: (i8, i8)) -> P {
     P::new(pick(b.min.x, b.max.x, r.0), pick(b.min.y, b.max.y, r.1))
 }
 
+/// The width of the Transform panel's X, Y, W and H fields.
+const FIELD_W: f32 = 88.0;
+
 /// Illustrator's reference point locator: nine squares, the chosen one
 /// filled. Returns a newly clicked point.
 fn reference_locator(ui: &mut egui::Ui, current: (i8, i8)) -> Option<(i8, i8)> {
     let p = crate::theme::pal_ui(ui);
-    let (r, resp) = ui.allocate_exact_size(Vec2::splat(22.0), egui::Sense::click());
+    // (In a slot as wide as the proportions lock under it.)
+    let (slot, resp) =
+        ui.allocate_exact_size(Vec2::splat(crate::theme::PANEL_ICON), egui::Sense::click());
+    let r = Rect::from_center_size(slot.center(), Vec2::splat(22.0));
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Referans noktası"));
     let resp =
         resp.on_hover_text("Referans noktası: X ve Y bu noktayı gösterir; yeniden boyutlandırmada yerinde kalır");
@@ -822,6 +828,25 @@ impl Studio {
                 self.status = format!("{} çizgi şekle dönüştürüldü.", new.len());
             }
             Err(e) => self.status = format!("Dış hatta dönüştürülemedi: {e:#}"),
+        }
+    }
+
+    /// Object › Break into Columns, on the selection.
+    pub fn break_into_columns_selected(&mut self) {
+        let idx = self.sel_indices();
+        let mut new = Vec::new();
+        match self.structural(|d| {
+            new = d.break_into_columns(&idx)?;
+            Ok(())
+        }) {
+            Ok(()) => {
+                self.set_selection(&new);
+                self.status = format!(
+                    "{} saten sütuna ayrıldı, eskisi gibi dikiliyor. Katmanlar'da yeniden sıralayın ya da raylarını yeniden şekillendirin; aynı ayarlarla tek grupta kaldıkça tek parça iplik olarak kalırlar.",
+                    new.len()
+                );
+            }
+            Err(e) => self.status = format!("Sütunlara ayrılamadı: {e:#}"),
         }
     }
 
@@ -1782,7 +1807,7 @@ impl Studio {
     /// Position, size, rotation and mirror for the selection (Transform panel).
     pub fn layout_panel(&mut self, ui: &mut egui::Ui) {
         use crate::icons::Icon;
-        use crate::theme::{form, icon_button};
+        use crate::theme::{PANEL_ICON, icon_button, panel_form};
         let b = self.selection_bounds();
         if b.is_empty() {
             return;
@@ -1801,7 +1826,13 @@ impl Studio {
         let lock = self.layout.lock_aspect;
         let mut toggle_lock = false;
         let field = |ui: &mut egui::Ui, label: &str, v: &mut f64, min: f64| {
-            let r = ui.add(crate::units::drag_mm(v, min..=500.0, 0.1).prefix(format!("{label}  ")));
+            // (All four as wide, so W and H line up under X and Y.)
+            let size = Vec2::new(FIELD_W, ui.spacing().interact_size.y);
+            let r = ui.add(
+                crate::units::drag_mm(v, min..=500.0, 0.1)
+                    .prefix(format!("{label}  "))
+                    .min_size(size),
+            );
             r.widget_info(|| egui::WidgetInfo::labeled(egui::Role::SpinButton, true, label));
             (
                 r.changed(),
@@ -1815,20 +1846,21 @@ impl Studio {
         let mut rotate: Option<f64> = None;
         let mut flip: Option<(f64, f64)> = None;
         let mut center = false;
-        form(ui, "transform-form", |fm| {
+        panel_form(ui, "transform-form", |fm| {
+            // The fields first, in line with the labels; after them the
+            // reference point, over the proportions lock.
             let (x, y) = fm.row("Konum", |ui, _| {
+                let xy = (
+                    field(ui, "X", &mut f[0], -500.0),
+                    field(ui, "Y", &mut f[1], -500.0),
+                );
                 if let Some(r) = reference_locator(ui, refp) {
                     new_ref = Some(r);
                 }
-                (
-                    field(ui, "X", &mut f[0], -500.0),
-                    field(ui, "Y", &mut f[1], -500.0),
-                )
+                xy
             });
             let (old_w, old_h) = (f[2], f[3]);
             let (w, h) = fm.row("Boyut", |ui, _| {
-                // Line W/H up under X/Y (the reference point sits before X).
-                ui.add_space(22.0 + ui.spacing().item_spacing.x);
                 let w = field(ui, "W", &mut f[2], 0.5);
                 let h = field(ui, "H", &mut f[3], 0.5);
                 if icon_button(
@@ -1840,7 +1872,7 @@ impl Studio {
                         "Oranları koru"
                     },
                     lock,
-                    22.0,
+                    PANEL_ICON,
                 )
                 .clicked()
                 {
@@ -1876,28 +1908,31 @@ impl Studio {
                 {
                     rotate = Some(self.layout.rotate_by);
                 }
-                if icon_button(ui, Icon::RotateLeft, "Sola 90° Döndür", false, 22.0).clicked() {
+                if icon_button(ui, Icon::RotateLeft, "90° Sola Döndür", false, PANEL_ICON).clicked()
+                {
                     rotate = Some(-90.0);
                 }
-                if icon_button(ui, Icon::RotateRight, "Sağa 90° Döndür", false, 22.0).clicked() {
+                if icon_button(ui, Icon::RotateRight, "90° Sağa Döndür", false, PANEL_ICON)
+                    .clicked()
+                {
                     rotate = Some(90.0);
                 }
             });
             fm.row("Çevir", |ui, _| {
-                if icon_button(ui, Icon::FlipH, "Yatay Çevir", false, 22.0).clicked() {
+                if icon_button(ui, Icon::FlipH, "Yatay Çevir", false, PANEL_ICON).clicked() {
                     flip = Some((-1.0, 1.0));
                 }
-                if icon_button(ui, Icon::FlipV, "Dikey Çevir", false, 22.0).clicked() {
+                if icon_button(ui, Icon::FlipV, "Dikey Çevir", false, PANEL_ICON).clicked() {
                     flip = Some((1.0, -1.0));
                 }
                 ui.add_space(8.0);
-                if icon_button(ui, Icon::Target, "Kasnakta Ortala", false, 22.0).clicked() {
+                if icon_button(ui, Icon::Target, "Kasnakta Ortala", false, PANEL_ICON).clicked() {
                     center = true;
                 }
-                if icon_button(ui, Icon::ZoomFit, "Kasnağa Sığdır", false, 22.0).clicked() {
+                if icon_button(ui, Icon::ZoomFit, "Kasnağa Sığdır", false, PANEL_ICON).clicked() {
                     self.fit_to_hoop(false);
                 }
-                if icon_button(ui, Icon::Duplicate, "Çoğalt", false, 22.0).clicked() {
+                if icon_button(ui, Icon::Duplicate, "Çoğalt", false, PANEL_ICON).clicked() {
                     self.duplicate_selected();
                 }
             });
@@ -1910,7 +1945,7 @@ impl Studio {
                         (PathOp::Intersect, Icon::PathIntersect, "Kesiştir"),
                         (PathOp::Exclude, Icon::PathExclude, "Hariç Tut"),
                     ] {
-                        if icon_button(ui, icon, label, false, 22.0)
+                        if icon_button(ui, icon, label, false, PANEL_ICON)
                             .on_hover_text(label)
                             .clicked()
                         {
@@ -2554,6 +2589,55 @@ mod tests {
         s.end_drag();
         assert_eq!(s.replans, plans);
         let _ = c;
+    }
+
+    #[test]
+    fn a_dragged_satin_shows_the_columns_it_had_moved_with_it() {
+        // An L: two columns to find, which is the slow part (a line of
+        // text took a third of a second at every frame of a drag).
+        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="100mm" viewBox="0 0 100 100">
+          <path id="satin" d="M10 10 H16 V44 H40 V50 H10 Z" fill="#024"/>
+        </svg>"##;
+        let mut h = studio();
+        h.state_mut()
+            .set_document(zigzag::document::Document::from_svg(svg, "t", None).unwrap());
+        h.run_steps(3);
+        let s = h.state_mut();
+        s.set_selection(&[0]);
+        let was = s.satin_info_shown(0).expect("planned");
+        assert_eq!(was.rails.len(), 2);
+        let at = shape_bounds(&s.doc.shapes[0]).center();
+        s.begin_drag(None, at);
+        for k in 1..=3 {
+            let by = P::new(40.0 * k as f64, 25.0);
+            s.update_drag(at + by, DragMods::default());
+            let now = s.satin_info_shown(0).expect("shown while it moves");
+            // Where the shape is now, and not found again to be there.
+            for (a, b) in was.rails.iter().zip(&now.rails) {
+                assert!(a.0.iter().zip(&b.0).all(|(p, q)| (*p + by).dist(*q) < 1e-9));
+                assert!(a.1.iter().zip(&b.1).all(|(p, q)| (*p + by).dist(*q) < 1e-9));
+            }
+            assert_eq!(was.rungs.len(), now.rungs.len());
+            let kept = s.satin_memo.borrow();
+            assert!(std::rc::Rc::ptr_eq(&kept.as_ref().unwrap().1, &was));
+        }
+        // Twice the size: columns twice as wide.
+        s.end_drag();
+        h.run_steps(3);
+        let s = h.state_mut();
+        let b = shape_bounds(&s.doc.shapes[0]);
+        let was = s.satin_info_shown(0).expect("planned where it landed");
+        s.begin_drag(Some(Handle::Scale(1, 1)), b.max);
+        s.update_drag(
+            b.max + P::new(b.width(), b.height()),
+            DragMods {
+                shift: true,
+                ..DragMods::default()
+            },
+        );
+        let now = s.satin_info_shown(0).unwrap();
+        assert!((now.mean_width - was.mean_width * 2.0).abs() < 1e-6);
+        s.end_drag();
     }
 
     #[test]

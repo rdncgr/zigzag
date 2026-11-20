@@ -228,7 +228,9 @@ pub fn dedupe(pts: &mut Polyline, min: f64) {
             out.push(p);
         }
     }
-    if out.len() > 1 && out.last().unwrap().dist(last) < min {
+    // (As many as are too near the last, which stays: the point before
+    // the one popped may be as near.)
+    while out.len() > 1 && out.last().unwrap().dist(last) < min {
         out.pop();
     }
     if out.last().unwrap().dist(last) > 1e-9 {

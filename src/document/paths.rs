@@ -1493,6 +1493,51 @@ mod tests {
     }
 
     #[test]
+    fn a_drawing_added_to_a_reopened_file_is_its_own() {
+        // What ZigZag adds is numbered, and the numbers start with each
+        // session: after the ones in the file, not over them.
+        let square = |x: f64| {
+            [
+                P::new(x, 0.0),
+                P::new(x + 100.0, 0.0),
+                P::new(x + 100.0, 100.0),
+                P::new(x, 100.0),
+            ]
+        };
+        let mut d = Document::empty();
+        d.add_drawing(&square(0.0), true, [0, 0, 0], Kind::Fill)
+            .unwrap();
+        d.add_drawing(&square(200.0), true, [0, 0, 0], Kind::Fill)
+            .unwrap();
+        let mut again = Document::from_svg(&d.to_svg().unwrap(), "t", None).unwrap();
+        let i = again
+            .add_drawing(&square(400.0), true, [0, 0, 0], Kind::Fill)
+            .unwrap();
+        // The shape answered for is the new one, furthest along.
+        assert_eq!(again.shapes.len(), 3);
+        let furthest = (0..3)
+            .max_by(|&a, &b| {
+                let x = |k| bounds(&again, k).center().x;
+                x(a).total_cmp(&x(b))
+            })
+            .unwrap();
+        assert_eq!(i, furthest);
+        // And no id, a shape's or a group's, is in the file twice.
+        let ids = |d: &Document| -> Vec<String> {
+            let doc = roxmltree::Document::parse(&d.xml).unwrap();
+            doc.descendants()
+                .filter_map(|n| n.attribute("id").map(str::to_string))
+                .collect()
+        };
+        let all = ids(&again);
+        let once: std::collections::HashSet<&String> = all.iter().collect();
+        assert_eq!(once.len(), all.len(), "{all:?}");
+        // So it opens again as it was saved, nothing renamed to tell two apart.
+        let third = Document::from_svg(&again.to_svg().unwrap(), "t", None).unwrap();
+        assert_eq!(ids(&third), all);
+    }
+
+    #[test]
     fn a_previewed_path_is_the_geometry_setting_it_gives() {
         // A fill with an outline, moved and turned: one path, two shapes.
         let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="60mm" height="40mm" viewBox="0 0 60 40">

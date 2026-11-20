@@ -66,6 +66,10 @@ pub struct Shape {
     /// with every move; as would opening the file again, were the grid
     /// laid out from the middle of the design, wherever that is by then).
     pub origin: P,
+    /// Satin columns sewn as one satin (see `design::joined_satin`): how
+    /// many of the geometry's subpaths are each column's, one after
+    /// another. Only the planner makes these; empty for every element read.
+    pub joined: Vec<usize>,
 }
 
 /// ZigZag's own wrapper groups (placed artwork, pastes, lettering, pen
@@ -503,6 +507,7 @@ fn push<'a>(
         groups: ctx.groups.clone(),
         outline: false,
         origin: P::default(),
+        joined: Vec::new(),
     });
     out.last_mut()
 }

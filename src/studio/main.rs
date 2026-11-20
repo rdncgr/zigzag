@@ -41,6 +41,7 @@ mod pen;
 mod perf_bench;
 mod planner;
 mod profile;
+mod review;
 mod rotate;
 mod session;
 mod settings;

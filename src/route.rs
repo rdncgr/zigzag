@@ -14,7 +14,7 @@ use std::collections::BinaryHeap;
 
 /// Cells are at least this big, units (0.25 mm): fine enough for the necks
 /// between a dither's blocks.
-const CELL: f64 = 2.5;
+pub const CELL: f64 = 2.5;
 /// And few enough to keep a hoop-sized zone quick.
 const MAX_CELLS: f64 = 400_000.0;
 /// Travel keeps this far from the zone's edge where it can: cells whose
@@ -43,7 +43,12 @@ pub struct Zone {
     piece: Vec<u32>,
     /// The search's working arrays, kept between routes.
     search: RefCell<Search>,
+    /// Where two pieces of the zone come nearest each other, as asked.
+    gaps: RefCell<Gaps>,
 }
+
+/// By the two pieces: a cell of each, if they come within a hop.
+type Gaps = std::collections::HashMap<(u32, u32), Option<(usize, usize)>>;
 
 /// What a search knows of each cell it has reached: valid where `seen`
 /// holds this search's number (so a new search needn't wipe them).
@@ -152,6 +157,7 @@ impl Zone {
             piece: Vec::new(),
             clear,
             search: RefCell::default(),
+            gaps: RefCell::default(),
         };
         let mut piece = vec![0; zone.clear.len()];
         let mut pieces = 0;
@@ -224,7 +230,9 @@ impl Zone {
     /// The zone's cell at `p`, or the nearest within a couple of cells (a
     /// row's end sits on the outline, or just past it with pull added) or
     /// within `hop` units, whichever is further.
-    fn enter(&self, p: P, hop: f64) -> Option<usize> {
+    ///
+    /// With `piece`, only a cell of that piece of the zone.
+    fn enter(&self, p: P, hop: f64, piece: Option<u32>) -> Option<usize> {
         // (To a cell's center: a cell further than the hop to its edge.)
         let limit = (3.0 * self.cell).max(hop + self.cell);
         let reach = ((limit / self.cell).ceil() as i32).min(16);
@@ -234,7 +242,7 @@ impl Zone {
         for rr in (r - reach).max(0)..=(r + reach).min(self.h as i32 - 1) {
             for cc in (c - reach).max(0)..=(c + reach).min(self.w as i32 - 1) {
                 let k = rr as usize * self.w + cc as usize;
-                if self.clear[k] == 0 {
+                if self.clear[k] == 0 || piece.is_some_and(|q| self.piece[k] != q) {
                     continue;
                 }
                 let d = self.center(k).dist(p);
@@ -273,6 +281,15 @@ impl Zone {
         Some(cost)
     }
 
+    /// Whether there's hidden ground all the way from `from` (which may be
+    /// up to `hop` units outside the zone, as for [`Zone::route_from`]) to
+    /// `to`: the two are on one piece of the zone. (How long the way is,
+    /// a route says.)
+    pub fn joined(&self, from: P, hop: f64, to: P) -> bool {
+        self.enter(to, 0.0, None)
+            .is_some_and(|b| self.enter(from, hop, Some(self.piece[b])).is_some())
+    }
+
     /// Stitches from `from` to `to` through the zone, when there's a way no
     /// longer than `max_len`: the points after `from`, ending on `to`.
     pub fn route(&self, from: P, to: P, max_len: f64) -> Option<Polyline> {
@@ -283,11 +300,75 @@ impl Zone {
     /// zone: the hop onto hidden ground from where the last piece ended
     /// (the end of a satin, a corner of its column) is as short as the gaps
     /// that are sewn straight across anyway.
+    ///
+    /// And the same hop will do once on the way, between two pieces of the
+    /// zone that come that near each other: two columns of a letter still
+    /// to sew, the tip of one already sewn between them.
     pub fn route_from(&self, from: P, to: P, max_len: f64, hop: f64) -> Option<Polyline> {
-        let (start, goal) = (self.enter(from, hop)?, self.enter(to, 0.0)?);
-        if self.piece[start] != self.piece[goal] {
+        if let Some(way) = self.route_on(from, to, max_len, hop) {
+            return Some(way);
+        }
+        if hop <= 0.0 {
             return None;
         }
+        let goal = self.enter(to, 0.0, None)?;
+        let start = self.enter(from, hop, None)?;
+        let (here, there) = (self.piece[start], self.piece[goal]);
+        if here == there {
+            return None;
+        }
+        let (a, b) = *self
+            .gaps
+            .borrow_mut()
+            .entry((here, there))
+            .or_insert_with(|| self.gap(here, there, hop))
+            .as_ref()?;
+        let (a, b) = (self.center(a), self.center(b));
+        let mut way = self.route_on(from, a, max_len, hop)?;
+        way.push(b);
+        way.extend(self.route_on(b, to, max_len, 0.0)?);
+        let mut whole = vec![from];
+        whole.extend(way.iter().copied());
+        (crate::geom::polyline_length(&whole) <= max_len).then_some(way)
+    }
+
+    /// The two cells, one of each of two pieces of the zone, that are
+    /// nearest each other, if no more than `hop` apart.
+    fn gap(&self, here: u32, there: u32, hop: f64) -> Option<(usize, usize)> {
+        // (Between cells' centers: a cell further than between their
+        // edges.)
+        let limit = hop + self.cell;
+        let reach = (limit / self.cell).ceil() as i32;
+        let mut best: Option<(f64, usize, usize)> = None;
+        for k in 0..self.clear.len() {
+            // (An edge cell of the one piece.)
+            if self.piece[k] != here || self.clear[k] != 1 {
+                continue;
+            }
+            let (r, c) = ((k / self.w) as i32, (k % self.w) as i32);
+            for rr in (r - reach).max(0)..=(r + reach).min(self.h as i32 - 1) {
+                for cc in (c - reach).max(0)..=(c + reach).min(self.w as i32 - 1) {
+                    let n = rr as usize * self.w + cc as usize;
+                    if self.piece[n] != there {
+                        continue;
+                    }
+                    let d = self.center(k).dist(self.center(n));
+                    if d <= limit && best.is_none_or(|(bd, _, _)| d < bd) {
+                        best = Some((d, k, n));
+                    }
+                }
+            }
+        }
+        best.map(|(_, a, b)| (a, b))
+    }
+
+    /// [`Zone::route_from`] over one piece of the zone.
+    fn route_on(&self, from: P, to: P, max_len: f64, hop: f64) -> Option<Polyline> {
+        // (Onto the ground the far end is on, where that's within the hop:
+        // the nearest hidden ground may be another piece of it, with no
+        // way across.)
+        let goal = self.enter(to, 0.0, None)?;
+        let start = self.enter(from, hop, Some(self.piece[goal]))?;
         let goal_at = self.center(goal);
         // A*: steps cost their length, more along the zone's edge.
         let budget = max_len * NEAR_EDGE;

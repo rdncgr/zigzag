@@ -231,24 +231,31 @@ impl Studio {
         egui::Area::new(id)
             .pivot(egui::Align2::CENTER_TOP)
             .fixed_pos(rect.center_top() + Vec2::new(0.0, space::M))
+            // (On the canvas, never over the docks beside it.)
+            .constrain_to(rect)
             .show(ctx, |ui| {
+                ui.set_max_width(crate::theme::canvas_bar_width(rect));
                 egui::Frame::popup(ui.style())
                     .corner_radius(9)
                     .inner_margin(egui::Margin::symmetric(space::S as i8, space::XS as i8))
                     .show(ui, |ui| {
-                        ui.horizontal(|ui| {
+                        ui.horizontal_wrapped(|ui| {
                             ui.spacing_mut().item_spacing.x = space::S;
                             let p = crate::theme::pal_ui(ui);
-                            ui.label(
-                                egui::RichText::new("Yumuşaklık").size(12.0).color(p.secondary),
-                            );
-                            ui.add(
-                                egui::Slider::new(&mut self.brush.smooth_tool, 0.0..=100.0)
-                                    .show_value(false),
-                            )
-                            .on_hover_text(
-                                "Yumuşatırken yolun ne kadar oynayabileceği: daha yumuşak için sağa, aslına yakın kalmak için sola",
-                            );
+                            crate::theme::keep_together(ui, "smoothness", |ui| {
+                                ui.label(
+                                    egui::RichText::new("Yumuşaklık")
+                                        .size(12.0)
+                                        .color(p.secondary),
+                                );
+                                ui.add(
+                                    egui::Slider::new(&mut self.brush.smooth_tool, 0.0..=100.0)
+                                        .show_value(false),
+                                )
+                                .on_hover_text(
+                                    "Bir vuruşun yolu yumuşatmak için ne kadar oynatabileceği: daha yumuşak için sağa, yola yakın kalmak için sola",
+                                );
+                            });
                         });
                     });
             });

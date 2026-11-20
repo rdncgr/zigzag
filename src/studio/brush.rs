@@ -165,12 +165,15 @@ impl Studio {
         egui::Area::new(id)
             .pivot(egui::Align2::CENTER_TOP)
             .fixed_pos(rect.center_top() + Vec2::new(0.0, space::M))
+            // (On the canvas, never over the docks beside it.)
+            .constrain_to(rect)
             .show(ctx, |ui| {
+                ui.set_max_width(crate::theme::canvas_bar_width(rect));
                 egui::Frame::popup(ui.style())
                     .corner_radius(9)
                     .inner_margin(egui::Margin::symmetric(space::S as i8, space::XS as i8))
                     .show(ui, |ui| {
-                        ui.horizontal(|ui| {
+                        ui.horizontal_wrapped(|ui| {
                             ui.spacing_mut().item_spacing.x = space::S;
                             let p = pal_ui(ui);
                             let label = |ui: &mut egui::Ui, t: &str| {
@@ -183,22 +186,26 @@ impl Studio {
                                 &[(Kind::Satin, "Saten"), (Kind::Run, "Düz")],
                             );
                             if self.brush.kind == Kind::Satin {
-                                label(ui, "Genişlik");
-                                ui.add(
-                                    egui::DragValue::new(&mut self.brush.width_mm)
-                                        .range(0.5..=8.0)
-                                        .speed(0.05)
-                                        .fixed_decimals(1)
-                                        .suffix(" mm"),
-                                )
-                                .on_hover_text("Saten sütun genişliği. 7 mm'nin altında tutun.");
+                                crate::theme::keep_together(ui, "width", |ui| {
+                                    label(ui, "Genişlik");
+                                    ui.add(
+                                        egui::DragValue::new(&mut self.brush.width_mm)
+                                            .range(0.5..=8.0)
+                                            .speed(0.05)
+                                            .fixed_decimals(1)
+                                            .suffix(" mm"),
+                                    )
+                                    .on_hover_text("Saten sütun genişliği. 7 mm'nin altında tutun.");
+                                });
                             }
-                            label(ui, "Yumuşaklık");
-                            ui.add(
-                                egui::Slider::new(&mut self.brush.smoothness, 0.0..=100.0)
-                                    .show_value(false),
-                            )
-                            .on_hover_text("El titremesinin ne kadarının giderileceği");
+                            crate::theme::keep_together(ui, "smoothness", |ui| {
+                                label(ui, "Yumuşaklık");
+                                ui.add(
+                                    egui::Slider::new(&mut self.brush.smoothness, 0.0..=100.0)
+                                        .show_value(false),
+                                )
+                                .on_hover_text("El titremesinin ne kadarının giderileceği");
+                            });
                         });
                     });
             });
@@ -260,5 +267,51 @@ mod tests {
         );
         assert_eq!(h.state().undo.len(), 1);
         assert!(h.state().design.stitch_count() > 50, "it sews");
+    }
+
+    #[test]
+    fn painting_doesnt_widen_the_right_dock() {
+        use crate::dock::PanelId;
+        // The dock made as narrow as it goes, without the Stitch and
+        // Document panels (whose rows are the widest): the painted line's
+        // Transform form is wider than anything there before.
+        let mut s = Studio::with_file(None, None);
+        s.dock.toggle(PanelId::Stitch);
+        s.dock.toggle(PanelId::Document);
+        let size = Vec2::new(1180.0, 820.0);
+        let mut h = Harness::builder()
+            .with_size(size)
+            .build_ui_state(|ui, s: &mut Studio| s.frame(ui), s);
+        h.run_steps(2);
+        let edge = Pos2::new(h.state().canvas_rect.max.x + 1.0, 400.0);
+        let to = edge + Vec2::new(200.0, 0.0);
+        h.hover_at(edge);
+        h.run_steps(1);
+        h.drag_at(edge);
+        h.run_steps(1);
+        h.hover_at(to);
+        h.run_steps(1);
+        h.drop_at(to);
+        h.run_steps(3);
+        let width = |h: &Harness<'_, Studio>| size.x - h.state().canvas_rect.max.x;
+        let before = width(&h);
+        assert!(before < 330.0, "narrower than the form needs: {before}");
+        h.key_press(Key::B);
+        h.run_steps(1);
+        let c = h.state().canvas_rect.center();
+        let at = |k: usize| c + Vec2::new(-150.0 + k as f32 * 10.0, (k as f32 / 5.0).sin() * 30.0);
+        h.hover_at(at(0));
+        h.run_steps(1);
+        h.drag_at(at(0));
+        h.run_steps(1);
+        for k in 1..=30 {
+            h.hover_at(at(k));
+            h.run_steps(1);
+            assert_eq!(width(&h), before, "while painting");
+        }
+        h.drop_at(at(30));
+        h.run_steps(5);
+        assert_eq!(h.state().sel_indices(), vec![0], "the line is selected");
+        assert_eq!(width(&h), before, "with the line's settings showing");
     }
 }

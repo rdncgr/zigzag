@@ -42,6 +42,9 @@ const BUDGET: usize = 600;
 const RING_BUDGET: usize = 60;
 /// Cuts tried at each step, nearest first.
 const TRIES: usize = 6;
+/// Columns whose stitches lean less than this from square across them, on
+/// average (degrees), are as good as columns get.
+const SQUARE: f64 = 3.0;
 
 /// A closed outline with the material on its left (an outer ring one way
 /// round, a hole the other), and which of its edges are cuts.
@@ -85,7 +88,7 @@ struct Seen {
     pieces: std::collections::HashMap<(u64, usize), Option<std::rc::Rc<Vec<Piece>>>>,
 }
 
-fn area(pts: &[P]) -> f64 {
+pub(super) fn area(pts: &[P]) -> f64 {
     let n = pts.len();
     (0..n).map(|i| cross(pts[i], pts[(i + 1) % n])).sum::<f64>() * 0.5
 }
@@ -526,7 +529,7 @@ impl Piece {
             Found::None => None,
             Found::Ring(rails) => rails.clone(),
             Found::Open { rails, valid } => {
-                if !turns && !rails.sync.is_empty() {
+                if !turns && turns_corner(rails) {
                     return None;
                 }
                 valid.then(|| rails.clone())
@@ -659,7 +662,7 @@ impl Piece {
 
 /// Where a ray from `from` along `dir` first meets the line `line`: how far
 /// along the ray, and how far along the line.
-fn ray_on_line(from: P, dir: P, line: &[P]) -> Option<(f64, f64)> {
+pub(super) fn ray_on_line(from: P, dir: P, line: &[P]) -> Option<(f64, f64)> {
     let mut best: Option<(f64, f64)> = None;
     let mut arc = 0.0;
     for w in line.windows(2) {
@@ -708,11 +711,35 @@ fn corner_rungs(r: &Rails) -> Vec<(f64, f64)> {
                     .min_by(|x, y| x.0.total_cmp(&y.0))
                     .map(|(_, n, t)| (n, t))
             };
+            // The far rail's direction a little way along it.
+            let far_dir = |t: f64| {
+                let at = |s: f64| -> P {
+                    let mut gone = 0.0;
+                    for w in far.windows(2) {
+                        let d = w[0].dist(w[1]);
+                        if gone + d >= s {
+                            return w[0].lerp(w[1], if d > 0.0 { (s - gone) / d } else { 0.0 });
+                        }
+                        gone += d;
+                    }
+                    *far.last().unwrap()
+                };
+                (at(t + 2.0) - at((t - 2.0).max(0.0))).norm()
+            };
             if let (Some((n1, t1)), Some((_, t2))) = (across(d1), across(d2))
                 && t2 > t1 + 1.0
                 // An inside corner: the rail turns away from the far rail.
                 // (A corner of the column's own end turns toward it.)
                 && cross(d1, n1) * cross(d1, d2) < 0.0
+                // And the column turns there: the far rail too, between the
+                // two places across from the corner. (Not where the near
+                // rail only bulges toward it and back, a counter running
+                // into a stem: that side straight, the stitches square to
+                // it.)
+                && {
+                    let (u, v) = (far_dir(t1), far_dir(t2));
+                    cross(u, v).atan2(u.dot(v)).abs() > CORNER * 0.5
+                }
             {
                 let pair = |near_arc: f64, far_arc: f64| {
                     if swap {
@@ -746,7 +773,23 @@ fn squared(mut rails: Rails) -> Rails {
 /// Whether a column's stitches stay inside the shape, aren't too wide and
 /// each cross one stroke of it: what an automatic satin has to be.
 /// (`walls`: the shape's own outline, without the cuts made in it.)
-fn valid(rails: &Rails, outlines: &[Polyline], walls: &[(P, P)]) -> bool {
+pub(super) fn valid(rails: &Rails, outlines: &[Polyline], walls: &[(P, P)]) -> bool {
+    sewable(rails, outlines, walls, 0, 12.0)
+}
+
+/// [`valid`], for a column known to be one stroke. It forgives `spare`
+/// stitches that span a notch besides the few any column may have: a
+/// stroke that ends in a ball has one where the ball joins it, and the
+/// stitches across the ball pass it, however short the stroke. And its
+/// stitches may be as long as `swell` (units) however thin it is elsewhere:
+/// a hairline widens where it runs into a point or takes a corner.
+pub(super) fn sewable(
+    rails: &Rails,
+    outlines: &[Polyline],
+    walls: &[(P, P)],
+    spare: usize,
+    swell: f64,
+) -> bool {
     let ps = pairs(rails, 8.0);
     if ps.len() < 2 {
         return false;
@@ -797,7 +840,7 @@ fn valid(rails: &Rails, outlines: &[Polyline], walls: &[(P, P)]) -> bool {
     let mut sorted = widths.clone();
     sorted.sort_by(f64::total_cmp);
     let (median, widest) = (sorted[sorted.len() / 2], sorted[sorted.len() - 1]);
-    if widest > (median * 3.0).max(12.0) {
+    if widest > (median * 3.0).max(swell) {
         return false;
     }
     // A stitch across a stroke is as long as the stroke is thick, so its
@@ -810,7 +853,7 @@ fn valid(rails: &Rails, outlines: &[Polyline], walls: &[(P, P)]) -> bool {
     let spans = (margin..ps.len().saturating_sub(margin))
         .filter(|&k| nears[k].is_some_and(|near| widths[k] > near * 3.6))
         .count();
-    if spans as f64 > ps.len() as f64 * 0.1 {
+    if spans.saturating_sub(spare) as f64 > ps.len() as f64 * 0.1 {
         return false;
     }
     (bad as f64) <= ps.len() as f64 * 0.06
@@ -954,41 +997,140 @@ fn solve(
     None
 }
 
+/// Whether a column turns a corner: one of its corner rungs (see
+/// [`corner_rungs`]) is away from its ends. A kink in an outline within
+/// [`END_KINK`] of the end of a column (where a cut meets it, a point or
+/// two from a corner of the shape's own) is part of the end, not a
+/// corner the column turns.
+fn turns_corner(r: &Rails) -> bool {
+    let (la, lb) = (polyline_length(&r.a), polyline_length(&r.b));
+    r.sync
+        .iter()
+        .any(|&(sa, sb)| sa > END_KINK && sa < la - END_KINK && sb > END_KINK && sb < lb - END_KINK)
+}
+
+/// See [`turns_corner`] (units).
+const END_KINK: f64 = 4.0;
+
+/// Whether the one column a shape was taken for (see
+/// [`super::satin::auto_rails`]) is fit to sew as it is: its stitches each
+/// cross one stroke, and none crosses the next. A V passes for a column
+/// between its two serifs, its stitches fanning across each and crossing
+/// one another at its foot: that one is better cut into its strokes (see
+/// [`split`]), if it can be.
+pub fn sound(comp: &[Polyline], rails: &Rails) -> bool {
+    if rails.closed {
+        return true;
+    }
+    let walls: Vec<(P, P)> = comp
+        .iter()
+        .flat_map(|ring| (0..ring.len()).map(move |i| (ring[i], ring[(i + 1) % ring.len()])))
+        .collect();
+    valid(rails, comp, &walls) && !super::skeleton::crossed(rails)
+}
+
+/// Whether a column of the shape still sews with its ends put where the
+/// shape's are (see [`super::satin::flat_ends`]): its stitches inside the
+/// shape (no more of them astray than `was`, the column before), and none
+/// crossing the next.
+pub fn holds(comp: &[Polyline], rails: &Rails, was: &Rails) -> bool {
+    let walls: Vec<(P, P)> = comp
+        .iter()
+        .flat_map(|ring| (0..ring.len()).map(move |i| (ring[i], ring[(i + 1) % ring.len()])))
+        .collect();
+    sewable(rails, comp, &walls, 3, 20.0)
+        && !super::skeleton::crossed(rails)
+        && astray(comp, rails) <= astray(comp, was)
+}
+
+/// A stitch no further than this outside a shape's outline is on it,
+/// for counting those that leave it (units).
+const ON_EDGE: f64 = 0.5;
+
+/// How many of a column's stitches leave the shape.
+pub(crate) fn astray(comp: &[Polyline], rails: &Rails) -> usize {
+    astray_in(comp, FillRule::EvenOdd, rails)
+}
+
+/// How many of a column's stitches are more than 30° from square to the
+/// shape's own edge where they end on it (to both edges, taken together,
+/// where both ends do): the stitches that lean, as the eye judges them,
+/// against the stroke as it's drawn. Not against the column's middle
+/// line, which bends toward a cut where two strokes are cut apart on a
+/// mitre. (Nor its last stitch, lying along its end, nor the short ones
+/// into a point.)
+pub(crate) fn off_square(rings: &[Polyline], rails: &Rails) -> usize {
+    // The outline's edge nearest a point: how far, and which way it runs.
+    let edge = |p: P| -> (f64, P) {
+        let mut best = (f64::INFINITY, P::new(1.0, 0.0));
+        for ring in rings {
+            for i in 0..ring.len() {
+                let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
+                if a.dist(b) < 1e-9 {
+                    continue;
+                }
+                let d = super::skeleton::nearest_on(a, b, p).1.dist(p);
+                if d < best.0 {
+                    best = (d, (b - a).norm());
+                }
+            }
+        }
+        best
+    };
+    pairs(rails, 3.0)
+        .iter()
+        .filter(|&&(a, b)| {
+            let across = b - a;
+            if across.len() < 10.0 || edge(a.lerp(b, 0.5)).0 <= 1.0 {
+                return false;
+            }
+            let ((da, ta), (db, tb)) = (edge(a), edge(b));
+            let along = match (da <= 1.0, db <= 1.0) {
+                (true, true) => ta + if ta.dot(tb) < 0.0 { -tb } else { tb },
+                (true, false) => ta,
+                (false, true) => tb,
+                (false, false) => return false,
+            };
+            along.len() > 1e-6 && along.norm().dot(across.norm()).abs() > 0.5
+        })
+        .count()
+}
+
+/// [`astray`], in a shape of several parts (`rings`, filled by `rule`).
+///
+/// A stitch lying along the outline hasn't left the shape: the last
+/// stitches of a column that runs out to a flat end lie along that end.
+/// (Which side of the line rounding puts them is chance: counted, the
+/// same letter would be cut one way here and another way there.)
+pub(crate) fn astray_in(rings: &[Polyline], rule: FillRule, rails: &Rails) -> usize {
+    let off = |p: P| {
+        !point_inside(rings, rule, p)
+            && rings.iter().all(|ring| {
+                (0..ring.len()).all(|i| {
+                    let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
+                    super::skeleton::nearest_on(a, b, p).1.dist(p) > ON_EDGE
+                })
+            })
+    };
+    let ps = pairs(rails, 4.0);
+    ps.iter()
+        .skip(1)
+        .take(ps.len().saturating_sub(2))
+        .filter(|(a, b)| a.dist(*b) > 1.0 && [0.25, 0.5, 0.75].iter().any(|&t| off(a.lerp(*b, t))))
+        .count()
+}
+
+/// The component's strokes as whole columns overlapping where they meet,
+/// for a satin set to overlap them: see [`super::skeleton::overlapping`].
+pub fn overlapping(comp: &[Polyline]) -> Option<Vec<Rails>> {
+    super::skeleton::overlapping(comp)
+}
+
 /// The satin columns for one filled component (its outer ring, then its
 /// holes) that isn't a single column: `None` if it can't be made into
 /// columns whose stitches stay inside it.
 pub fn split(comp: &[Polyline]) -> Option<Vec<Rails>> {
-    use std::collections::HashMap;
-    use std::hash::{Hash, Hasher};
-    use std::sync::{Mutex, OnceLock};
-    // Asked for again and again (planning, the checks, the rails drawn on
-    // the canvas): worked out once per outline.
-    // (In two halves, the older dropped when the newer fills up: what was
-    // asked for lately, the letters on the canvas now, is never what goes.)
-    type Memo = HashMap<u64, Option<Vec<Rails>>>;
-    static MEMO: OnceLock<Mutex<(Memo, Memo)>> = OnceLock::new();
-    let key = {
-        let mut h = std::collections::hash_map::DefaultHasher::new();
-        for ring in comp {
-            ring.len().hash(&mut h);
-            for p in ring {
-                p.x.to_bits().hash(&mut h);
-                p.y.to_bits().hash(&mut h);
-            }
-        }
-        h.finish()
-    };
-    let memo = MEMO.get_or_init(Default::default);
-    if let Ok(mut m) = memo.lock() {
-        if let Some(hit) = m.0.get(&key) {
-            return hit.clone();
-        }
-        if let Some(hit) = m.1.remove(&key) {
-            m.0.insert(key, hit.clone());
-            return hit;
-        }
-    }
-    let found = (|| {
+    (|| {
         let outer = Ring::new(comp.first()?, true)?;
         let holes: Vec<Ring> = comp[1..]
             .iter()
@@ -1004,18 +1146,69 @@ pub fn split(comp: &[Polyline]) -> Option<Vec<Rails>> {
             BUDGET
         };
         let mut seen = Seen::default();
-        [false, true].into_iter().find_map(|turns| {
+        let mut cut = |turns: bool| {
             let mut budget = tries;
-            solve(&piece, MAX_DEPTH, &mut budget, turns, &mut seen)
-        })
-    })();
-    if let Ok(mut m) = memo.lock() {
-        if m.0.len() >= 1024 {
-            m.1 = std::mem::take(&mut m.0);
+            let first = solve(&piece, MAX_DEPTH, &mut budget, turns, &mut seen);
+            // The search takes the first way of cutting the shape that
+            // works, trying the shortest cuts first, and that needn't be
+            // the best. So it starts again from each of the first few
+            // cuts it could make, each with a search of its own, and the
+            // squarest result is taken.
+            let mut best = first.map(|c| (lean(&c), c));
+            if best.as_ref().is_some_and(|(l, _)| *l < SQUARE) {
+                return best.map(|(_, c)| c);
+            }
+            let cuts = piece.cuts();
+            for &(a, b) in cuts.iter().take(TRIES) {
+                let Some(pieces) = piece.cut(a, b) else {
+                    continue;
+                };
+                let mut budget = tries;
+                let mut all = Vec::new();
+                let whole = pieces.iter().all(|p| {
+                    solve(p, MAX_DEPTH - 1, &mut budget, turns, &mut seen)
+                        .map(|rails| all.extend(rails))
+                        .is_some()
+                });
+                if !whole {
+                    continue;
+                }
+                let l = lean(&all);
+                if best.as_ref().is_none_or(|(bl, _)| l < *bl) {
+                    best = Some((l, all));
+                }
+            }
+            best.map(|(_, c)| c)
+        };
+        // Cut at its corners, if that leaves columns that run straight or
+        // curve; else, or if the columns lean (a letter with brackets for
+        // corners: the cuts that could be found weren't where its strokes
+        // meet), a column a stroke of its skeleton, where those are
+        // squarer; and failing both, columns that turn corners.
+        let cornered = cut(false);
+        let leaning = cornered.as_deref().map(lean);
+        if leaning.is_some_and(|l| l < SQUARE) {
+            return cornered;
         }
-        m.0.insert(key, found.clone());
-    }
-    found
+        // (And no more of their stitches off the shape, give or take one:
+        // a stroke's column may span a nick in the outline that the cut
+        // pieces stop at.)
+        let off = |c: &[Rails]| c.iter().map(|r| astray(comp, r)).sum::<usize>();
+        let stroked = super::skeleton::columns(comp).filter(|(c, _)| {
+            leaning.is_none_or(|l| lean(c) < l * 0.7)
+                && cornered.as_deref().is_none_or(|was| off(c) <= off(was) + 1)
+        });
+        match stroked {
+            Some((columns, false)) => Some(columns),
+            // (Strokes only to be had by one of the less sure readings:
+            // held to columns that turn corners, likewise.)
+            Some((columns, true)) => match cornered.or_else(|| cut(true)) {
+                Some(was) if off(&columns) > off(&was) + 1 => Some(was),
+                _ => Some(columns),
+            },
+            None => cornered.or_else(|| cut(true)),
+        }
+    })()
 }
 
 #[cfg(test)]
@@ -1083,6 +1276,50 @@ mod tests {
             .collect();
         assert!(spans.contains(&(100.0, 16.0)), "{spans:?}");
         assert!(spans.contains(&(16.0, 104.0)), "{spans:?}");
+    }
+
+    #[test]
+    fn a_column_turns_a_corner_only_where_both_its_sides_do() {
+        // An L, 3 mm wide: its inner side turns at (30, 100), its outer at
+        // (0, 130). Square across from the inner corner on the way in and
+        // on the way out are two places on the outer side.
+        let l = Rails {
+            a: poly(&[(0.0, 0.0), (0.0, 130.0), (100.0, 130.0)]),
+            b: poly(&[(30.0, 0.0), (30.0, 100.0), (100.0, 100.0)]),
+            closed: false,
+            sync: Vec::new(),
+        };
+        let rungs = corner_rungs(&l);
+        assert_eq!(rungs.len(), 2, "{rungs:?}");
+        assert!(turns_corner(&squared(l)));
+        // A stem whose inner side bulges into it and back (a counter
+        // running into it), its outer side straight: no corner.
+        let stem = Rails {
+            a: poly(&[(0.0, 0.0), (0.0, 200.0)]),
+            b: poly(&[
+                (30.0, 0.0),
+                (30.0, 80.0),
+                (20.0, 100.0),
+                (30.0, 120.0),
+                (30.0, 200.0),
+            ]),
+            closed: false,
+            sync: Vec::new(),
+        };
+        assert!(corner_rungs(&stem).is_empty(), "{:?}", corner_rungs(&stem));
+        // Nor is a kink where a column's side meets its end (a cut a point
+        // from a corner of the shape) a corner it turns.
+        let kinked = Rails {
+            a: poly(&[(0.0, 0.0), (0.0, 200.0)]),
+            b: poly(&[(30.0, 0.0), (30.0, 197.0), (28.0, 200.0)]),
+            closed: false,
+            sync: vec![(196.5, 196.75), (197.5, 197.25)],
+        };
+        assert!(!turns_corner(&kinked));
+        assert!(turns_corner(&Rails {
+            sync: vec![(100.0, 100.0)],
+            ..kinked.clone()
+        }));
     }
 
     #[test]
@@ -1196,6 +1433,282 @@ mod tests {
             now < leaning * 0.5,
             "{now}° across, where the ring's {leaning}°"
         );
+    }
+
+    /// A polygon with its corners rounded: each point, and the radius of
+    /// the arc that takes its place (0: left sharp). Inside corners
+    /// become brackets, outside ones round ends.
+    fn rounded(pts: &[(f64, f64, f64)]) -> Polyline {
+        let n = pts.len();
+        let mut out = Vec::new();
+        for i in 0..n {
+            let at = |k: usize| P::new(pts[k % n].0, pts[k % n].1);
+            let (before, v, after) = (at(i + n - 1), at(i), at(i + 1));
+            let r = pts[i].2;
+            if r <= 0.0 {
+                out.push(v);
+                continue;
+            }
+            let (u, w) = ((before - v).norm(), (after - v).norm());
+            let half = (u.dot(w).clamp(-1.0, 1.0).acos()) * 0.5;
+            let centre = v + (u + w).norm() * (r / half.sin());
+            let (from, to) = (v + u * (r / half.tan()), v + w * (r / half.tan()));
+            let (a, b) = (from - centre, to - centre);
+            let sweep = cross(a, b).atan2(a.dot(b));
+            for k in 0..=8 {
+                let t = sweep * k as f64 / 8.0;
+                out.push(centre + a.rotate(t.cos(), t.sin()));
+            }
+        }
+        out
+    }
+
+    /// Where a column's points lie: (least x, least y, most x, most y).
+    fn extent(r: &Rails) -> (f64, f64, f64, f64) {
+        r.a.iter().chain(&r.b).fold(
+            (f64::MAX, f64::MAX, f64::MIN, f64::MIN),
+            |(x0, y0, x1, y1), p| (x0.min(p.x), y0.min(p.y), x1.max(p.x), y1.max(p.y)),
+        )
+    }
+
+    /// How far a column's stitches run across (x) and up and down (y), on
+    /// average: which way they lie.
+    fn lie(r: &Rails) -> (f64, f64) {
+        let ps = pairs(r, 4.0);
+        let n = ps.len() as f64;
+        ps.iter().fold((0.0, 0.0), |(x, y), (a, b)| {
+            (x + (b.x - a.x).abs() / n, y + (b.y - a.y).abs() / n)
+        })
+    }
+
+    /// Every column fit to sew, none with crossed stitches, and together
+    /// covering the shape (but for the slivers past the last stitch of a
+    /// round end).
+    fn sews(comp: &[Polyline], rails: &[Rails]) {
+        let total: f64 =
+            area(&comp[0]).abs() - comp[1..].iter().map(|h| area(h).abs()).sum::<f64>();
+        let mut sewn = 0.0;
+        for r in rails {
+            assert!(!super::super::skeleton::crossed(r), "crossed stitches");
+            assert!(
+                pairs(r, 4.0)
+                    .iter()
+                    .all(|(a, b)| a.dist(*b) <= AUTO_MAX_WIDTH),
+                "a stitch too long"
+            );
+            let ring: Polyline = r.a.iter().chain(r.b.iter().rev()).copied().collect();
+            sewn += area(&ring).abs();
+        }
+        assert!(
+            (sewn - total).abs() < total * 0.05,
+            "columns cover {sewn} of {total}"
+        );
+    }
+
+    /// A stem 16 wide standing on a slab serif 12 thick, the corners
+    /// between them bracketed and the serif's ends round.
+    fn stem_on_slab() -> Vec<Polyline> {
+        vec![rounded(&[
+            (42.0, 0.0, 0.0),
+            (58.0, 0.0, 0.0),
+            (58.0, 100.0, 6.0),
+            (90.0, 100.0, 4.0),
+            (90.0, 112.0, 4.0),
+            (10.0, 112.0, 4.0),
+            (10.0, 100.0, 4.0),
+            (42.0, 100.0, 6.0),
+        ])]
+    }
+
+    #[test]
+    fn a_stem_stands_on_its_slab_serif() {
+        let t = stem_on_slab();
+        // No sharp inside corner to cut it at: it was filled.
+        assert!(super::super::satin::auto_rails(&t).is_err());
+        let rails = split(&t).expect("columns");
+        assert_eq!(rails.len(), 2, "a stem and a serif");
+        sews(&t, &rails);
+        // The serif is a column of its own right across the foot, its
+        // stitches lying the way the stem runs; the stem stops on top of it.
+        let serif = rails
+            .iter()
+            .find(|r| extent(r).2 - extent(r).0 > 70.0)
+            .expect("the serif");
+        let (across, along) = lie(serif);
+        assert!(
+            along > 10.0 && across < 2.0,
+            "{across} across, {along} along"
+        );
+        let stem = rails
+            .iter()
+            .find(|r| extent(r).3 - extent(r).1 > 90.0)
+            .expect("the stem");
+        let (across, along) = lie(stem);
+        assert!(
+            across > 14.0 && along < 2.0,
+            "{across} across, {along} along"
+        );
+        assert!(extent(stem).1 < 1.0 && extent(stem).3 < 106.0);
+    }
+
+    /// A slab-serif n, 110 tall: a stem with a flag serif at its head, an
+    /// arch off its side into a second stem, a slab serif across the foot
+    /// of each, every join bracketed.
+    fn serif_n() -> Vec<Polyline> {
+        vec![rounded(&[
+            (0.0, 0.0, 3.0),
+            (36.0, 0.0, 2.0),
+            (36.0, 14.0, 3.0),
+            (90.0, 14.0, 26.0),
+            (90.0, 100.0, 5.0),
+            (100.0, 100.0, 3.0),
+            (100.0, 110.0, 3.0),
+            (64.0, 110.0, 3.0),
+            (64.0, 100.0, 3.0),
+            (74.0, 100.0, 5.0),
+            (74.0, 30.0, 12.0),
+            (36.0, 30.0, 4.0),
+            (36.0, 100.0, 5.0),
+            (46.0, 100.0, 3.0),
+            (46.0, 110.0, 3.0),
+            (10.0, 110.0, 3.0),
+            (10.0, 100.0, 3.0),
+            (20.0, 100.0, 5.0),
+            (20.0, 10.0, 5.0),
+            (0.0, 10.0, 3.0),
+        ])]
+    }
+
+    #[test]
+    fn a_serif_n_is_its_strokes() {
+        let n = serif_n();
+        let rails = split(&n).expect("columns");
+        sews(&n, &rails);
+        assert_eq!(rails.len(), 5, "two stems, a flag and two foot serifs");
+        // The first stem runs its full height, head to foot serif, the
+        // flag and the arch butting into its sides.
+        let stem = rails
+            .iter()
+            .find(|r| {
+                let (x0, y0, x1, y1) = extent(r);
+                x0 > 17.0 && x1 < 40.0 && y0 < 2.0 && y1 > 95.0
+            })
+            .expect("a stem its full height");
+        let (across, along) = lie(stem);
+        assert!(
+            across > 14.0 && along < 2.5,
+            "{across} across, {along} along"
+        );
+        // Each foot serif right across under its stem.
+        let feet = rails
+            .iter()
+            .filter(|r| extent(r).1 > 90.0 && extent(r).2 - extent(r).0 > 30.0)
+            .count();
+        assert_eq!(feet, 2);
+        assert!(lean(&rails) < 6.0, "{}°", lean(&rails));
+    }
+
+    /// A slab-serif v: two strokes 16 wide meeting at a point, a serif
+    /// across the head of each.
+    fn serif_v() -> Vec<Polyline> {
+        vec![rounded(&[
+            (4.0, 0.0, 3.0),
+            (40.0, 0.0, 3.0),
+            (40.0, 10.0, 3.0),
+            (30.0, 10.0, 4.0),
+            (50.0, 74.0, 1.0),
+            (70.0, 10.0, 4.0),
+            (60.0, 10.0, 3.0),
+            (60.0, 0.0, 3.0),
+            (96.0, 0.0, 3.0),
+            (96.0, 10.0, 3.0),
+            (86.0, 10.0, 4.0),
+            (58.0, 100.0, 3.0),
+            (42.0, 100.0, 3.0),
+            (14.0, 10.0, 4.0),
+            (4.0, 10.0, 3.0),
+        ])]
+    }
+
+    #[test]
+    fn a_serif_v_is_two_strokes_and_two_serifs_with_no_stitch_crossing() {
+        let v = serif_v();
+        // Taken for one column, serif to serif round the foot, its
+        // stitches cross there: not fit to sew as that.
+        if let Ok(one) = super::super::satin::auto_rails(&v) {
+            assert!(!sound(&v, &one));
+        }
+        let rails = split(&v).expect("columns");
+        sews(&v, &rails);
+        assert_eq!(rails.len(), 4);
+        let serifs = rails.iter().filter(|r| extent(r).3 < 20.0).count();
+        assert_eq!(serifs, 2);
+        // One stroke runs on to the foot; the other butts into its side.
+        let to_foot = rails.iter().filter(|r| extent(r).3 > 99.0).count();
+        assert_eq!(to_foot, 1);
+    }
+
+    /// A slab-serif P: a stem 16 wide with a flag serif at its head and a
+    /// slab serif across its foot, and a bowl 10 thick round a counter,
+    /// every join bracketed.
+    fn serif_p() -> Vec<Polyline> {
+        vec![
+            rounded(&[
+                (4.0, 0.0, 3.0),
+                (90.0, 0.0, 28.0),
+                (90.0, 66.0, 28.0),
+                (36.0, 66.0, 5.0),
+                (36.0, 120.0, 5.0),
+                (50.0, 120.0, 3.0),
+                (50.0, 130.0, 3.0),
+                (6.0, 130.0, 3.0),
+                (6.0, 120.0, 3.0),
+                (20.0, 120.0, 5.0),
+                (20.0, 10.0, 5.0),
+                (4.0, 10.0, 3.0),
+            ]),
+            rounded(&[
+                (36.0, 10.0, 4.0),
+                (78.0, 10.0, 16.0),
+                (78.0, 56.0, 16.0),
+                (36.0, 56.0, 4.0),
+            ]),
+        ]
+    }
+
+    #[test]
+    fn a_bracketed_p_is_columns_not_a_fill() {
+        let p = serif_p();
+        assert!(super::super::satin::auto_rails(&p).is_err());
+        let rails = split(&p).expect("columns");
+        sews(&p, &rails);
+        assert_eq!(rails.len(), 4, "a stem, a flag, a bowl and a foot serif");
+        // The stem its full height, the bowl butting into it at both ends.
+        let stem = rails
+            .iter()
+            .find(|r| {
+                let (x0, y0, x1, y1) = extent(r);
+                x0 > 17.0 && x1 < 40.0 && y0 < 2.0 && y1 > 115.0
+            })
+            .expect("a stem its full height");
+        let (across, along) = lie(stem);
+        assert!(
+            across > 14.0 && along < 2.5,
+            "{across} across, {along} along"
+        );
+        assert!(lean(&rails) < 6.0, "{}°", lean(&rails));
+    }
+
+    #[test]
+    fn a_plain_bar_is_sound_as_one_column() {
+        let bar = vec![poly(&[
+            (0.0, 0.0),
+            (120.0, 0.0),
+            (120.0, 16.0),
+            (0.0, 16.0),
+        ])];
+        let one = super::super::satin::auto_rails(&bar).expect("a column");
+        assert!(sound(&bar, &one));
     }
 
     #[test]

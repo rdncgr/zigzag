@@ -2,7 +2,7 @@
 
 use eframe::egui::{self, Color32, Pos2, Rect, Stroke, Vec2};
 use zigzag::design::Design;
-use zigzag::geom::{P, point_inside};
+use zigzag::geom::{FillRule, P, point_inside};
 use zigzag::svg::{Geometry, Shape};
 
 /// Maps design units (0.1 mm, y down) to screen points.
@@ -699,9 +699,9 @@ pub fn hit_test_where(
     // A shape whose box `p` isn't within `tol` of can't be hit: one cheap
     // pass over its points saves the inside and distance tests (most of a
     // traced design's hundreds of objects, every frame the pointer moves).
-    let near_box = |pts: &[P], tol: f64| {
+    let near_box = |pts: &mut dyn Iterator<Item = &P>, tol: f64| {
         let mut b = zigzag::geom::Bounds::empty();
-        pts.iter().for_each(|&q| b.add(q));
+        pts.for_each(|&q| b.add(q));
         !b.is_empty()
             && p.x >= b.min.x - tol
             && p.x <= b.max.x + tol
@@ -714,11 +714,14 @@ pub fn hit_test_where(
         .rev()
         .filter(|(i, _)| keep(*i))
         .find_map(|(i, s)| {
+            // (A stroke's box is all its lines': a satin drawn as rails and
+            // rungs is hit between them, where no one line's box is.)
             let near = match &s.geometry {
-                Geometry::Fill { rings, .. } => rings.iter().any(|r| near_box(r, tol)),
-                Geometry::Stroke { lines, width } => lines
-                    .iter()
-                    .any(|(l, _)| near_box(l, (width / 2.0).max(tol))),
+                Geometry::Fill { rings, .. } => rings.iter().any(|r| near_box(&mut r.iter(), tol)),
+                Geometry::Stroke { lines, width } => near_box(
+                    &mut lines.iter().flat_map(|(l, _)| l),
+                    (width / 2.0).max(tol),
+                ),
             };
             if !near {
                 return None;
@@ -728,12 +731,28 @@ pub fn hit_test_where(
                     point_inside(rings, *rule, p)
                         || rings.iter().any(|r| dist_to_polyline(r, true, p) <= tol)
                 }
-                Geometry::Stroke { lines, width } => lines
-                    .iter()
-                    .any(|(l, closed)| dist_to_polyline(l, *closed, p) <= (width / 2.0).max(tol)),
+                Geometry::Stroke { lines, width } => {
+                    lines.iter().any(|(l, closed)| {
+                        dist_to_polyline(l, *closed, p) <= (width / 2.0).max(tol)
+                    }) || column_of(s).is_some_and(|ring| point_inside(&ring, FillRule::EvenOdd, p))
+                }
             };
             hit.then_some(i)
         })
+}
+
+/// What a satin drawn as its two rails covers: the column between them
+/// (the rings of a closed one), where its stitches are, and so where a
+/// click picks it. Its lines alone are a hairline each.
+fn column_of(s: &Shape) -> Option<Vec<Vec<P>>> {
+    let Geometry::Stroke { lines, .. } = &s.geometry else {
+        return None;
+    };
+    if s.params.kind != Some(zigzag::params::Kind::Satin) || s.outline || lines.len() < 2 {
+        return None;
+    }
+    let r = zigzag::stitch::satin::rails_from_subpaths(lines, s.params.satin_rails())?;
+    Some(r.outline())
 }
 
 fn dist_to_polyline(pts: &[P], closed: bool, p: P) -> f64 {
@@ -1035,5 +1054,113 @@ mod tests {
         };
         assert_eq!(copied, still + second, "the copy, and what it's a copy of");
         assert!((far_copied - far_moved).abs() < 1.0);
+    }
+}
+
+#[cfg(test)]
+mod stays_on_the_canvas {
+    use crate::app::{Studio, Tool};
+    use eframe::egui::{self, Rect, Vec2};
+    use egui_kittest::Harness;
+
+    /// What's drawn over the canvas and on past its left or right edge, over
+    /// a dock, and isn't cut off there. (Not what lies under the whole
+    /// canvas: the window's background.)
+    fn over_the_docks(h: &Harness<'_, Studio>) -> Vec<Rect> {
+        let c = h.state().canvas_rect;
+        h.output()
+            .shapes
+            .iter()
+            .filter(|s| {
+                let r = s.shape.visual_bounding_rect();
+                let clip = s.clip_rect;
+                r.is_finite()
+                    && r.intersects(c.shrink(1.0))
+                    && !r.contains_rect(c)
+                    && ((r.left() < c.left() - 1.0 && clip.left() < c.left() - 0.5)
+                        || (r.right() > c.right() + 1.0 && clip.right() > c.right() + 0.5))
+            })
+            .map(|s| s.shape.visual_bounding_rect())
+            .collect()
+    }
+
+    #[test]
+    fn nothing_on_the_canvas_is_drawn_over_the_docks() {
+        // An iPad-sized window with both docks open: a narrow canvas, the
+        // tools' option bars wider than it.
+        let badge = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/badge.svg");
+        let mut s = Studio::with_file(Some(badge), Some(2));
+        s.dock.toggle(crate::dock::PanelId::Agent);
+        let mut h = Harness::builder()
+            .with_size(Vec2::new(1000.0, 760.0))
+            .build_ui_state(|ui, s: &mut Studio| s.frame(ui), s);
+        h.run_steps(3);
+        let c = h.state().canvas_rect;
+        assert!(c.width() < 320.0, "a narrow canvas: {c:?}");
+        // The selection's task bar.
+        let over = over_the_docks(&h);
+        assert!(over.is_empty(), "with a selection: {over:?}");
+        for tool in [
+            Tool::Brush,
+            Tool::Blob,
+            Tool::Smooth,
+            Tool::Shape,
+            Tool::Pen,
+            Tool::Text,
+            Tool::Rotate,
+        ] {
+            h.state_mut().set_tool(tool);
+            h.run_steps(3);
+            let over = over_the_docks(&h);
+            assert!(over.is_empty(), "{tool:?}: {over:?}");
+        }
+    }
+
+    /// The bars floating over the canvas, and any part of one that's past
+    /// its edges (cut off).
+    fn bars_cut_off(h: &Harness<'_, Studio>) -> Vec<Rect> {
+        let c = h.state().canvas_rect;
+        h.ctx.memory(|m| {
+            m.areas()
+                .visible_layer_ids()
+                .into_iter()
+                .filter(|l| matches!(l.order, egui::Order::Middle | egui::Order::Foreground))
+                .filter_map(|l| m.area_rect(l.id))
+                .filter(|r| r.intersects(c) && !c.expand(0.5).contains_rect(*r))
+                .collect()
+        })
+    }
+
+    #[test]
+    fn the_bars_on_a_narrow_canvas_wrap_to_fit_it() {
+        let badge = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/badge.svg");
+        let mut s = Studio::with_file(Some(badge), Some(2));
+        s.dock.toggle(crate::dock::PanelId::Agent);
+        let mut h = Harness::builder()
+            .with_size(Vec2::new(1000.0, 760.0))
+            .build_ui_state(|ui, s: &mut Studio| s.frame(ui), s);
+        h.run_steps(4);
+        let cut = bars_cut_off(&h);
+        assert!(
+            cut.is_empty(),
+            "the task bar: {cut:?} on {:?}",
+            h.state().canvas_rect
+        );
+        for tool in [
+            Tool::Brush,
+            Tool::Blob,
+            Tool::Smooth,
+            Tool::Shape,
+            Tool::Pen,
+        ] {
+            h.state_mut().set_tool(tool);
+            h.run_steps(4);
+            let cut = bars_cut_off(&h);
+            assert!(
+                cut.is_empty(),
+                "{tool:?}: {cut:?} on {:?}",
+                h.state().canvas_rect
+            );
+        }
     }
 }

@@ -1,22 +1,32 @@
 # Changelog
 
-## 0.1.5 — 2026-11-14
+## 0.1.6 — 2026-11-19
 
-- New tools: Rotate about a point you place (with an exact-angle dialog
-  and ⌘D to repeat), Curvature, Blob Brush, Lasso, Shape Builder, Knife
-  and Eyedropper.
-- Layers lists what's on top at the top, with arrows to move layers and
-  List in Sewing Order for the other way up.
-- Drag the task bar off the art, or pin it in place.
-- Interface size in Settings › General, from 90% to 150%.
-- Mac file panels are sheets on the window, fixing a crash in Save As;
-  dragged objects no longer leave a hole in the fill under them.
+- Satin lettering is read stroke by stroke, with Corners (Cut, Auto or
+  Mitred) in the Stitch panel and an even zigzag; more letters sew in one
+  piece of thread.
+- Object › Break into Columns makes a satin shape the two-rail columns
+  it's sewn as, to reorder and reshape.
+- Settings › General can hide the advanced settings in the Stitch and
+  Document panels.
+- Annotate pins comments on the canvas for the agent; each prompt keeps
+  the design before it, to flip back to, set side by side or revert to;
+  and the agent can make versions to choose from.
+- Agents can reshape a column's rails and rungs, turn text into shapes,
+  and measure whether a change made the stitching cleaner.
+- Issues checks the stitches themselves: too short, too long, pieces a
+  trimmer can miss, piled needle points and thread.
+- Scaled text says its new height, new text starts in the last font, and
+  new objects in a reopened design no longer repeat an id.
 
-[Full release notes](packaging/releases/0.1.5.md)
-· [Downloads](https://github.com/simpsoka/zigzag/releases/tag/v0.1.5)
+[Full release notes](packaging/releases/0.1.6.md)
+· [Downloads](https://github.com/simpsoka/zigzag/releases/tag/v0.1.6)
 
 ## Previous releases
 
+- [0.1.5](packaging/releases/0.1.5.md): Rotate, Curvature, Blob Brush,
+  Lasso, Shape Builder, Knife and Eyedropper tools, Layers with the top at
+  the top, a movable task bar, interface size.
 - [0.1.4](packaging/releases/0.1.4.md): live corner handles, Add Outline,
   Simplify Design, draggable layers, unsaved-changes prompt on quit.
 

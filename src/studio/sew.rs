@@ -1517,8 +1517,10 @@ impl Studio {
             && (s.upload.is_some()
                 || matches!(s.status, Some(Status::Sewing | Status::MaskTracing)));
         let t = ui.input(|i| i.time) as f32;
-        let icon_r =
-            Rect::from_center_size(Pos2::new(r.left() + 13.0, r.center().y), Vec2::splat(14.0));
+        let icon_r = Rect::from_center_size(
+            Pos2::new(r.left() + 13.0, r.center().y),
+            Vec2::splat(crate::theme::STATUS_ICON),
+        );
         if working && s.upload.is_none() {
             icons::paint(ui.painter(), icon_r, Icon::MachineFrame, ink);
             // From under the arm down to (almost) the bed and back.
@@ -1531,7 +1533,10 @@ impl Studio {
             let at = |y: f32| icon_r.left_top() + Vec2::new(0.18, y) * icon_r.width();
             ui.painter().line_segment(
                 [at(0.5), at(0.58 + 0.26 * dip)],
-                Stroke::new((icon_r.width() / 11.0).clamp(1.1, 1.8), ink),
+                Stroke::new(
+                    icons::line_width(icon_r.width(), ui.ctx().pixels_per_point()),
+                    ink,
+                ),
             );
         } else {
             icons::paint(ui.painter(), icon_r, Icon::Machine, ink);

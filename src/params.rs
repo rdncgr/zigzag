@@ -24,6 +24,20 @@
 //!   cell=MM    cross-stitch cell size
 //!   ss=0|1     short stitches on tight satin curves
 //!   lean=DEG   satin stitches lean this far from square across (−60 to 60)
+//!   even=0|1   satin zigzag: 1 shares each step between the stitch over and the
+//!              stitch back (the default); 0 sews one straight across and the
+//!              other the whole step
+//!   cut        satin on a filled shape: cut into columns where its strokes part,
+//!              corners squared (the default; cut=0: read as strokes by their
+//!              chordal axis, corners mitred, unless a corner is too sharp or a
+//!              join unclear, when it's cut)
+//!   mitred     satin on a filled shape, with cut=0: every corner mitred however
+//!              sharp (mitred=0: not)
+//!   overlap    satin on a filled shape: its letters' strokes as whole columns
+//!              laid over each other where they meet, as a hand digitiser sews
+//!              them (overlap=0: not)
+//!   rails=A+B  two-rail satin: which subpaths are the rails (1 = the path's first)
+//!              first (a piece of a route, which the next piece goes on from)
 //!   t=RRGGBB   thread color (overrides the SVG paint)
 //!   o=N        sewing order
 //!   st=T       start sewing at this point of the outline (0–1 along it)
@@ -153,6 +167,26 @@ pub struct Params {
     /// How far a satin's stitches lean from square across the column,
     /// degrees (−60 to 60).
     pub lean: Option<f64>,
+    /// Satin zigzag: each step along the column shared evenly between the
+    /// stitch over and the stitch back (see [`defaults::SATIN_EVEN`]).
+    pub even: Option<bool>,
+    /// Satin on a filled shape: cut into columns where its strokes part,
+    /// their corners squared (see [`crate::stitch::columns::split`]),
+    /// instead of read as strokes by its chordal axis, corners mitred (see
+    /// [`crate::stitch::cat`]). Unset: cut. `false`: by the chordal axis,
+    /// unless its corners are too sharp or its joins unclear for that.
+    pub cut: Option<bool>,
+    /// Satin on a filled shape not cut: read as strokes by its chordal
+    /// axis, every corner mitred, however sharp. Unset: as `cut` says.
+    pub mitred: Option<bool>,
+    /// Satin on a filled shape: its strokes as whole columns that overlap
+    /// where they meet, instead of the pieces it's cut into there (see
+    /// [`crate::stitch::columns::overlapping`]). Unset: not.
+    pub overlap: Option<bool>,
+    /// A two-rail satin's rails: which of the path's subpaths they are,
+    /// counted from 1 (the rest are rungs). Unset: worked out from what
+    /// crosses what.
+    pub rails: Option<(u32, u32)>,
     /// Where on the outline sewing starts and ends (0–1 along it; see
     /// [`crate::design::outline_at`]), like Ink/Stitch's start and end
     /// commands.
@@ -197,6 +231,10 @@ pub struct Fabric {
     pub fill_underlay_spacing: f64,
     pub satin_spacing: f64,
     pub satin_pull: f64,
+    /// The narrowest satin (mm) that gets a center walk under it when its
+    /// underlay is automatic: narrower ones have none. Lower on cloth that
+    /// stitches sink into.
+    pub satin_underlay_from: f64,
     pub run_len: f64,
 }
 
@@ -212,6 +250,7 @@ pub const FABRICS: [Fabric; 4] = [
         fill_underlay_spacing: 1.5,
         satin_spacing: 0.4,
         satin_pull: 0.15,
+        satin_underlay_from: 1.5,
         run_len: 2.5,
     },
     Fabric {
@@ -225,6 +264,7 @@ pub const FABRICS: [Fabric; 4] = [
         fill_underlay_spacing: 2.0,
         satin_spacing: 0.42,
         satin_pull: 0.2,
+        satin_underlay_from: 1.5,
         run_len: 2.2,
     },
     Fabric {
@@ -238,12 +278,13 @@ pub const FABRICS: [Fabric; 4] = [
         fill_underlay_spacing: 1.8,
         satin_spacing: 0.4,
         satin_pull: 0.2,
+        satin_underlay_from: 1.5,
         run_len: 2.5,
     },
     Fabric {
         id: "knit",
-        name: "Örme (bere, süprem)",
-        about: "Esnek. Dikişler gömülmesin diye güçlü alt dikiş ve çekme telafisi.",
+        name: "Örme (bere, süprem, polar)",
+        about: "Esnek ya da kabarık. Dikişler gömülmesin diye güçlü alt dikiş (1 mm'den itibaren satenlerin altında orta yürüyüş) ve çekme telafisi.",
         fill_spacing: 0.3,
         fill_len: 2.8,
         fill_pull: 0.3,
@@ -251,6 +292,7 @@ pub const FABRICS: [Fabric; 4] = [
         fill_underlay_spacing: 1.2,
         satin_spacing: 0.38,
         satin_pull: 0.3,
+        satin_underlay_from: 1.0,
         run_len: 2.0,
     },
 ];
@@ -276,6 +318,8 @@ pub mod defaults {
     pub const RUN_REPEATS: u32 = 1;
     pub const UNDERLAY: bool = true;
     pub const SHORT_STITCHES: bool = true;
+    /// A satin's zigzag shares each step between its two stitches.
+    pub const SATIN_EVEN: bool = true;
     /// Satin stitches longer than this are split (mm).
     pub const SATIN_SPLIT: f64 = 7.0;
     pub const CONTOUR_SPACING: f64 = 0.45;
@@ -344,6 +388,17 @@ impl Params {
     pub fn satin_lean(&self) -> f64 {
         self.lean.unwrap_or(0.0).clamp(-MAX_LEAN, MAX_LEAN)
     }
+    /// Whether a satin's zigzag shares each step evenly between the stitch
+    /// over and the stitch back.
+    pub fn satin_even(&self) -> bool {
+        self.even.unwrap_or(defaults::SATIN_EVEN)
+    }
+    /// A two-rail satin's marked rails, as indices into its subpaths.
+    pub fn satin_rails(&self) -> Option<(usize, usize)> {
+        self.rails
+            .filter(|&(a, b)| a >= 1 && b >= 1 && a != b)
+            .map(|(a, b)| (a as usize - 1, b as usize - 1))
+    }
     /// Longest satin stitch before it's split, mm (`None` = never split).
     pub fn satin_split(&self) -> Option<f64> {
         let v = self.split.unwrap_or(defaults::SATIN_SPLIT);
@@ -366,6 +421,21 @@ impl Params {
     }
     pub fn short_stitches_on(&self) -> bool {
         self.short_stitches.unwrap_or(defaults::SHORT_STITCHES)
+    }
+    /// Whether a satin's strokes are columns laid over each other.
+    pub fn satin_overlap(&self) -> bool {
+        self.overlap.unwrap_or(false)
+    }
+    /// Whether a filled satin is cut into columns, corners squared, not
+    /// read as strokes by its chordal axis.
+    pub fn satin_cut(&self) -> bool {
+        // (Asked to be mitred, it isn't cut unless that's asked too.)
+        self.cut.unwrap_or(!self.mitred.unwrap_or(false))
+    }
+    /// Whether a filled satin is read as strokes by its chordal axis with
+    /// every corner mitred, however sharp (and not cut).
+    pub fn satin_mitred(&self) -> bool {
+        !self.satin_cut() && self.mitred.unwrap_or(false)
     }
     pub fn is_border(&self) -> bool {
         self.border.unwrap_or(false)
@@ -395,18 +465,20 @@ impl Params {
         })
     }
     /// Satin underlay passes for a column of `width_mm`: explicit setting, or
-    /// none under 1.5 mm, center walk up to 4 mm, contour + zigzag above.
-    pub fn satin_underlay_for(&self, width_mm: f64) -> u8 {
+    /// none under the fabric's narrowest (1.5 mm; 1 mm on knit), center
+    /// walk up to 4 mm, contour + zigzag above.
+    pub fn satin_underlay_for(&self, f: &Fabric, width_mm: f64) -> u8 {
         if !self.underlay_on() {
             return 0;
         }
-        self.satin_underlay.unwrap_or(if width_mm < 1.5 {
-            0
-        } else if width_mm <= 4.0 {
-            underlay::CENTER
-        } else {
-            underlay::CONTOUR | underlay::ZIGZAG
-        })
+        self.satin_underlay
+            .unwrap_or(if width_mm < f.satin_underlay_from {
+                0
+            } else if width_mm <= 4.0 {
+                underlay::CENTER
+            } else {
+                underlay::CONTOUR | underlay::ZIGZAG
+            })
     }
 
     /// `self` is the parent; values set on `child` win.
@@ -427,6 +499,11 @@ impl Params {
             order: child.order.or(self.order),
             split: child.split.or(self.split),
             lean: child.lean.or(self.lean),
+            even: child.even.or(self.even),
+            cut: child.cut.or(self.cut),
+            mitred: child.mitred.or(self.mitred),
+            overlap: child.overlap.or(self.overlap),
+            rails: child.rails.or(self.rails),
             start: child.start.or(self.start),
             end: child.end.or(self.end),
             spiral: child.spiral.or(self.spiral),
@@ -490,6 +567,22 @@ impl Params {
                 self.stop = Some(true);
                 return;
             }
+            "even" => {
+                self.even = Some(true);
+                return;
+            }
+            "overlap" => {
+                self.overlap = Some(true);
+                return;
+            }
+            "cut" => {
+                self.cut = Some(true);
+                return;
+            }
+            "mitred" => {
+                self.mitred = Some(true);
+                return;
+            }
             _ => {}
         }
         let Some((k, v)) = tok.split_once('=') else {
@@ -516,6 +609,16 @@ impl Params {
             "o" | "order" => self.order = num.filter(|v| *v >= 0.0).map(|v| v as u32),
             "split" => self.split = num.filter(|v| *v >= 0.0),
             "lean" => self.lean = num.map(|v| v.clamp(-MAX_LEAN, MAX_LEAN)),
+            "even" => self.even = flag,
+            "overlap" => self.overlap = flag,
+            "cut" => self.cut = flag,
+            "mitred" => self.mitred = flag,
+            "rails" => {
+                self.rails = v.split_once('+').and_then(|(a, b)| {
+                    let (a, b) = (a.parse::<u32>().ok()?, b.parse::<u32>().ok()?);
+                    (a >= 1 && b >= 1 && a != b).then_some((a, b))
+                })
+            }
             "st" | "start" => self.start = num.map(|v| v.rem_euclid(1.0)),
             "en" | "end" => self.end = num.map(|v| v.rem_euclid(1.0)),
             "trim" => self.trim = flag,
@@ -584,6 +687,27 @@ impl Params {
         num("st", self.start);
         num("en", self.end);
         num("cell", self.cell);
+        if let Some(e) = self.even {
+            t.push(format!("even={}", e as u8));
+        }
+        match self.overlap {
+            Some(true) => t.push("overlap".into()),
+            Some(false) => t.push("overlap=0".into()),
+            None => {}
+        }
+        match self.cut {
+            Some(true) => t.push("cut".into()),
+            Some(false) => t.push("cut=0".into()),
+            None => {}
+        }
+        match self.mitred {
+            Some(true) => t.push("mitred".into()),
+            Some(false) => t.push("mitred=0".into()),
+            None => {}
+        }
+        if let Some((a, b)) = self.rails {
+            t.push(format!("rails={a}+{b}"));
+        }
         if let Some(st) = self.style {
             t.push(format!("style={}", st.name()));
         }
@@ -647,7 +771,10 @@ pub fn is_param_token(tok: &str) -> bool {
     // kept as part of the name, written again beside it at each save, and
     // read back as on however it's been set since.)
     Kind::parse(lower).is_some()
-        || matches!(lower, "border" | "trim" | "spiral" | "stop")
+        || matches!(
+            lower,
+            "border" | "trim" | "spiral" | "stop" | "even" | "overlap" | "cut" | "mitred"
+        )
         || lower.contains('=')
 }
 
@@ -720,6 +847,11 @@ mod tests {
             repeats: Some(3),
             split: Some(0.0),
             lean: Some(-8.0),
+            even: Some(false),
+            overlap: Some(true),
+            cut: Some(true),
+            mitred: Some(true),
+            rails: Some((2, 3)),
             start: Some(0.25),
             end: Some(0.875),
             trim: Some(true),
@@ -750,16 +882,25 @@ mod tests {
     #[test]
     fn satin_underlay_defaults_by_width() {
         let p = Params::default();
-        assert_eq!(p.satin_underlay_for(1.0), 0);
-        assert_eq!(p.satin_underlay_for(3.0), underlay::CENTER);
+        let f = Fabric::standard();
+        assert_eq!(p.satin_underlay_for(f, 1.0), 0);
+        assert_eq!(p.satin_underlay_for(f, 1.3), 0);
+        assert_eq!(p.satin_underlay_for(f, 3.0), underlay::CENTER);
         assert_eq!(
-            p.satin_underlay_for(6.0),
+            p.satin_underlay_for(f, 6.0),
             underlay::CONTOUR | underlay::ZIGZAG
         );
         let off = Params {
             underlay: Some(false),
             ..Params::default()
         };
-        assert_eq!(off.satin_underlay_for(6.0), 0);
+        assert_eq!(off.satin_underlay_for(f, 6.0), 0);
+        // Stitches sink into a knit or a fleece: a narrow column that
+        // would have nothing under it elsewhere gets a center walk there.
+        let knit = Fabric::by_id("knit").unwrap();
+        assert_eq!(p.satin_underlay_for(knit, 1.3), underlay::CENTER);
+        assert_eq!(p.satin_underlay_for(knit, 1.0), underlay::CENTER);
+        assert_eq!(p.satin_underlay_for(knit, 0.9), 0);
+        assert_eq!(off.satin_underlay_for(knit, 1.3), 0);
     }
 }

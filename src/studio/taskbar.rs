@@ -23,7 +23,7 @@ const BUTTON: f32 = 28.0;
 /// types under it).
 const KIND_W: f32 = 96.0;
 /// Width of the grip that moves the bar (the line drawn in it is thinner).
-const GRIP_W: f32 = 10.0;
+const GRIP_W: f32 = 14.0;
 
 /// Where the bar sits once its grip has moved it (VectorCraft's
 /// `TaskBarPlace`). Not kept from one launch to the next, as in
@@ -128,12 +128,14 @@ impl Studio {
         egui::Area::new(id)
             .order(egui::Order::Middle)
             .fixed_pos(at)
+            .constrain_to(canvas)
             .show(ctx, |ui| {
+                ui.set_max_width(crate::theme::canvas_bar_width(canvas));
                 egui::Frame::popup(ui.style())
                     .corner_radius(9)
                     .inner_margin(egui::Margin::same(space::XS as i8))
                     .show(ui, |ui| {
-                        let top = ui.horizontal(|ui| {
+                        let top = ui.horizontal_wrapped(|ui| {
                             ui.spacing_mut().item_spacing.x = space::XS;
                             let p = pal_ui(ui);
                             moved = grip(ui);
@@ -285,11 +287,18 @@ impl Studio {
                                     .response
                                     .on_hover_text("Yazı tipi");
                                 self.lettering.font_filter = filter;
-                                let r = ui.add(crate::units::drag_mm(
-                                    &mut spec.size_mm,
-                                    3.0..=40.0,
-                                    0.5,
-                                ));
+                                // (Typed, the height is taken when it's entered:
+                                // `spec` is read from the document every frame,
+                                // so a value set while typing would be read
+                                // back as it was and reset what's typed.)
+                                let r = ui.add(
+                                    crate::units::drag_mm(&mut spec.size_mm, 3.0..=40.0, 0.5)
+                                        .update_while_editing(false)
+                                        // (Text scaled by its handles past
+                                        // what's set here keeps its size
+                                        // until this is what's changed.)
+                                        .clamp_existing_to_range(false),
+                                );
                                 if r.drag_stopped() || r.lost_focus() {
                                     changed = true;
                                 }
@@ -445,7 +454,7 @@ impl Studio {
                     ui.add_space(space::S);
                     let default_width = zigzag::design::default_satin_width(&self.doc.shapes[o]);
                     let row = ui
-                        .horizontal(|ui| {
+                        .horizontal_wrapped(|ui| {
                             // In the top row's columns: how it's sewn under
                             // the shape's stitch type, its thread under the
                             // shape's.
@@ -793,13 +802,19 @@ enum PlaceChange {
 /// The grip at the bar's left end: drag it to move the bar. Returns how
 /// far it was dragged this frame.
 fn grip(ui: &mut egui::Ui) -> Vec2 {
+    grip_for(ui, "Görev Çubuğunu Taşı")
+}
+
+/// A bar's grip (see [`grip`]), named for what it moves.
+pub(crate) fn grip_for(ui: &mut egui::Ui, label: &str) -> Vec2 {
     let p = pal_ui(ui);
     let (r, resp) = ui.allocate_exact_size(Vec2::new(GRIP_W, BUTTON), Sense::drag());
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Görev Çubuğunu Taşı"));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, label));
     let active = resp.hovered() || resp.dragged();
-    ui.painter().rect_filled(
-        Rect::from_center_size(r.center(), Vec2::new(3.0, BUTTON - 10.0)),
-        1.5,
+    crate::icons::grip_dots(
+        ui.painter(),
+        r.center(),
+        true,
         if active { p.secondary } else { p.tertiary },
     );
     if resp.dragged() {

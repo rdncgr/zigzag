@@ -334,12 +334,6 @@ impl Studio {
                 .response
                 .labelled_by(lid)
                 .on_hover_text(about);
-            if crate::theme::icon_button(ui, crate::icons::Icon::Gear, "Makine Ayarları", false, 22.0)
-                .on_hover_text("Makineleriniz için kasnaklar, dosya biçimi, en kısa dikiş ve kilit dikişleri")
-                .clicked()
-            {
-                settings = true;
-            }
         });
         if let Some(note) = self.stitch_rules_note() {
             fm.wide(|ui| {
@@ -574,7 +568,8 @@ mod tests {
         h.run_steps(4);
         assert_eq!(h.state().hoop_dims(), (140.0, 140.0));
         // The panel chooses machines; making and changing them is in
-        // Settings, a gear away. Nothing of that is in the panel itself.
+        // Settings, from the end of the machine menu. Nothing of that is in
+        // the panel itself.
         for gone in ["Min stitch", "Locks", "Reads", "Stitch Rules"] {
             assert!(
                 h.query_by_label(gone).is_none(),
@@ -582,7 +577,10 @@ mod tests {
             );
         }
         assert!(!h.state().settings_ui.open);
-        h.get_by_label("Machine Settings").click();
+        assert!(h.query_by_label("Machine Settings").is_none(), "no gear");
+        h.get_by_label("Machine").click();
+        h.run_steps(3);
+        h.get_by_label("Machine Settings…").click();
         h.run_steps(4);
         assert!(h.state().settings_ui.open);
         assert_eq!(
@@ -635,6 +633,15 @@ mod tests {
             .open_settings(crate::settings::Section::General);
         h.run_steps(4);
         assert!(h.query_by_label("Draw stitches on the GPU").is_some());
+        // (And whether the panels show every setting: they do, until
+        // it's turned off here.)
+        assert!(h.state().prefs.advanced);
+        h.get_by_label("Show advanced settings").click();
+        h.run_steps(3);
+        assert!(!h.state().prefs.advanced);
+        h.get_by_label("Show advanced settings").click();
+        h.run_steps(3);
+        assert!(h.state().prefs.advanced);
         h.get_by_label("Dark").click();
         h.run_steps(3);
         assert_eq!(

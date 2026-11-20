@@ -8,7 +8,7 @@
 use crate::app::{Studio, Tool};
 use crate::commands::Flag;
 use crate::icons::{self, Icon};
-use crate::theme::{self, Form, callout, caption, form, icon_button, pal_ui, value_row};
+use crate::theme::{self, Form, callout, caption, form_for, icon_button, pal_ui, value_row};
 use crate::widgets::*;
 use eframe::egui::{self, Color32, Pos2, Rect, Sense, Stroke, Vec2};
 use zigzag::checks::Level;
@@ -79,11 +79,85 @@ impl Place {
 
 /// Width of a dock collapsed to icons, and of floating and flyout panels.
 pub const ICON_STRIP_W: f32 = 40.0;
+
+/// Padding round the issues list's title and each of its issues.
+pub const ISSUE_PAD: egui::Margin = egui::Margin {
+    left: 14,
+    right: 14,
+    top: 10,
+    bottom: 10,
+};
+
+/// A line across the whole width (between a list's items).
+pub fn divider(ui: &mut egui::Ui) {
+    let p = pal_ui(ui);
+    let (r, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 1.0), Sense::hover());
+    ui.painter()
+        .hline(r.x_range(), r.center().y, Stroke::new(1.0, p.separator));
+}
 pub const FLOAT_W: f32 = 300.0;
+
+/// Whether this is a touch screen, where nothing is hovered to find a
+/// dock's edge by: an iPad or Android device, or any screen touched since
+/// ZigZag started.
+pub fn touch_screen(ctx: &egui::Context) -> bool {
+    use egui::os::OperatingSystem;
+    let id = egui::Id::unique("touch-screen");
+    if ctx.input(|i| i.any_touches()) {
+        ctx.data_mut(|d| d.insert_temp(id, true));
+    }
+    matches!(ctx.os(), OperatingSystem::IOS | OperatingSystem::Android)
+        || ctx.data(|d| d.get_temp::<bool>(id)).unwrap_or(false)
+}
+
+/// How far either side of a dock's edge it can be taken hold of to resize
+/// the dock: a finger needs more than egui's few points for a mouse. (On
+/// the dock's side, that is: out over the canvas, the canvas is on top.)
+pub fn grab_radius(ctx: &egui::Context, default: f32) -> f32 {
+    if touch_screen(ctx) {
+        default.max(12.0)
+    } else {
+        default
+    }
+}
+
+/// The grabber on a dock's resizable edge (at `x`, along `ys`) on a touch
+/// screen: a short pill that shows where to drag, brighter while it's
+/// dragged. (With a mouse, the edge lights up when hovered instead.) Only
+/// shown; the panel's own handle (`handle`) does the resizing.
+pub fn paint_grabber(ui: &egui::Ui, x: f32, ys: egui::Rangef, handle: egui::Id) {
+    if !touch_screen(ui.ctx()) {
+        return;
+    }
+    let p = pal_ui(ui);
+    let (hot, held) = ui
+        .ctx()
+        .read_response(handle)
+        .map_or((false, false), |r| (r.hovered(), r.dragged()));
+    let color = if held {
+        p.accent
+    } else if hot {
+        p.secondary
+    } else {
+        p.tertiary.gamma_multiply(0.8)
+    };
+    let size = Vec2::new(if hot || held { 5.0 } else { 4.0 }, 36.0);
+    let pill = Rect::from_center_size(Pos2::new(x, ys.center()), size);
+    // Over the docks and the canvas both, not clipped to either.
+    let painter = ui.painter().with_clip_rect(ui.ctx().content_rect());
+    painter.rect_filled(pill.expand(1.0), 3.5, p.dock);
+    painter.rect_filled(pill, size.x / 2.0, color);
+}
 
 /// A floating (or flyout) panel's width: the Agent's conversation is wider.
 pub fn float_w(p: PanelId) -> f32 {
-    if p == PanelId::Agent { 360.0 } else { FLOAT_W }
+    match p {
+        PanelId::Agent => 360.0,
+        // Room for X and Y (W and H) with the reference point (the lock)
+        // beside them, on one line.
+        PanelId::Transform => FLOAT_W + 40.0,
+        _ => FLOAT_W,
+    }
 }
 
 /// Panel interaction that isn't saved: the open flyout, a panel being
@@ -102,6 +176,9 @@ pub struct DockUi {
     pub(crate) column_h: [f32; 2],
     /// The panel being drawn sits in a rounded window (floating, flyout).
     pub(crate) in_window: bool,
+    /// In a window: how tall the panel's body may be, scrolling under its
+    /// header (which stays put) past that.
+    pub(crate) body_max: Option<f32>,
     /// The tab group being drawn: its lead and the tabs showing.
     tabs: Option<(PanelId, Vec<PanelId>)>,
     /// The Agent panel's whole height when it's pinned to the bottom of
@@ -839,6 +916,8 @@ impl Studio {
                 .align(egui::RectAlign::BOTTOM_START)
                 .show(|ui| {
                     ui.set_min_width(150.0);
+                    // (A menu's own buttons sit tight to the left: room.)
+                    ui.spacing_mut().button_padding = Vec2::new(12.0, 4.0);
                     use crate::agent::AgentKind;
                     for k in AgentKind::ALL {
                         if ui
@@ -1053,13 +1132,26 @@ impl Studio {
             !collapsed,
         );
         state.set_open(!collapsed);
+        let scroll = self.dock_ui.body_max;
         state.show_body_unindented(ui, |ui| {
-            egui::Frame::new()
-                .inner_margin(theme::pad())
-                .show(ui, |ui| {
-                    ui.set_width(ui.available_width());
-                    body(self, ui);
-                });
+            let padded = |s: &mut Studio, ui: &mut egui::Ui| {
+                egui::Frame::new()
+                    .inner_margin(theme::pad())
+                    .show(ui, |ui| {
+                        ui.set_width(ui.available_width());
+                        body(s, ui);
+                    });
+            };
+            match scroll {
+                Some(h) => {
+                    egui::ScrollArea::vertical()
+                        .id_salt(("panel-body", key))
+                        .max_height(h)
+                        .auto_shrink([false, true])
+                        .show(ui, |ui| padded(self, ui));
+                }
+                None => padded(self, ui),
+            }
         });
     }
 
@@ -1251,6 +1343,8 @@ impl Studio {
                         } else {
                             Color32::from_rgb(222, 222, 224)
                         })
+                    } else if r.is_pointer_button_down_on() {
+                        Some(p.pressed)
                     } else if r.hovered() {
                         Some(p.hover)
                     } else {
@@ -1259,11 +1353,12 @@ impl Studio {
                     if let Some(bg) = bg {
                         ui.painter().rect_filled(rect, 6.0, bg);
                     }
+                    // (As the tool strip's buttons draw theirs: `icon_button`.)
                     icons::paint(
                         ui.painter(),
-                        rect.shrink(8.0),
+                        rect.shrink(rect.width() * 0.22),
                         id.icon(),
-                        if on { p.accent } else { p.text },
+                        if on { p.accent } else { p.secondary },
                     );
                     self.dock_ui.drawn.push((side, id, rect));
                     if r.drag_started_by(egui::PointerButton::Primary)
@@ -1383,9 +1478,21 @@ impl Studio {
                         .show(ui, |ui| {
                             ui.set_width(float_w(id));
                             ui.spacing_mut().item_spacing.y = 0.0;
+                            // Its body scrolls under its header, short of
+                            // the window's bottom. (Not the Agent's: its
+                            // conversation scrolls on its own.)
+                            if !self.group_shown(id).contains(&PanelId::Agent) {
+                                let room = (ctx.content_rect().bottom() - at.y - 24.0)
+                                    .max(HEADER_H + 120.0);
+                                // (All of it, not last frame's size: see the
+                                // flyout's.)
+                                ui.set_max_height(room);
+                                self.dock_ui.body_max = Some(room - HEADER_H);
+                            }
                             self.dock_ui.in_window = true;
                             self.show_panel(ui, id, Place::Float);
                             self.dock_ui.in_window = false;
+                            self.dock_ui.body_max = None;
                         });
                 });
         }
@@ -1427,15 +1534,18 @@ impl Studio {
                     .corner_radius(8)
                     .show(ui, |ui| {
                         ui.set_width(float_w(id));
-                        egui::ScrollArea::vertical()
-                            .id_salt("flyout-scroll")
-                            .max_height(max_h)
-                            .show(ui, |ui| {
-                                ui.spacing_mut().item_spacing.y = 0.0;
-                                self.dock_ui.in_window = true;
-                                self.show_panel(ui, id, place);
-                                self.dock_ui.in_window = false;
-                            });
+                        // All the height it may take, not just last frame's
+                        // (an area's room is the size it was): it shrinks to
+                        // what's in it, and grows when that does, as a panel
+                        // opened in it.
+                        ui.set_max_height(max_h);
+                        ui.spacing_mut().item_spacing.y = 0.0;
+                        // Its header stays put; the body scrolls under it.
+                        self.dock_ui.body_max = Some(max_h - HEADER_H);
+                        self.dock_ui.in_window = true;
+                        self.show_panel(ui, id, place);
+                        self.dock_ui.in_window = false;
+                        self.dock_ui.body_max = None;
                     });
             });
         // A click elsewhere closes it (not one in its own menus).
@@ -2180,7 +2290,7 @@ impl Studio {
         theme::hline(ui);
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 2.0;
-            let add = icon_button(ui, Icon::Plus, "Ekle", false, 24.0);
+            let add = icon_button(ui, Icon::Plus, "Ekle", false, theme::PANEL_ICON);
             egui::Popup::menu(&add).show(|ui| {
                 if ui.button("Metin Ekle…").clicked() {
                     self.open_text_window();
@@ -2194,7 +2304,7 @@ impl Studio {
             });
             let has = !self.sel_indices().is_empty();
             ui.add_enabled_ui(has, |ui| {
-                if icon_button(ui, Icon::Minus, "Sil", false, 24.0).clicked() {
+                if icon_button(ui, Icon::Minus, "Sil", false, theme::PANEL_ICON).clicked() {
                     self.delete_selection();
                 }
                 ui.add_space(theme::space::S);
@@ -2205,10 +2315,10 @@ impl Studio {
                 } else {
                     (("Daha sonra dik", 1), ("Daha önce dik", -1))
                 };
-                if icon_button(ui, Icon::ArrowUp, up.0, false, 24.0).clicked() {
+                if icon_button(ui, Icon::ArrowUp, up.0, false, theme::PANEL_ICON).clicked() {
                     self.move_selected(up.1);
                 }
-                if icon_button(ui, Icon::ArrowDown, down.0, false, 24.0).clicked() {
+                if icon_button(ui, Icon::ArrowDown, down.0, false, theme::PANEL_ICON).clicked() {
                     self.move_selected(down.1);
                 }
             });
@@ -2388,52 +2498,91 @@ impl Studio {
         }
     }
 
-    /// The design's issues, each naming its object (click to select it).
-    pub(crate) fn issues_body(&mut self, ui: &mut egui::Ui) {
+    /// The design's issues, a list scrolling within `max_h`: each one's
+    /// object (click it to select it) and what's wrong, dividers between.
+    pub(crate) fn issues_body(&mut self, ui: &mut egui::Ui, max_h: f32) {
         let p = pal_ui(ui);
         if self.issues.is_empty() {
-            caption(ui, "Sorun bulunamadı.");
+            egui::Frame::new().inner_margin(ISSUE_PAD).show(ui, |ui| {
+                caption(ui, "Sorun bulunamadı.");
+            });
             return;
         }
         let mut pick = None;
         egui::ScrollArea::vertical()
             .id_salt("issues")
-            .max_height(380.0)
+            .max_height(max_h)
             .auto_shrink([false, true])
             .show(ui, |ui| {
-                for issue in &self.issues {
+                ui.spacing_mut().item_spacing.y = 0.0;
+                for (k, issue) in self.issues.iter().enumerate() {
+                    if k > 0 {
+                        divider(ui);
+                    }
                     let (c, icon) = match issue.level {
                         Level::Error => (p.error, Icon::Warning),
                         Level::Warning => (p.warning, Icon::Warning),
                         Level::Info => (p.secondary, Icon::Info),
                     };
-                    ui.horizontal_top(|ui| {
-                        let (r, _) = ui.allocate_exact_size(Vec2::splat(13.0), Sense::hover());
-                        icons::paint(ui.painter(), r, icon, c);
-                        ui.vertical(|ui| {
-                            if let Some(i) = issue.shape
-                                && ui
-                                    .link(
-                                        egui::RichText::new(
-                                            self.names.get(i).cloned().unwrap_or_default(),
+                    // The whole row selects its object: a wash under it
+                    // when hovered (painted once its size is known).
+                    let wash = ui.painter().add(egui::Shape::Noop);
+                    let row = egui::Frame::new()
+                        .inner_margin(ISSUE_PAD)
+                        .show(ui, |ui| {
+                            ui.set_width(ui.available_width());
+                            ui.horizontal_top(|ui| {
+                                ui.spacing_mut().item_spacing.x = theme::space::S;
+                                let (r, _) = ui.allocate_exact_size(
+                                    Vec2::splat(theme::STATUS_ICON),
+                                    Sense::hover(),
+                                );
+                                icons::paint(ui.painter(), r, icon, c);
+                                ui.vertical(|ui| {
+                                    ui.spacing_mut().item_spacing.y = theme::space::XS;
+                                    if let Some(i) = issue.shape {
+                                        let name = self.names.get(i).cloned().unwrap_or_default();
+                                        ui.add(
+                                            egui::Label::new(
+                                                egui::RichText::new(name).size(12.5).color(p.text),
+                                            )
+                                            .selectable(false),
+                                        );
+                                    }
+                                    ui.add(
+                                        egui::Label::new(
+                                            egui::RichText::new(&issue.message)
+                                                .size(12.0)
+                                                .color(p.secondary),
                                         )
-                                        .size(12.0),
-                                    )
-                                    .clicked()
-                            {
-                                pick = Some(i);
-                            }
-                            ui.add(
-                                egui::Label::new(
-                                    egui::RichText::new(&issue.message)
-                                        .size(12.0)
-                                        .color(p.secondary),
-                                )
-                                .wrap(),
-                            );
+                                        .wrap()
+                                        .selectable(false),
+                                    );
+                                });
+                            });
+                        })
+                        .response
+                        .rect;
+                    if let Some(i) = issue.shape {
+                        let name = self.names.get(i).cloned().unwrap_or_default();
+                        let r = ui
+                            .interact(row, ui.make_persistent_id(("issue", k)), Sense::click())
+                            .on_hover_cursor(egui::CursorIcon::PointingHand);
+                        r.widget_info(|| {
+                            egui::WidgetInfo::labeled(
+                                egui::Role::Button,
+                                true,
+                                format!("Sorun: {name}"),
+                            )
                         });
-                    });
-                    ui.add_space(4.0);
+                        if r.hovered() {
+                            ui.painter()
+                                .set(wash, egui::Shape::rect_filled(row, 0.0, p.hover));
+                        }
+                        if r.clicked() {
+                            pick = Some(i);
+                        }
+                    }
                 }
             });
         if let Some(i) = pick {
@@ -2540,8 +2689,9 @@ impl Studio {
         };
         let mut to_angle_tool = false;
         let color_now = self.doc.shapes[i].color;
+        let advanced = self.prefs.advanced;
         let pr = &mut self.doc.shapes[i].params;
-        form(ui, "stitch-form", |fm| match current {
+        let left_out = form_for(ui, "stitch-form", advanced, |fm| match current {
             Kind::Fill => {
                 fm.row("Açı", |ui, lid| {
                     let shown = pr.angle.unwrap_or(defaults::FILL_ANGLE);
@@ -2584,37 +2734,43 @@ impl Studio {
                     0.01,
                     "Sıra aralığı: küçük değer daha sık",
                 );
-                value_row(
-                    fm,
-                    "Uzunluk",
-                    &mut pr.len,
-                    f.fill_len,
-                    1.5..=7.0,
-                    " mm",
-                    0.1,
-                    "Bir sıradaki en uzun dikiş",
-                );
-                value_row(
-                    fm,
-                    "Çekme tel.",
-                    &mut pr.pull,
-                    f.fill_pull,
-                    0.0..=0.6,
-                    " mm",
-                    0.05,
-                    "Kumaşın içe çekmesini dengelemek için sıraları kenarlarda uzatır",
-                );
-                fm.row("Alt dikiş", |ui, _| {
-                    underlay_box(
-                        ui,
-                        pr,
-                        if f.fill_edge_walk {
-                            "Kenar yürüyüşü + sıralar"
-                        } else {
-                            "Sabitleme sıraları"
-                        },
-                    )
-                });
+                if fm.advanced(pr.len.is_some()) {
+                    value_row(
+                        fm,
+                        "Uzunluk",
+                        &mut pr.len,
+                        f.fill_len,
+                        1.5..=7.0,
+                        " mm",
+                        0.1,
+                        "Bir sıradaki en uzun dikiş",
+                    );
+                }
+                if fm.advanced(pr.pull.is_some()) {
+                    value_row(
+                        fm,
+                        "Çekme telafisi",
+                        &mut pr.pull,
+                        f.fill_pull,
+                        0.0..=0.6,
+                        " mm",
+                        0.05,
+                        "Kumaşın içe çekmesini dengelemek için sıraları kenarlarda uzatır",
+                    );
+                }
+                if fm.advanced(pr.underlay.is_some()) {
+                    fm.row("Alt dikiş", |ui, _| {
+                        underlay_box(
+                            ui,
+                            pr,
+                            if f.fill_edge_walk {
+                                "Kenar yürüyüşü + sıralar"
+                            } else {
+                                "Sabitleme sıraları"
+                            },
+                        )
+                    });
+                }
             }
             Kind::Satin => {
                 if filled {
@@ -2630,7 +2786,61 @@ impl Studio {
                         }
                     });
                 }
-                fm.row("Dikiş", |ui, _| {
+                // (Overlapping strokes aren't offered: they leave more letters
+                // with seams and satin piled three deep than columns do. An
+                // object that has them can be put back.)
+                if filled && !pr.is_border() && pr.satin_overlap() {
+                    fm.row("Sütunlar", |ui, _| {
+                        let mut overlap = pr.satin_overlap();
+                        let r = ui.scope(|ui| {
+                            theme::segmented(
+                                ui,
+                                "satin-columns",
+                                &mut overlap,
+                                &[(false, "Vuruşlar"), (true, "Üst üste")],
+                            )
+                        });
+                        r.response.on_hover_text("Bu metin artık sunulmayan üst üste vuruşlara ayarlı: sütunlara göre daha çok dikiş izi ve yığılmış saten bırakırlar. Vuruşlar seçeneği geri getirir.");
+                        if r.inner {
+                            pr.overlap = overlap.then_some(true);
+                        }
+                    });
+                }
+                // How a filled satin's strokes meet: cut, corners squared, one
+                // stroke run on and the other ended against it (the default);
+                // or mitred, each stroke a column (its chordal axis), where
+                // that sews cleanly (Auto) or everywhere.
+                if filled
+                    && !pr.is_border()
+                    && !pr.satin_overlap()
+                    && fm.advanced(pr.cut.is_some() || pr.mitred.is_some())
+                {
+                    fm.row("Köşeler", |ui, _| {
+                        // (0 Auto, 1 Mitred, 2 Cut.)
+                        let mut how: u8 = if pr.satin_cut() {
+                            2
+                        } else if pr.satin_mitred() {
+                            1
+                        } else {
+                            0
+                        };
+                        let r = ui.scope(|ui| {
+                            theme::segmented(
+                                ui,
+                                "satin-corners",
+                                &mut how,
+                                &[(0, "Otomatik"), (1, "Gönyeli"), (2, "Kesik")],
+                            )
+                        });
+                        r.response.on_hover_text("Gönyeli: harfin her vuruşu ayrı bir sütundur; iki vuruş köşede buluştuğunda ikisi de aradaki çizgide biter. Kesik: şekil vuruşlarının ayrıldığı yerlerde sütunlara kesilir, köşeler düzdür; bir vuruş devam eder, diğeri ona dayanarak biter. Otomatik: gönyeli; ancak köşe gönye için fazla keskinse (V'nin ucu) ya da birleşim net okunamıyorsa kesik. Varsayılan Kesik'tir.");
+                        if r.inner {
+                            // (Cut, the default, is nothing set.)
+                            pr.cut = (how != 2).then_some(false);
+                            pr.mitred = (how == 1).then_some(true);
+                        }
+                    });
+                }
+                fm.row("Stitch", |ui, _| {
                     use zigzag::stitch::satin::SatinStyle;
                     let mut st = pr.satin_style();
                     if theme::segmented(
@@ -2646,7 +2856,8 @@ impl Studio {
                         pr.style = (st != SatinStyle::Plain).then_some(st);
                     }
                 });
-                fm.row("İplikler", |ui, _| {
+                if fm.advanced(pr.colors.is_some()) {
+                    fm.row("İplikler", |ui, _| {
                     // Multicolor satin: the threads across the column.
                     let mut colors = pr.colors.clone().unwrap_or_default();
                     let mut changed = false;
@@ -2685,6 +2896,8 @@ impl Studio {
                         pr.colors = (colors.len() >= 2).then_some(colors);
                     }
                 });
+                }
+
                 if !filled || pr.is_border() {
                     value_row(
                         fm,
@@ -2707,74 +2920,98 @@ impl Studio {
                     0.01,
                     "Zikzaklar arası mesafe (ayarlanmadıkça genişliğe göre otomatik)",
                 );
-                value_row(
-                    fm,
-                    "Çekme tel.",
-                    &mut pr.pull,
-                    f.satin_pull,
-                    0.0..=0.6,
-                    " mm",
-                    0.05,
-                    "Her kenara ek genişlik; satenler çizildiğinden daha dar çekilir",
-                );
-                fm.row("Alt dikiş", |ui, _| {
+                if fm.advanced(pr.pull.is_some()) {
+                    value_row(
+                        fm,
+                        "Çekme telafisi",
+                        &mut pr.pull,
+                        f.satin_pull,
+                        0.0..=0.6,
+                        " mm",
+                        0.05,
+                        "Her yanda ek genişlik; satenler çizildiğinden dar çekilir",
+                    );
+                }
+                if fm.advanced(pr.satin_underlay.is_some() || pr.underlay.is_some()) {
+                    fm.row("Alt dikiş", |ui, _| {
                     let mut auto = pr.satin_underlay.is_none() && pr.underlay_on();
                     if ui
                         .checkbox(&mut auto, "Otomatik")
-                        .on_hover_text(
-                            "1,5 mm altında yok, 4 mm'ye kadar orta yürüyüş, üzerinde kontur + zikzak",
-                        )
+                        .on_hover_text(format!(
+                            "Bu kumaşta {} mm altında yok, 4 mm'ye kadar orta yürüyüş, üstünde kontur + zikzak",
+                            zigzag::params::fmt_num(f.satin_underlay_from)
+                        ))
                         .changed()
                     {
                         pr.satin_underlay = if auto {
                             None
                         } else {
-                            Some(pr.satin_underlay_for(satin_width))
+                            Some(pr.satin_underlay_for(&f, satin_width))
                         };
                         pr.underlay = None;
                     }
                 });
-                let current_ul = pr.satin_underlay_for(satin_width);
-                fm.wide(|ui| {
-                    for (bit, name, tip) in [
-                        (
-                            underlay::CENTER,
-                            "Orta",
-                            "Ortadan düz dikiş: dar sütunları sabitler",
-                        ),
-                        (
-                            underlay::CONTOUR,
-                            "Kontur",
-                            "İki kenarın hemen içinden düz dikiş: geniş sütunlarda keskin kenarlar",
-                        ),
-                        (
-                            underlay::ZIGZAG,
-                            "Zikzak",
-                            "Seyrek zikzak: geniş sütunları kaldırır ve destekler",
-                        ),
-                    ] {
-                        let mut on = current_ul & bit != 0;
-                        if ui.checkbox(&mut on, name).on_hover_text(tip).changed() {
-                            pr.satin_underlay = Some(if on {
-                                current_ul | bit
-                            } else {
-                                current_ul & !bit
-                            });
-                            pr.underlay = None;
+                    let current_ul = pr.satin_underlay_for(&f, satin_width);
+                    fm.wide(|ui| {
+                        for (bit, name, tip) in [
+                            (
+                                underlay::CENTER,
+                                "Orta",
+                                "Ortadan geçen düz dikiş: dar sütunları sabitler",
+                            ),
+                            (
+                                underlay::CONTOUR,
+                                "Kontur",
+                                "İki kenarın hemen içinden düz dikiş: geniş sütunlarda keskin kenarlar",
+                            ),
+                            (
+                                underlay::ZIGZAG,
+                                "Zikzak",
+                                "Seyrek zikzak: geniş sütunları kaldırır ve destekler",
+                            ),
+                        ] {
+                            let mut on = current_ul & bit != 0;
+                            if ui.checkbox(&mut on, name).on_hover_text(tip).changed() {
+                                pr.satin_underlay = Some(if on {
+                                    current_ul | bit
+                                } else {
+                                    current_ul & !bit
+                                });
+                                pr.underlay = None;
+                            }
                         }
-                    }
-                });
-                fm.row("Eğriler", |ui, _| {
-                    let mut short = pr.short_stitches_on();
+                    });
+                }
+                if fm.advanced(pr.short_stitches.is_some()) {
+                    fm.row("Kıvrımlar", |ui, _| {
+                        let mut short = pr.short_stitches_on();
+                        if ui
+                            .checkbox(&mut short, "Kısa dikişler")
+                            .on_hover_text(
+                                "Keskin kıvrımların iç tarafında her iki dikişten birini kısaltır",
+                            )
+                            .changed()
+                        {
+                            pr.short_stitches = Some(short);
+                        }
+                    });
+                }
+
+                if fm.advanced(pr.even.is_some()) {
+                    fm.row("Zikzak", |ui, _| {
+                    let mut even = pr.satin_even();
                     if ui
-                        .checkbox(&mut short, "Kısa dikişler")
-                        .on_hover_text("Keskin eğrilerin iç tarafında dikişleri birer atlayarak kısaltır")
+                        .checkbox(&mut even, "Eşit")
+                        .on_hover_text("Sütun boyunca her adım gidiş ve dönüş dikişi arasında paylaşılır; böylece ikisi de aynı eğimde olur. Kapalı: bir dikiş düz karşıya geçer, sonraki tüm adımı alır.")
                         .changed()
                     {
-                        pr.short_stitches = Some(short);
+                        pr.even = (even != defaults::SATIN_EVEN).then_some(even);
                     }
                 });
-                fm.row("Eğim", |ui, lid| {
+                }
+
+                if fm.advanced(pr.lean.is_some()) {
+                    fm.row("Eğim", |ui, lid| {
                     let mut v = pr.satin_lean();
                     let r = ui
                         .add(
@@ -2790,32 +3027,38 @@ impl Studio {
                         pr.lean = (v != 0.0).then_some(v);
                     }
                 });
-                fm.row("Otomatik bölme", |ui, lid| {
-                    let mut on = pr.satin_split().is_some();
-                    if ui
-                        .checkbox(&mut on, "")
-                        .labelled_by(lid)
-                        .on_hover_text("Geniş sütunlar takılmasın diye bundan uzun dikişleri böl")
-                        .changed()
-                    {
-                        pr.split = Some(if on { defaults::SATIN_SPLIT } else { 0.0 });
-                    }
-                    if let Some(mut v) = pr.satin_split() {
-                        let r = ui.add(
-                            egui::DragValue::new(&mut v)
-                                .range(3.0..=12.0)
-                                .speed(0.1)
-                                .fixed_decimals(1)
-                                .suffix(" mm"),
-                        );
-                        r.widget_info(|| {
-                            egui::WidgetInfo::labeled(egui::Role::Slider, true, "Bölme uzunluğu")
-                        });
-                        if r.changed() {
-                            pr.split = Some(v);
+                }
+
+                if fm.advanced(pr.split.is_some()) {
+                    fm.row("Otomatik böl", |ui, lid| {
+                        let mut on = pr.satin_split().is_some();
+                        if ui
+                            .checkbox(&mut on, "")
+                            .labelled_by(lid)
+                            .on_hover_text(
+                                "Geniş sütunlar takılmasın diye bundan uzun dikişleri böl",
+                            )
+                            .changed()
+                        {
+                            pr.split = Some(if on { defaults::SATIN_SPLIT } else { 0.0 });
                         }
-                    }
-                });
+                        if let Some(mut v) = pr.satin_split() {
+                            let r = ui.add(
+                                egui::DragValue::new(&mut v)
+                                    .range(3.0..=12.0)
+                                    .speed(0.1)
+                                    .fixed_decimals(1)
+                                    .suffix(" mm"),
+                            );
+                            r.widget_info(|| {
+                                egui::WidgetInfo::labeled(egui::Role::Slider, true, "Bölme uzunluğu")
+                            });
+                            if r.changed() {
+                                pr.split = Some(v);
+                            }
+                        }
+                    });
+                }
             }
             Kind::Contour => {
                 fm.row("Stil", |ui, _| {
@@ -2839,16 +3082,18 @@ impl Studio {
                     0.05,
                     "Dış hattı izleyen sıralar arası mesafe",
                 );
-                value_row(
-                    fm,
-                    "Uzunluk",
-                    &mut pr.len,
-                    f.run_len,
-                    1.0..=5.0,
-                    " mm",
-                    0.1,
-                    "",
-                );
+                if fm.advanced(pr.len.is_some()) {
+                    value_row(
+                        fm,
+                        "Uzunluk",
+                        &mut pr.len,
+                        f.run_len,
+                        1.0..=5.0,
+                        " mm",
+                        0.1,
+                        "",
+                    );
+                }
             }
             Kind::Blanket => {
                 value_row(
@@ -2883,17 +3128,21 @@ impl Studio {
                     0.1,
                     "Saten kaplama genişliği",
                 );
-                value_row(
-                    fm,
-                    "Yoğunluk",
-                    &mut pr.spacing,
-                    f.satin_spacing,
-                    0.2..=1.0,
-                    " mm",
-                    0.01,
-                    "",
-                );
-                fm.row("Alt dikiş", |ui, _| underlay_box(ui, pr, "Kaplamanın altında"));
+                if fm.advanced(pr.spacing.is_some()) {
+                    value_row(
+                        fm,
+                        "Yoğunluk",
+                        &mut pr.spacing,
+                        f.satin_spacing,
+                        0.2..=1.0,
+                        " mm",
+                        0.01,
+                        "",
+                    );
+                }
+                if fm.advanced(pr.underlay.is_some()) {
+                    fm.row("Alt dikiş", |ui, _| underlay_box(ui, pr, "Örtünün altında"));
+                }
             }
             Kind::Manual => {}
             Kind::Meander => {
@@ -2907,16 +3156,18 @@ impl Studio {
                     0.1,
                     "Gezinen çizginin kendine ne kadar yaklaştığı",
                 );
-                value_row(
-                    fm,
-                    "Uzunluk",
-                    &mut pr.len,
-                    f.run_len,
-                    1.0..=5.0,
-                    " mm",
-                    0.1,
-                    "",
-                );
+                if fm.advanced(pr.len.is_some()) {
+                    value_row(
+                        fm,
+                        "Uzunluk",
+                        &mut pr.len,
+                        f.run_len,
+                        1.0..=5.0,
+                        " mm",
+                        0.1,
+                        "",
+                    );
+                }
             }
             Kind::Ripple => {
                 fm.row("Stil", |ui, _| {
@@ -2940,16 +3191,18 @@ impl Studio {
                     0.1,
                     "Sıralar arası mesafe",
                 );
-                value_row(
-                    fm,
-                    "Uzunluk",
-                    &mut pr.len,
-                    f.run_len,
-                    1.0..=5.0,
-                    " mm",
-                    0.1,
-                    "",
-                );
+                if fm.advanced(pr.len.is_some()) {
+                    value_row(
+                        fm,
+                        "Uzunluk",
+                        &mut pr.len,
+                        f.run_len,
+                        1.0..=5.0,
+                        " mm",
+                        0.1,
+                        "",
+                    );
+                }
             }
             Kind::Cross => {
                 value_row(
@@ -3012,16 +3265,18 @@ impl Studio {
                         pr.angle = Some(v);
                     }
                 });
-                value_row(
-                    fm,
-                    "Aralık",
-                    &mut pr.spacing,
-                    f.fill_spacing,
-                    0.2..=0.8,
-                    " mm",
-                    0.01,
-                    "Her şerit içindeki sıra aralığı",
-                );
+                if fm.advanced(pr.spacing.is_some()) {
+                    value_row(
+                        fm,
+                        "Aralık",
+                        &mut pr.spacing,
+                        f.fill_spacing,
+                        0.2..=0.8,
+                        " mm",
+                        0.01,
+                        "Her şerit içindeki sıra aralığı",
+                    );
+                }
             }
             Kind::Run => {
                 value_row(
@@ -3048,9 +3303,12 @@ impl Studio {
         if to_angle_tool {
             self.tool = Tool::Angle;
         }
-        if current != Kind::Skip {
-            self.sewing_rows(ui, i);
-        }
+        let left_out = left_out
+            + if current != Kind::Skip {
+                self.sewing_rows(ui, i)
+            } else {
+                0
+            };
         for issue in self.issues.iter().filter(|x| x.shape == Some(i)) {
             let (c, icon) = if issue.level >= Level::Warning {
                 (p.warning, Icon::Warning)
@@ -3069,6 +3327,7 @@ impl Studio {
                     .clicked()
             })
             .inner;
+        self.left_out_note(ui, left_out);
         if reset {
             let kind = self.doc.shapes[i].params.kind;
             self.doc.shapes[i].params = Params {
@@ -3080,15 +3339,22 @@ impl Studio {
 
     /// Where object `i` starts and ends sewing, and what happens after it
     /// (Ink/Stitch's start, end, trim and stop commands).
-    fn sewing_rows(&mut self, ui: &mut egui::Ui, i: usize) {
+    /// An advanced row: returns 1 when it's left out (Basic, nothing set).
+    fn sewing_rows(&mut self, ui: &mut egui::Ui, i: usize) -> usize {
         use crate::view_tools::Marker;
+        let advanced = self.prefs.advanced;
+        let pr = &mut self.doc.shapes[i].params;
+        let set = pr.start.is_some() || pr.end.is_some() || pr.trim.is_some() || pr.stop.is_some();
+        if !advanced && !set {
+            return 1;
+        }
         theme::section_break(ui);
         let p = pal_ui(ui);
         let picking = self.view_tools.marker_pick;
         let mut pick: Option<Option<Marker>> = None;
         let mut clear: Option<Marker> = None;
-        let pr = &mut self.doc.shapes[i].params;
-        form(ui, "sewing-form", |fm| {
+        form_for(ui, "sewing-form", advanced, |fm| {
+            fm.advanced(set);
             fm.row("Dikiş", |ui, _| {
                 for (m, label, set) in [
                     (Marker::Start, "Başlangıç", pr.start.is_some()),
@@ -3164,6 +3430,7 @@ impl Studio {
                 );
             }
         }
+        0
     }
 
     /// The threads in sewing order: one row per color block, a stop where
@@ -3283,12 +3550,15 @@ impl Studio {
     fn document_body(&mut self, ui: &mut egui::Ui) {
         ui.spacing_mut().item_spacing.y = theme::space::S;
         let fabric = self.doc.settings.fabric();
-        form(ui, "doc-form", |fm: &mut Form| {
+        let advanced = self.prefs.advanced;
+        let usual = zigzag::document::Settings::default();
+        let left_out = form_for(ui, "doc-form", advanced, |fm: &mut Form| {
             self.machine_rows(fm);
             fm.row("Kumaş", |ui, lid| {
                 egui::ComboBox::from_id_salt("fabric")
                     .selected_text(fabric.name)
-                    .width(170.0)
+                    .width(ui.available_width().min(170.0))
+                    .truncate()
                     .show_ui(ui, |ui| {
                         for f in FABRICS {
                             ui.selectable_value(
@@ -3317,7 +3587,8 @@ impl Studio {
                         Some(k) if !self.hoop_custom => hoops[k].1.as_str(),
                         _ => "Özel",
                     })
-                    .width(170.0)
+                    .width(ui.available_width().min(170.0))
+                    .truncate()
                     .height(400.0)
                     .show_ui(ui, |ui| {
                         for (k, (size, name, rule)) in hoops.iter().enumerate() {
@@ -3360,55 +3631,61 @@ impl Studio {
                         });
                 });
             }
-            fm.row("Katmanlar", |ui, _| {
-                ui.checkbox(&mut self.doc.settings.remove_overlaps, "Çakışmaları kaldır")
-                    .on_hover_text(
-                        "Üstteki nesnelerin kaplayacağı alanları doldurma (0,5 mm çakışma bırakır)",
-                    );
-            });
+            if fm.advanced(self.doc.settings.remove_overlaps != usual.remove_overlaps) {
+                fm.row("Katmanlar", |ui, _| {
+                    ui.checkbox(&mut self.doc.settings.remove_overlaps, "Çakışmaları kaldır")
+                        .on_hover_text(
+                            "Üstteki nesnelerin örteceği alanları doldurma (0,5 mm bindirme bırakır)",
+                        );
+                });
+            }
             fm.row("Sıra", |ui, _| {
                 ui.checkbox(&mut self.doc.settings.hat_order, "Şapka sırası")
-                    .on_hover_text("Renkleri gruplayarak merkezden dışa ve aşağıdan yukarı dik; böylece büzüşme dışarı itilir");
+                    .on_hover_text("Ortadan dışa ve aşağıdan yukarı, renkleri gruplayarak dik; böylece büzülme dışarı itilir");
             });
-            fm.row("Geçiş", |ui, _| {
-                ui.checkbox(&mut self.doc.settings.over_sewn, "Dolgu üzerinden dik")
-                    .on_hover_text(
-                        "İplik bir nesnenin bir parçasından diğerine görünmeden (gelecek dikişlerin ya da üstte dikilenin altından) geçemediğinde: kapalıyken kesilir; açıkken mevcut dolgunun üzerinden dikilir. Açık olması kesimleri azaltır ve düz dikiş dolgunun üzerinde görünür.",
-                    );
-            });
+            if fm.advanced(self.doc.settings.over_sewn != usual.over_sewn) {
+                fm.row("Geçiş", |ui, _| {
+                    ui.checkbox(&mut self.doc.settings.over_sewn, "Dolgu üzerinden dik")
+                        .on_hover_text(
+                            "İplik bir nesnenin bir parçasından diğerine görünmeden geçemediğinde (sonra gelecek dikişlerin ya da üste dikilenin altından): kapalıyken kesilir; açıkken mevcut dolgunun üzerinden dikilir. Açık olması kesimden tasarruf sağlar, düz dikiş dolgunun üstünde görünür.",
+                        );
+                });
+            }
             // Connect: gaps this short are sewn across in the open rather
             // than cut. A bar to drag, the cuts it saves beside it, and what
             // it sews lit up on the canvas meanwhile.
             let mut peek = false;
-            fm.row("Bağla", |ui, lid| {
-                let mm = &mut self.doc.settings.connect_mm;
-                ui.spacing_mut().slider_width = 100.0;
-                let bar = ui
-                    .add(
-                        egui::Slider::new(mm, 0.0..=CONNECT_BAR_MM)
-                            .show_value(false)
-                            .step_by(0.1)
-                            .clamping(egui::SliderClamping::Never),
-                    )
-                    .labelled_by(lid)
-                    .on_hover_text(
-                        "Nesneler ya da bir nesnenin parçaları arasında bu uzunluğa kadar olan boşlukları ipliği kesmek yerine düz dikişle geç. Bu dikişler görünür: sürüklerken tuvalde parlarlar. (Görünmeyen geçişler, bir dolgunun ya da üstte dikilenin altındakiler, yine de yapılır.)",
-                    );
-                bar.widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::Role::Slider, true, "Boşlukları bağla")
+            if fm.advanced(self.doc.settings.connect_mm != usual.connect_mm) {
+                fm.row("Bağla", |ui, lid| {
+                    let mm = &mut self.doc.settings.connect_mm;
+                    ui.spacing_mut().slider_width = 100.0;
+                    let bar = ui
+                        .add(
+                            egui::Slider::new(mm, 0.0..=CONNECT_BAR_MM)
+                                .show_value(false)
+                                .step_by(0.1)
+                                .clamping(egui::SliderClamping::Never),
+                        )
+                        .labelled_by(lid)
+                        .on_hover_text(
+                            "Nesneler ya da bir nesnenin parçaları arasında bu uzunluğa kadar olan boşlukları ipliği kesmek yerine düz dikişle geç. Bu dikişler görünür: sürüklerken tuvalde parlarlar. (Dolgunun ya da üste dikilenin altında görünmeyen geçişler zaten yapılır.)",
+                        );
+                    bar.widget_info(|| {
+                        egui::WidgetInfo::labeled(egui::Role::Slider, true, "Boşlukları bağla")
+                    });
+                    let field = ui.add(crate::units::drag_mm(mm, 0.0..=50.0, 0.1));
+                    peek = [&bar, &field]
+                        .iter()
+                        .any(|r| r.hovered() || r.dragged() || r.has_focus() || r.changed());
                 });
-                let field = ui.add(crate::units::drag_mm(mm, 0.0..=50.0, 0.1));
-                peek = [&bar, &field]
-                    .iter()
-                    .any(|r| r.hovered() || r.dragged() || r.has_focus() || r.changed());
-            });
-            let (cuts, bridged) = (self.design.trim_count(), self.design.bridges.len());
-            fm.wide(|ui| {
-                caption(
-                    ui,
-                    connect_note(self.doc.settings.connect_mm, cuts, bridged),
-                );
-            });
+                let (cuts, bridged) = (self.design.trim_count(), self.design.bridges.len());
+                fm.wide(|ui| {
+                    caption(
+                        ui,
+                        connect_note(self.doc.settings.connect_mm, cuts, bridged),
+                    );
+                });
+            }
             if peek {
                 self.bridges_peek =
                     Some(std::time::Instant::now() + std::time::Duration::from_secs(6));
@@ -3419,7 +3696,29 @@ impl Studio {
                     .labelled_by(lid)
                     .on_hover_text("Önizleme için şapkanızın rengi (tasarımla kaydedilir; dikişleri değiştirmez)");
             });
-            self.narrow_satin_row(fm);
+            if fm.advanced(self.doc.settings.narrow_satin_mm != usual.narrow_satin_mm) {
+                self.narrow_satin_row(fm);
+            }
+        });
+        self.left_out_note(ui, left_out);
+    }
+
+    /// Under a panel's settings in Basic: how many more there are, and
+    /// where they're turned on (Settings › General: one choice for every
+    /// panel).
+    fn left_out_note(&self, ui: &mut egui::Ui, left_out: usize) {
+        if self.prefs.advanced || left_out == 0 {
+            return;
+        }
+        ui.horizontal(|ui| {
+            ui.add_space(theme::LABEL_W + theme::space::S);
+            caption(
+                ui,
+                format!(
+                    "{left_out} ayar daha {}: Ayarlar › Genel'de Gelişmiş ayarları göster.",
+                    if left_out == 1 { "setting" } else { "settings" }
+                ),
+            );
         });
     }
 
@@ -3515,6 +3814,76 @@ mod tests {
     use super::*;
     use egui_kittest::Harness;
     use egui_kittest::kittest::Queryable;
+
+    #[test]
+    fn overlapping_strokes_are_offered_only_to_be_put_back() {
+        let svg = |id: &str| {
+            format!(
+                r##"<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="100mm" viewBox="0 0 100 100">
+              <path id="{id}" fill="#123456" d="M10 10 L13 10 L13 19 L27 19 L27 10 L30 10 L30 30 L27 30 L27 21 L13 21 L13 30 L10 30 Z"/>
+            </svg>"##
+            )
+        };
+        let open = |id: &str| {
+            let doc = zigzag::document::Document::from_svg(&svg(id), "t", None).unwrap();
+            let mut h = Harness::builder()
+                .with_size(Vec2::new(1400.0, 1000.0))
+                .build_ui_state(
+                    |ui, s: &mut Studio| s.frame(ui),
+                    Studio::with_file(None, None),
+                );
+            h.state_mut().set_document(doc);
+            h.run_steps(3);
+            h.state_mut().set_selection(&[0]);
+            h.run_steps(3);
+            h
+        };
+        let h = open("H_satin");
+        assert!(h.query_by_label("Overlapping").is_none(), "not offered");
+        // A file's text that has them: Strokes puts it back, and the row
+        // goes.
+        let mut h = open("H_satin_overlap");
+        assert_eq!(h.state().doc.shapes[0].params.overlap, Some(true));
+        h.get_by_label("Strokes").click();
+        h.run_steps(3);
+        assert_eq!(h.state().doc.shapes[0].params.overlap, None);
+        assert!(h.query_by_label("Overlapping").is_none());
+    }
+
+    #[test]
+    fn a_filled_satins_corners_are_auto_mitred_or_cut() {
+        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="100mm" viewBox="0 0 100 100">
+              <path id="H_satin" fill="#123456" d="M10 10 L13 10 L13 19 L27 19 L27 10 L30 10 L30 30 L27 30 L27 21 L13 21 L13 30 L10 30 Z"/>
+            </svg>"##;
+        let doc = zigzag::document::Document::from_svg(svg, "t", None).unwrap();
+        let mut h = Harness::builder()
+            .with_size(Vec2::new(1400.0, 1000.0))
+            .build_ui_state(
+                |ui, s: &mut Studio| s.frame(ui),
+                Studio::with_file(None, None),
+            );
+        h.state_mut().prefs.advanced = true;
+        h.state_mut().set_document(doc);
+        h.run_steps(3);
+        h.state_mut().set_selection(&[0]);
+        h.run_steps(3);
+        // Cut unless it's asked to be mitred where that's clean (Auto) or
+        // everywhere; and back.
+        let p = |h: &Harness<Studio>| {
+            let p = &h.state().doc.shapes[0].params;
+            (p.cut, p.mitred)
+        };
+        assert_eq!(p(&h), (None, None));
+        h.get_by_label("Auto").click();
+        h.run_steps(3);
+        assert_eq!(p(&h), (Some(false), None));
+        h.get_by_label("Mitred").click();
+        h.run_steps(3);
+        assert_eq!(p(&h), (Some(false), Some(true)));
+        h.get_by_label("Cut").click();
+        h.run_steps(3);
+        assert_eq!(p(&h), (None, None));
+    }
 
     #[test]
     fn layers_are_dragged_to_another_place_in_the_sewing_order() {
@@ -4031,6 +4400,104 @@ mod tests {
     }
 
     #[test]
+    fn a_changed_row_stays_while_its_dragged_back_to_what_it_was() {
+        // Basic, a setting that's been changed: its row shows. Dragged to
+        // the value it had (a lean back to 0), the row stays under the
+        // pointer until it's let go, and then goes.
+        let mut h = Harness::builder()
+            .with_size(Vec2::new(400.0, 200.0))
+            .build_ui_state(
+                |ui, v: &mut f64| {
+                    theme::form_for(ui, "t", false, |fm| {
+                        if fm.advanced(*v != 0.0) {
+                            fm.row("Lean", |ui, lid| {
+                                ui.add(egui::DragValue::new(v)).labelled_by(lid);
+                            });
+                        }
+                    });
+                },
+                4.0,
+            );
+        h.run_steps(2);
+        assert!(h.query_by_label("Lean").is_some());
+        let at = h
+            .query_all_by_role(egui::accesskit::Role::SpinButton)
+            .next()
+            .expect("its value")
+            .rect()
+            .center();
+        h.hover_at(at);
+        h.run_steps(1);
+        h.drag_at(at);
+        h.run_steps(2);
+        *h.state_mut() = 0.0;
+        h.run_steps(3);
+        assert!(h.query_by_label("Lean").is_some(), "still in hand");
+        h.drop_at(at);
+        h.run_steps(3);
+        assert!(h.query_by_label("Lean").is_none(), "let go: back to Basic");
+    }
+
+    #[test]
+    fn basic_shows_what_most_designs_need_and_whatever_was_changed() {
+        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="100mm" viewBox="0 0 100 100">
+              <path id="H_satin" fill="#123456" d="M10 10 L13 10 L13 19 L27 19 L27 10 L30 10 L30 30 L27 30 L27 21 L13 21 L13 30 L10 30 Z"/>
+            </svg>"##;
+        let doc = zigzag::document::Document::from_svg(svg, "t", None).unwrap();
+        let mut h = Harness::builder()
+            .with_size(Vec2::new(1400.0, 1000.0))
+            .build_ui_state(
+                |ui, s: &mut Studio| s.frame(ui),
+                Studio::with_file(None, None),
+            );
+        assert!(h.state().prefs.advanced, "every setting to begin with");
+        h.state_mut().prefs.advanced = false;
+        h.state_mut().set_document(doc);
+        h.run_steps(3);
+        h.state_mut().set_selection(&[0]);
+        h.run_steps(3);
+        let advanced = [
+            "Pull comp.",
+            "Lean",
+            "Corners",
+            "Short stitches",
+            "Auto split",
+            "Trim",
+            "Remove overlaps",
+            "Connect gaps",
+        ];
+        assert!(h.query_by_label("Density").is_some());
+        for name in advanced {
+            assert!(h.query_by_label(name).is_none(), "{name} is advanced");
+        }
+        // Changed out of sight (by an agent, say): it shows, though Basic.
+        h.state_mut().doc.shapes[0].params.lean = Some(4.0);
+        h.state_mut().doc.settings.connect_mm = 3.0;
+        h.run_steps(3);
+        assert!(h.query_by_label("Lean").is_some());
+        assert!(h.query_by_label("Connect gaps").is_some());
+        assert!(h.query_by_label("Pull comp.").is_none());
+        // Advanced: everything.
+        // (Each panel says how many more it has, and where they're
+        // turned on: Settings › General.)
+        assert_eq!(
+            h.query_all_by_label_contains("Show advanced settings")
+                .count(),
+            2
+        );
+        h.state_mut().prefs.advanced = true;
+        h.run_steps(3);
+        assert_eq!(
+            h.query_all_by_label_contains("Show advanced settings")
+                .count(),
+            0
+        );
+        for name in advanced {
+            assert!(h.query_by_label(name).is_some(), "{name} shows in Advanced");
+        }
+    }
+
+    #[test]
     fn the_unit_is_remembered() {
         let f = std::env::temp_dir().join(format!("tl-units-{}.json", std::process::id()));
         let mut d = DockState::load_from(Some(f.clone()));
@@ -4248,6 +4715,13 @@ mod tests {
         h.run_steps(3);
         assert!(egui::Popup::is_id_open(&h.ctx, id));
         assert!(h.query_by_label("No problems found.").is_none());
+        // Its whole row selects the object it's about.
+        h.state_mut().set_selection(&[]);
+        h.run_steps(2);
+        h.get_by_label("Issue: sun").click();
+        h.run_steps(2);
+        let sun = h.state().names.iter().position(|n| n == "sun").unwrap();
+        assert_eq!(h.state().sel_indices(), vec![sun]);
     }
 
     #[test]
@@ -4323,5 +4797,439 @@ mod tests {
         );
         assert_eq!(e.active[PanelId::Stitch.index()], Some(PanelId::Transform));
         let _ = std::fs::remove_file(file);
+    }
+
+    /// A finger on a touch screen: the touch, and the pointer it stands for.
+    fn finger(h: &mut Harness<'_, Studio>, phase: egui::TouchPhase, pos: Pos2) {
+        use egui::{Event, TouchDeviceId, TouchId, TouchPhase};
+        h.event(Event::Touch {
+            device_id: TouchDeviceId(0),
+            id: TouchId(0),
+            phase,
+            pos,
+            force: None,
+        });
+        let button = |pressed| Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: Default::default(),
+        };
+        match phase {
+            TouchPhase::Start => {
+                h.event(Event::PointerMoved(pos));
+                h.event(button(true));
+            }
+            TouchPhase::Move => h.event(Event::PointerMoved(pos)),
+            TouchPhase::End | TouchPhase::Cancel => {
+                h.event(button(false));
+                h.event(Event::PointerGone);
+            }
+        }
+        h.run_steps(1);
+    }
+
+    /// A finger drags `by` from `from`, in steps.
+    fn finger_drag(h: &mut Harness<'_, Studio>, from: Pos2, by: Vec2) {
+        use egui::TouchPhase;
+        finger(h, TouchPhase::Start, from);
+        for k in 1..=6 {
+            finger(h, TouchPhase::Move, from + by * (k as f32 / 6.0));
+        }
+        finger(h, TouchPhase::End, from + by);
+        h.run_steps(2);
+    }
+
+    #[test]
+    fn a_finger_takes_hold_of_a_docks_edge_a_little_off_it() {
+        let mut h = Harness::builder()
+            .with_size(Vec2::new(1180.0, 820.0))
+            .build_ui_state(
+                |ui, s: &mut Studio| s.frame(ui),
+                Studio::with_file(None, None),
+            );
+        h.state_mut().dock.toggle(PanelId::Agent);
+        h.run_steps(2);
+        let mid = h.state().canvas_rect.center().y;
+        // A touch anywhere: from then on it's a touch screen.
+        let c = h.state().canvas_rect.center();
+        finger_drag(&mut h, c, Vec2::ZERO);
+        assert!(touch_screen(&h.ctx));
+        // 9 points in from each dock's edge: past egui's 3 for a mouse,
+        // inside a finger's 12. (Not out over the canvas, which takes the
+        // touches there: it's on top.)
+        let canvas = h.state().canvas_rect;
+        finger_drag(
+            &mut h,
+            Pos2::new(canvas.right() + 9.0, mid),
+            Vec2::new(-60.0, 0.0),
+        );
+        // (As with a mouse, the edge goes to where the finger is.)
+        let wider = h.state().canvas_rect;
+        assert_eq!(
+            wider.right(),
+            canvas.right() + 9.0 - 60.0,
+            "the right dock is wider: {canvas:?} → {wider:?}"
+        );
+        finger_drag(
+            &mut h,
+            Pos2::new(wider.left() - 9.0, mid),
+            Vec2::new(60.0, 0.0),
+        );
+        let both = h.state().canvas_rect;
+        assert_eq!(
+            both.left(),
+            wider.left() - 9.0 + 60.0,
+            "the left dock is wider: {wider:?} → {both:?}"
+        );
+        assert_eq!(h.state().doc.shapes.len(), 0, "nothing drawn");
+    }
+
+    #[test]
+    fn a_mouse_keeps_egui_s_narrow_edge() {
+        let mut h = Harness::builder()
+            .with_size(Vec2::new(1180.0, 820.0))
+            .build_ui_state(
+                |ui, s: &mut Studio| s.frame(ui),
+                Studio::with_file(None, None),
+            );
+        h.run_steps(2);
+        assert!(!touch_screen(&h.ctx), "no grabbers with a mouse");
+        let canvas = h.state().canvas_rect;
+        let from = Pos2::new(canvas.right() + 9.0, canvas.center().y);
+        h.hover_at(from);
+        h.run_steps(1);
+        h.drag_at(from);
+        h.run_steps(1);
+        h.hover_at(from - Vec2::new(60.0, 0.0));
+        h.run_steps(1);
+        h.drop_at(from - Vec2::new(60.0, 0.0));
+        h.run_steps(2);
+        assert_eq!(h.state().canvas_rect, canvas, "9 points off isn't the edge");
+    }
+
+    #[test]
+    fn every_panel_fits_the_right_dock_at_its_narrowest() {
+        use egui_kittest::kittest::NodeT;
+        // Each panel alone, with nothing selected and with a fill and a
+        // satin selected: nothing in it reaches past the dock's margin.
+        // (A dock doesn't widen for what's in it: what didn't fit would be
+        // cut off at its edge.)
+        let badge = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/badge.svg");
+        let size = Vec2::new(1180.0, 820.0);
+        for sel in [None, Some(0), Some(3)] {
+            for only in ALL {
+                let mut s = Studio::with_file(Some(badge.clone()), sel);
+                for p in ALL {
+                    s.dock.hidden[p.index()] = p != only;
+                }
+                let mut h = Harness::builder()
+                    .with_size(size)
+                    .build_ui_state(|ui, s: &mut Studio| s.frame(ui), s);
+                h.run_steps(3);
+                // The dock's edge, dragged as far right as it goes.
+                let edge = Pos2::new(h.state().canvas_rect.max.x + 1.0, 400.0);
+                let to = edge + Vec2::new(200.0, 0.0);
+                h.hover_at(edge);
+                h.run_steps(1);
+                h.drag_at(edge);
+                h.run_steps(1);
+                h.hover_at(to);
+                h.run_steps(1);
+                h.drop_at(to);
+                h.run_steps(3);
+                let dock = h.state().canvas_rect.max.x;
+                assert!(size.x - dock < 300.0, "at its narrowest: {}", size.x - dock);
+                for n in h.root().query_all(egui_kittest::kittest::by()) {
+                    let node = n.accesskit_node();
+                    let Some(b) = node.bounding_box() else {
+                        continue;
+                    };
+                    if (b.x0 as f32) < dock || b.y0 < 60.0 || b.y0 > 780.0 {
+                        continue;
+                    }
+                    assert!(
+                        b.x1 as f32 <= size.x - 12.0,
+                        "{only:?} (selected {sel:?}): {:?} {:?} reaches {:.0}, past the dock's margin",
+                        node.role(),
+                        node.label(),
+                        b.x1
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_panel_opened_in_a_flyout_shows_all_of_itself() {
+        use egui_kittest::kittest::NodeT;
+        let badge = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/badge.svg");
+        let flyout = |h: &Harness<'_, Studio>| {
+            h.ctx
+                .memory(|m| m.area_rect(egui::Id::unique("panel-flyout")))
+                .expect("the flyout is open")
+        };
+        let open = |collapsed: bool| {
+            // The right dock as icons, a fill selected (the Stitch panel's
+            // settings are long).
+            let mut s = Studio::with_file(Some(badge.clone()), Some(3));
+            s.dock.iconic = [false, true];
+            s.dock.collapsed[PanelId::Stitch.index()] = collapsed;
+            let mut h = Harness::builder()
+                .with_size(Vec2::new(1180.0, 820.0))
+                .build_ui_state(|ui, s: &mut Studio| s.frame(ui), s);
+            h.run_steps(3);
+            h.get_by_label("Stitch").click();
+            h.run_steps(30);
+            h
+        };
+        let full = flyout(&open(false));
+        let mut h = open(true);
+        let shut = flyout(&h);
+        assert!(shut.height() < 40.0, "just its header: {shut:?}");
+        // Opened in the flyout: as tall as it is opened in the first place.
+        h.get_by_label("Stitch panel").click();
+        h.run_steps(30);
+        let opened = flyout(&h);
+        assert!(full.height() > 200.0, "{full:?}");
+        assert_eq!(opened, full, "all of the panel, not a scroll of it");
+        let header = h
+            .get_by_label("Stitch panel")
+            .accesskit_node()
+            .bounding_box()
+            .unwrap();
+        assert!(
+            (header.x1 - header.x0) as f32 >= opened.width() - 2.0,
+            "the header as wide as the flyout: {header:?} in {opened:?}"
+        );
+        // And back.
+        h.get_by_label("Stitch panel").click();
+        h.run_steps(30);
+        assert_eq!(flyout(&h), shut);
+    }
+
+    #[test]
+    fn the_stitch_types_fit_in_one_row_at_the_default_width() {
+        use egui_kittest::kittest::NodeT;
+        let mut h = Harness::builder()
+            .with_size(Vec2::new(1180.0, 820.0))
+            .build_ui_state(
+                |ui, s: &mut Studio| s.frame(ui),
+                Studio::with_file(None, None),
+            );
+        h.run_steps(3);
+        let top = |h: &Harness<'_, Studio>, label: &str| {
+            h.get_by_label(label)
+                .accesskit_node()
+                .bounding_box()
+                .unwrap()
+                .y0
+        };
+        assert_eq!(top(&h, "Fill"), top(&h, "Tartan"), "one row");
+    }
+
+    #[test]
+    fn a_form_s_wrapped_rows_keep_to_their_own_lines_in_a_flyout() {
+        use egui_kittest::kittest::NodeT;
+        // The Stitch panel in a flyout (narrower than the dock), a satin
+        // selected: Underlay's checkboxes wrap to two lines under Automatic.
+        let badge = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/badge.svg");
+        let mut s = Studio::with_file(Some(badge), Some(2));
+        s.prefs.advanced = true;
+        s.dock.iconic = [false, true];
+        let mut h = Harness::builder()
+            .with_size(Vec2::new(1180.0, 900.0))
+            .build_ui_state(|ui, s: &mut Studio| s.frame(ui), s);
+        h.run_steps(3);
+        h.get_by_label("Stitch").click();
+        h.run_steps(3);
+        let check = |h: &Harness<'_, Studio>, label: &str| {
+            h.query_all_by_label(label)
+                .find(|n| n.accesskit_node().role() == egui::accesskit::Role::CheckBox)
+                .and_then(|n| n.accesskit_node().bounding_box())
+                .unwrap_or_else(|| panic!("{label}"))
+        };
+        let auto = check(&h, "Automatic");
+        let center = check(&h, "Center");
+        let zigzag = check(&h, "Zigzag");
+        let curves = check(&h, "Short stitches");
+        let gap = |a: egui::accesskit::Rect, b: egui::accesskit::Rect| b.y0 - a.y1;
+        assert!(
+            (0.0..16.0).contains(&gap(auto, center)),
+            "Center just under Automatic: {auto:?} {center:?}"
+        );
+        assert!(zigzag.y0 > center.y1, "Zigzag on a line of its own");
+        assert!(
+            (0.0..16.0).contains(&gap(zigzag, curves)),
+            "the Curves row just under it, not over it: {zigzag:?} {curves:?}"
+        );
+        // A label beside controls that wrap is level with their first line.
+        let role = |label: &str, role: egui::accesskit::Role| {
+            h.query_all_by_label(label)
+                .find(|n| n.accesskit_node().role() == role)
+                .and_then(|n| n.accesskit_node().bounding_box())
+                .unwrap_or_else(|| panic!("{label}"))
+        };
+        let sewing = role("Sewing", egui::accesskit::Role::Label);
+        let start = role("Start", egui::accesskit::Role::Button);
+        let mid = |r: egui::accesskit::Rect| (r.y0 + r.y1) / 2.0;
+        assert!(
+            (mid(sewing) - mid(start)).abs() < 4.0,
+            "Sewing beside Start: {sewing:?} {start:?}"
+        );
+    }
+
+    #[test]
+    fn a_window_s_panel_scrolls_under_its_header() {
+        use egui_kittest::kittest::NodeT;
+        // A short window: the Stitch panel's settings, in a flyout, are
+        // taller than the room for them.
+        let badge = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/badge.svg");
+        let mut s = Studio::with_file(Some(badge), Some(2));
+        s.prefs.advanced = true;
+        s.dock.iconic = [false, true];
+        let mut h = Harness::builder()
+            .with_size(Vec2::new(1180.0, 600.0))
+            .build_ui_state(|ui, s: &mut Studio| s.frame(ui), s);
+        h.run_steps(3);
+        h.get_by_label("Stitch").click();
+        h.run_steps(4);
+        let at = |h: &Harness<'_, Studio>, label: &str| {
+            h.get_by_label(label)
+                .accesskit_node()
+                .bounding_box()
+                .unwrap()
+        };
+        let flyout = h
+            .ctx
+            .memory(|m| m.area_rect(egui::Id::unique("panel-flyout")))
+            .unwrap();
+        let header = at(&h, "Stitch panel");
+        let last = at(&h, "Reset to Defaults");
+        assert!(
+            last.y0 as f32 > flyout.bottom(),
+            "the settings run on past the flyout: {last:?} {flyout:?}"
+        );
+        // Scrolled to the end: the header is where it was, the end in sight.
+        h.get_by_label("Reset to Defaults").scroll_to_me();
+        h.run_steps(4);
+        assert_eq!(at(&h, "Stitch panel"), header, "the header stays put");
+        let last = at(&h, "Reset to Defaults");
+        assert!(
+            (last.y1 as f32) <= flyout.bottom() && last.y0 > header.y1,
+            "the end shows under the header: {last:?} {flyout:?}"
+        );
+    }
+
+    #[test]
+    fn transform_s_rows_stay_on_one_line_in_a_window() {
+        use egui_kittest::kittest::NodeT;
+        let badge = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/badge.svg");
+        for flyout in [false, true] {
+            let mut s = Studio::with_file(Some(badge.clone()), Some(0));
+            if flyout {
+                s.dock.iconic = [false, true];
+            } else {
+                s.dock.place[PanelId::Transform.index()] = Place::Float;
+            }
+            let mut h = Harness::builder()
+                .with_size(Vec2::new(1180.0, 900.0))
+                .build_ui_state(|ui, s: &mut Studio| s.frame(ui), s);
+            h.run_steps(3);
+            if flyout {
+                h.get_by_label("Transform").click();
+            }
+            h.run_steps(4);
+            let mid = |label: &str| {
+                let b = h
+                    .get_by_label(label)
+                    .accesskit_node()
+                    .bounding_box()
+                    .unwrap();
+                (b.y0 + b.y1) / 2.0
+            };
+            for (field, beside) in [("Y", "Reference point"), ("H", "Keep proportions")] {
+                assert!(
+                    (mid(field) - mid(beside)).abs() < 4.0,
+                    "{beside} beside {field} (flyout {flyout})"
+                );
+            }
+        }
+    }
+
+    // (The agent's stand-in is a shell script.)
+    #[cfg(unix)]
+    #[test]
+    fn issues_go_to_the_agent_to_fix_when_there_is_one() {
+        use crate::agent::{AgentKind, Entry};
+        let _env = crate::agent::AGENT_ENV
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let mut h = harness();
+        // A problem: the sun as satin, too wide for it.
+        h.state_mut().run_tool(
+            "set_object",
+            &serde_json::json!({ "object": "sun", "kind": "satin" }),
+        );
+        h.run_steps(3);
+        assert!(!h.state().issues.is_empty());
+        h.state_mut()
+            .run_action(crate::commands::Action::ShowIssues);
+        h.run_steps(3);
+        // No MCP server for an agent to work through: no Fix.
+        assert!(h.state().mcp.is_none());
+        assert!(h.query_by_label("Fix").is_none(), "no agent to fix them");
+        // An agent (a stand-in that answers and stops) and the server.
+        let dir = std::env::temp_dir().join(format!("tl-fix-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let fake = dir.join("claude");
+        std::fs::write(
+            &fake,
+            "#!/bin/sh\ncat >/dev/null\necho '{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"num_turns\":1,\"duration_ms\":1}'\n",
+        )
+        .unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        unsafe { std::env::set_var("ZIGZAG_CLAUDE", &fake) };
+        {
+            let s = h.state_mut();
+            s.mcp = Some(
+                crate::mcp::start(0, crate::tools::tool_specs(), String::new(), || {}).unwrap(),
+            );
+            s.agent.kind = AgentKind::Claude;
+            s.agent.found = [Some(Some(fake.clone())), Some(Some(fake.clone()))];
+            s.agent.prompt = "half a thought".into();
+            s.set_selection(&[]);
+            // A note pinned on the canvas, not yet sent.
+            s.add_note(zigzag::geom::P::new(0.0, 0.0), None);
+            s.review.notes[0].text = "longer rays".into();
+        }
+        h.run_steps(2);
+        h.get_by_label("Fix").click();
+        h.run_steps(2);
+        let sent = h
+            .state()
+            .agent
+            .log
+            .iter()
+            .find_map(|e| match e {
+                Entry::You(t) => Some(t.clone()),
+                _ => None,
+            })
+            .expect("a message to the agent");
+        assert!(sent.starts_with("Fix these problems"), "{sent}");
+        assert!(sent.contains("1. sun: "), "{sent}");
+        let sun = h.state().names.iter().position(|n| n == "sun").unwrap();
+        assert_eq!(h.state().sel_indices(), vec![sun], "what it starts on");
+        assert_eq!(h.state().agent.prompt, "half a thought", "the draft kept");
+        let tab = h.state().session.rec;
+        assert_eq!(h.state().review.pending(tab), 1, "the note isn't sent");
+        assert!(!sent.contains("longer rays"), "{sent}");
+        unsafe { std::env::remove_var("ZIGZAG_CLAUDE") };
+        assert!(h.state().agent_showing(), "the conversation in view");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -393,33 +393,40 @@ impl Studio {
         egui::Area::new(id)
             .pivot(egui::Align2::CENTER_TOP)
             .fixed_pos(rect.center_top() + Vec2::new(0.0, space::M))
+            // (On the canvas, never over the docks beside it.)
+            .constrain_to(rect)
             .show(ctx, |ui| {
+                ui.set_max_width(crate::theme::canvas_bar_width(rect));
                 egui::Frame::popup(ui.style())
                     .corner_radius(9)
                     .inner_margin(egui::Margin::symmetric(space::S as i8, space::XS as i8))
                     .show(ui, |ui| {
-                        ui.horizontal(|ui| {
+                        ui.horizontal_wrapped(|ui| {
                             ui.spacing_mut().item_spacing.x = space::S;
                             let p = pal_ui(ui);
                             let label = |ui: &mut egui::Ui, t: &str| {
                                 ui.label(egui::RichText::new(t).size(12.0).color(p.secondary));
                             };
                             let b = &mut self.view_tools.build;
-                            label(ui, "Boyut");
-                            ui.add(
-                                egui::DragValue::new(&mut b.blob_mm)
-                                    .range(BLOB_MM)
-                                    .speed(0.05)
-                                    .fixed_decimals(1)
-                                    .suffix(" mm"),
-                            )
-                            .on_hover_text("Fırçanın ne kadar geniş boyadığı. [ ve ] tuşları da değiştirir.");
-                            label(ui, "Yumuşaklık");
-                            ui.add(
-                                egui::Slider::new(&mut b.blob_smooth, 0.0..=100.0)
-                                    .show_value(false),
-                            )
-                            .on_hover_text("El titremesinin ne kadarının giderileceği");
+                            crate::theme::keep_together(ui, "size", |ui| {
+                                label(ui, "Boyut");
+                                ui.add(
+                                    egui::DragValue::new(&mut b.blob_mm)
+                                        .range(BLOB_MM)
+                                        .speed(0.05)
+                                        .fixed_decimals(1)
+                                        .suffix(" mm"),
+                                )
+                                .on_hover_text("Fırçanın ne kadar geniş boyadığı. [ ve ] tuşları da değiştirir.");
+                            });
+                            crate::theme::keep_together(ui, "smoothness", |ui| {
+                                label(ui, "Yumuşaklık");
+                                ui.add(
+                                    egui::Slider::new(&mut b.blob_smooth, 0.0..=100.0)
+                                        .show_value(false),
+                                )
+                                .on_hover_text("El titremesinin ne kadarının giderileceği");
+                            });
                         });
                     });
             });

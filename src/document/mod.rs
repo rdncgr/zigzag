@@ -15,6 +15,7 @@ use anyhow::{Context, Result, anyhow, bail};
 
 mod build;
 mod cleanup;
+mod columns;
 mod edit;
 mod glyphs;
 mod lettering;
@@ -358,6 +359,8 @@ impl Document {
     pub fn from_svg(xml: &str, name: &str, path: Option<PathBuf>) -> Result<Document> {
         let (xml, _) = prepare_ids(xml, &mut 0)?;
         let settings = root_settings(&xml);
+        // (What's added from here on is numbered after what's in the file.)
+        let next_group = highest_numbered_id(&xml);
         let mut d = Document {
             xml,
             path,
@@ -367,7 +370,7 @@ impl Document {
             settings,
             removed_parts: HashSet::new(),
             next_uid: 0,
-            next_group: 0,
+            next_group,
             lettering_ids: HashSet::new(),
             tree: None,
             root_ts: Default::default(),
@@ -1124,6 +1127,30 @@ fn xml_escape(s: &str) -> String {
         .replace('>', "&gt;")
 }
 
+/// The highest number among the ids ZigZag numbers (`tl-drawing-7`, `tl-7`,
+/// `drawing_7_fill`…) in a document. The ones it makes from here on come
+/// after it, so none is the id of something an earlier session left in
+/// the file: two things with one id are told apart by neither.
+fn highest_numbered_id(xml: &str) -> usize {
+    let Ok(doc) = roxmltree::Document::parse(xml) else {
+        return 0;
+    };
+    doc.descendants()
+        .filter_map(|n| n.attribute("id"))
+        .filter_map(|id| {
+            let digits = match id.strip_prefix("tl-") {
+                Some(rest) => rest.rsplit('-').next()?,
+                None => id.strip_prefix("drawing_")?.split('_').next()?,
+            };
+            digits.parse::<usize>().ok()
+        })
+        // (A number someone made up, too big to count on from, isn't one
+        // of these.)
+        .filter(|&n| n < 1_000_000_000)
+        .max()
+        .unwrap_or(0)
+}
+
 /// Give every drawable element a unique id: `tl-N` for a missing one, a
 /// `_#N` suffix on a repeat.
 fn prepare_ids(xml: &str, counter: &mut usize) -> Result<(String, usize)> {
@@ -1241,6 +1268,28 @@ mod tests {
             .iter()
             .find(|s| svg::name_words(&s.id).join(" ") == words)
             .unwrap()
+    }
+
+    #[test]
+    fn numbering_starts_after_the_numbers_in_the_file() {
+        let svg = |ids: &[&str]| {
+            let inner: String = ids.iter().map(|id| format!(r#"<g id="{id}"/>"#)).collect();
+            format!(r#"<svg xmlns="http://www.w3.org/2000/svg">{inner}</svg>"#)
+        };
+        assert_eq!(highest_numbered_id(&svg(&["wave", "fill_a=45"])), 0);
+        assert_eq!(
+            highest_numbered_id(&svg(&[
+                "tl-arc-4",
+                "tl-9",
+                "drawing_12_fill",
+                "tl-lettering-3",
+                "tl-drawing-7",
+                "wave_#40",
+                // (Not a number to count on from.)
+                "tl-drawing-99999999999999999999999",
+            ])),
+            12
+        );
     }
 
     #[test]

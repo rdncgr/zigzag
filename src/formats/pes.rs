@@ -232,6 +232,15 @@ pub fn write_pec(f: &mut Vec<u8>, name: &str, cmds: &[Cmd], threads: &[[u8; 3]])
     i16le(f, b.height().round() as i64);
     i16le(f, 0x1E0);
     i16le(f, 0x1B0);
+    // Design box offset: where the box's top-left corner sits relative to
+    // the stitch origin, as `0x9000 | -left` and `0x9000 | -top`. Brother
+    // machines read these two words before the stitches. Without them they
+    // take the first move for the box position and sew only the stitches
+    // right of and below the stitch origin: the bottom-right quarter of a
+    // centered design.
+    let (left, top) = (b.min.x.round() as i64, b.min.y.round() as i64);
+    pec_value(f, -left, true, 0x10);
+    pec_value(f, -top, true, 0x10);
     pec_encode(f, cmds);
     let len = f.len() - start;
     f[start + 2..start + 5].copy_from_slice(&(len as u32).to_le_bytes()[..3]);

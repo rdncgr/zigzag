@@ -301,13 +301,25 @@ pub(crate) fn font_list(
         let r = ui.selectable_value(font, name.clone(), name);
         changed |= r.changed();
         if reveal && name == font {
-            r.scroll_to_me(Some(egui::Align::Center));
+            // (At once: the menu opens on it, not scrolling to it.)
+            r.scroll_to_me_animation(
+                Some(egui::Align::Center),
+                egui::style::ScrollAnimation::none(),
+            );
         }
     }
     if enter {
         ui.close();
     }
     changed
+}
+
+/// Where the caret and the typing frame are drawn: on the canvas, over the
+/// letters, and only there (not over the docks beside it when the letters
+/// are zoomed in past its edges, nor over a panel or menu on top of it).
+fn caret_painter(ctx: &egui::Context, canvas: egui::Rect) -> egui::Painter {
+    ctx.layer_painter(egui::LayerId::background())
+        .with_clip_rect(canvas)
 }
 
 impl Studio {
@@ -320,10 +332,41 @@ impl Studio {
 
     pub fn open_text_window(&mut self) {
         if self.lettering.new.is_none() {
-            self.lettering.new = Some(TextSpec {
-                text: String::new(),
-                ..TextSpec::default()
-            });
+            self.lettering.new = Some(self.new_text_spec());
+        }
+    }
+
+    /// What new text starts as: as the last text was set (its font kept
+    /// from one session to the next, if it's still installed), else as it
+    /// comes. Empty, and not on a path.
+    pub fn new_text_spec(&mut self) -> TextSpec {
+        let mut spec = match self.lettering.last.clone() {
+            Some(last) => last,
+            None => {
+                let mut spec = TextSpec::default();
+                if let Some(font) = self.prefs.last_font.clone()
+                    && self.fonts().contains(&font)
+                {
+                    spec.font = font;
+                }
+                spec
+            }
+        };
+        spec.text = String::new();
+        spec.path = None;
+        spec
+    }
+
+    /// Keep a text's settings for the next text (see [`Self::new_text_spec`]).
+    pub fn remember_text(&mut self, spec: &TextSpec) {
+        self.lettering.last = Some(TextSpec {
+            text: String::new(),
+            path: None,
+            ..spec.clone()
+        });
+        if self.prefs.last_font.as_deref() != Some(spec.font.as_str()) {
+            self.prefs.last_font = Some(spec.font.clone());
+            self.prefs.save();
         }
     }
 
@@ -337,6 +380,7 @@ impl Studio {
             idx = d.add_lettering(spec, center_mm)?;
             Ok(())
         })?;
+        self.remember_text(spec);
         self.set_selection(&[idx]);
         // (Planned on the next frame: at once for a small design, on the
         // worker for a big one, so the UI never stalls here.)
@@ -347,6 +391,7 @@ impl Studio {
     pub fn update_lettering(&mut self, index: usize, spec: &TextSpec) -> anyhow::Result<()> {
         let uid = self.doc.shapes[index].uid;
         self.structural(|d| d.set_lettering(index, spec))?;
+        self.remember_text(spec);
         if let Some(i) = self.doc.shapes.iter().position(|s| s.uid == uid) {
             self.set_selection(&[i]);
         }
@@ -385,10 +430,13 @@ impl Studio {
             let r = ui.add(
                 egui::Slider::new(v, range.clone())
                     .show_value(false)
-                    .step_by(step),
+                    .step_by(step)
+                    // (A value past the range, as text scaled by its
+                    // handles has, stays until this is what's changed.)
+                    .clamping(egui::SliderClamping::Edits),
             );
             r.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Slider, true, label));
-            let d = ui.add(crate::units::drag_mm(v, range, step));
+            let d = ui.add(crate::units::drag_mm(v, range, step).clamp_existing_to_range(false));
             done(&r) || done(&d)
         };
         let pct = |ui: &mut egui::Ui, v: &mut f64, label: &str| {
@@ -524,7 +572,8 @@ impl Studio {
                     ),
                     (Align::Right, crate::icons::Icon::AlignRight, "Sağa Hizala"),
                 ] {
-                    if icon_button(ui, icon, name, spec.align == a, 24.0).clicked()
+                    if icon_button(ui, icon, name, spec.align == a, crate::theme::PANEL_ICON)
+                        .clicked()
                         && spec.align != a
                     {
                         spec.align = a;
@@ -728,6 +777,7 @@ impl Studio {
             return;
         }
         let uids: Vec<usize> = idx.iter().map(|&i| self.doc.shapes[i].uid).collect();
+        let mut edited: Option<TextSpec> = None;
         let r = self.structural(|d| {
             for uid in &uids {
                 let Some(i) = d.shapes.iter().position(|s| s.uid == *uid) else {
@@ -738,9 +788,13 @@ impl Studio {
                 };
                 f(&mut spec);
                 d.set_lettering(i, &spec)?;
+                edited = Some(spec);
             }
             Ok(())
         });
+        if let Some(spec) = edited {
+            self.remember_text(&spec);
+        }
         if let Err(e) = r {
             self.status = format!("Metin değiştirilemedi: {e:#}");
         }
@@ -892,9 +946,7 @@ impl Studio {
             let on_path = hit
                 .filter(|&i| self.sel_indices().contains(&i) && self.doc.lettering(i).is_none())
                 .and_then(|i| self.doc.edit_path(i).ok().map(|p| (i, p)));
-            let mut spec = self.lettering.last.clone().unwrap_or_default();
-            spec.text = String::new();
-            spec.path = None;
+            let mut spec = self.new_text_spec();
             let center = match &on_path {
                 Some((_, path)) => {
                     // The path, relative to its own center: the text sits on it.
@@ -1258,10 +1310,7 @@ impl Studio {
             // Just the caret and a thin frame, where the letters were.
             if let Some((x0, y0, y1)) = t.empty_frame {
                 let p = crate::theme::pal(ctx);
-                let painter = ctx.layer_painter(egui::LayerId::new(
-                    egui::Order::Foreground,
-                    egui::Id::unique("typing-caret"),
-                ));
+                let painter = caret_painter(ctx, rect);
                 let (top, bottom) = (
                     self.view.to_screen(rect, P::new(x0, y0)),
                     self.view.to_screen(rect, P::new(x0, y1)),
@@ -1278,10 +1327,7 @@ impl Studio {
             }
         } else if !b.is_empty() {
             let p = crate::theme::pal(ctx);
-            let painter = ctx.layer_painter(egui::LayerId::new(
-                egui::Order::Foreground,
-                egui::Id::unique("typing-caret"),
-            ));
+            let painter = caret_painter(ctx, rect);
             // The caret between the letters where the cursor is (following
             // the baseline on arcs); after the last letter while the
             // placeholder shows.
@@ -1381,11 +1427,7 @@ impl Studio {
             return;
         }
         if let Some(spec) = self.doc.lettering(i) {
-            self.lettering.last = Some(TextSpec {
-                text: String::new(),
-                path: None,
-                ..spec
-            });
+            self.remember_text(&spec);
         }
         // Placing the text (or starting to edit it) recorded the undo step;
         // the typing since then joins it.
@@ -1486,6 +1528,56 @@ mod tests {
     use eframe::egui::Vec2;
     use egui_kittest::Harness;
     use egui_kittest::kittest::Queryable;
+
+    #[test]
+    fn the_typing_frame_stays_on_the_canvas() {
+        // Text placed at the canvas's right edge runs on past it, under the
+        // dock: the caret and the frame round it are cut off at the edge,
+        // not drawn over the dock.
+        let mut h = Harness::builder()
+            .with_size(Vec2::new(1400.0, 1000.0))
+            .build_ui_state(
+                |ui, s: &mut Studio| s.frame(ui),
+                Studio::with_file(None, None),
+            );
+        h.run_steps(2);
+        h.key_press(eframe::egui::Key::T);
+        h.run_steps(1);
+        let canvas = h.state().canvas_rect;
+        let at = eframe::egui::Pos2::new(canvas.right() - 40.0, canvas.center().y);
+        h.hover_at(at);
+        h.run_steps(1);
+        h.drag_at(at);
+        h.run_steps(1);
+        h.drop_at(at);
+        h.run_steps(3);
+        for ch in ["C", "A", "M", "P", "S"] {
+            h.event(eframe::egui::Event::Text(ch.into()));
+            h.run_steps(1);
+        }
+        h.run_steps(2);
+        assert!(h.state().lettering.typing.is_some());
+        let b = crate::app::shape_bounds(&h.state().doc.shapes[0]);
+        let right = h.state().view.to_screen(canvas, P::new(b.max.x, b.min.y)).x;
+        assert!(right > canvas.right() + 20.0, "the text runs past the edge");
+        // Whatever reaches from the canvas over the dock beside it.
+        let over: Vec<_> = h
+            .output()
+            .shapes
+            .iter()
+            .filter(|c| {
+                let r = c.shape.visual_bounding_rect();
+                r.min.x > canvas.left()
+                    && r.min.x < canvas.right() - 1.0
+                    && r.max.x > canvas.right() + 1.0
+                    && r.min.y < canvas.bottom()
+                    && r.max.y > canvas.top()
+                    && c.clip_rect.right() > canvas.right() + 0.5
+            })
+            .map(|c| c.shape.visual_bounding_rect())
+            .collect();
+        assert!(over.is_empty(), "drawn over the dock: {over:?}");
+    }
 
     #[test]
     fn the_type_tool_places_text_where_you_click_and_types_into_it() {
@@ -1946,6 +2038,86 @@ mod tests {
         );
         h.drop_at(c + eframe::egui::Vec2::new(60.0, 0.0));
         h.run_steps(2);
+    }
+
+    #[test]
+    fn new_text_starts_in_the_font_last_used() {
+        let mut s = Studio::with_file(None, None);
+        let _ = s.run_tool("add_text", &serde_json::json!({ "text": "CAMP" }));
+        let fonts = s.fonts();
+        let was = s.doc.lettering(0).unwrap().font;
+        let other = fonts
+            .iter()
+            .find(|f| **f != was)
+            .expect("another font")
+            .clone();
+        let mut spec = s.doc.lettering(0).unwrap();
+        spec.font = other.clone();
+        s.update_lettering(0, &spec).unwrap();
+        assert_eq!(s.new_text_spec().font, other, "in this session");
+        assert_eq!(s.prefs.last_font.as_deref(), Some(other.as_str()));
+        // And the next time ZigZag opens, by the font alone.
+        let mut fresh = Studio::with_file(None, None);
+        fresh.prefs.last_font = Some(other.clone());
+        assert_eq!(fresh.new_text_spec().font, other, "next session");
+        assert!(fresh.new_text_spec().text.is_empty());
+        // (Not one that's no longer installed.)
+        fresh.prefs.last_font = Some("No Such Font Anywhere".into());
+        assert_ne!(fresh.new_text_spec().font, "No Such Font Anywhere");
+    }
+
+    #[test]
+    fn a_letter_height_typed_into_either_box_is_taken() {
+        // The lettering panel's box, then the task bar's under the text.
+        for which in [0usize, 1] {
+            let mut h = Harness::builder()
+                .with_size(Vec2::new(1400.0, 860.0))
+                .build_ui_state(
+                    |ui, s: &mut Studio| s.frame(ui),
+                    Studio::with_file(None, None),
+                );
+            h.run_steps(2);
+            let _ = h
+                .state_mut()
+                .run_tool("add_text", &serde_json::json!({ "text": "CAMP" }));
+            h.run_steps(3);
+            h.state_mut().set_selection(&[0]);
+            h.run_steps(3);
+            let boxes: Vec<egui::Rect> = h
+                .query_all_by_role(egui::accesskit::Role::SpinButton)
+                .filter(|n| n.value().as_deref() == Some("8.0 mm"))
+                .map(|n| n.rect())
+                .collect();
+            assert_eq!(boxes.len(), 2, "the panel's and the task bar's");
+            let at = boxes[which].center();
+            h.hover_at(at);
+            h.run_steps(1);
+            h.drag_at(at);
+            h.run_steps(1);
+            h.drop_at(at);
+            h.run_steps(3);
+            // As a keyboard types: each key down, its text, key up.
+            let keys = [
+                (egui::Key::Backspace, None),
+                (egui::Key::Backspace, None),
+                (egui::Key::Backspace, None),
+                (egui::Key::Num1, Some("1")),
+                (egui::Key::Num2, Some("2")),
+            ];
+            for (key, text) in keys {
+                h.key_down(key);
+                if let Some(t) = text {
+                    h.event(egui::Event::Text(t.into()));
+                }
+                h.run_steps(1);
+                h.key_up(key);
+                h.run_steps(1);
+            }
+            h.key_press(egui::Key::Enter);
+            h.run_steps(4);
+            let size = h.state().doc.lettering(0).unwrap().size_mm;
+            assert!((size - 12.0).abs() < 1e-9, "box {which}: {size}");
+        }
     }
 
     #[test]
@@ -2428,5 +2600,53 @@ mod editing_tests {
         h.key_press(Key::Escape);
         h.run_steps(2);
         assert!(texts(&h)[0].contains('!'), "{:?}", texts(&h));
+    }
+
+    #[test]
+    fn text_scaled_past_the_height_box_keeps_its_size_when_edited() {
+        // 20 mm text scaled to three times the size by its frame is 60 mm,
+        // more than the height boxes go to: changing something else (bold,
+        // in the task bar) leaves it 60 mm.
+        let mut h = Harness::builder()
+            .with_size(Vec2::new(1400.0, 860.0))
+            .build_ui_state(
+                |ui, s: &mut Studio| s.frame(ui),
+                Studio::with_file(None, None),
+            );
+        h.run_steps(2);
+        let _ = h.state_mut().run_tool(
+            "add_text",
+            &serde_json::json!({ "text": "CAMP", "size_mm": 20.0 }),
+        );
+        h.run_steps(3);
+        let c = zigzag::svg::shapes_bounds(&h.state().doc.shapes[0..=0]).center();
+        let m = zigzag::geom::affine_mul(
+            zigzag::geom::translation(c),
+            zigzag::geom::affine_mul(
+                [3.0, 0.0, 0.0, 3.0, 0.0, 0.0],
+                zigzag::geom::translation(zigzag::geom::P::new(-c.x, -c.y)),
+            ),
+        );
+        h.state_mut().structural(|d| d.transform(&[0], m)).unwrap();
+        h.state_mut().set_selection(&[0]);
+        h.run_steps(3);
+        let size = h.state().doc.lettering(0).unwrap().size_mm;
+        assert!((size - 60.0).abs() < 0.1, "{size}");
+        use egui_kittest::kittest::Queryable;
+        // (The task bar's buttons and the panel's: each sets the text
+        // again from the settings shown.)
+        let mut taken = 0;
+        for label in ["B", "Bold", "Italic", "I"] {
+            let was = h.state().doc.lettering(0).unwrap();
+            let found: Vec<egui::Rect> = h.query_all_by_label(label).map(|n| n.rect()).collect();
+            for at in &found {
+                click(&mut h, at.center());
+                h.run_steps(4);
+            }
+            let now = h.state().doc.lettering(0).unwrap();
+            taken += ((now.bold, now.italic) != (was.bold, was.italic)) as usize;
+            assert!((now.size_mm - 60.0).abs() < 0.1, "{label}: {}", now.size_mm);
+        }
+        assert!(taken >= 2, "the buttons were pressed");
     }
 }

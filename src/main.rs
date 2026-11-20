@@ -108,6 +108,13 @@ struct SettingsArgs {
     /// Keep fill stitches underneath overlapping objects.
     #[arg(long)]
     keep_overlaps: bool,
+    /// Stitch settings for every object that doesn't set its own, written
+    /// as in layer names: pc=0.3 (pull compensation, mm per side),
+    /// ul=center (satin underlay), s=0.4 (spacing), l=2.5 (stitch length),
+    /// lean=8, even=0, split=6, u=0 and the rest. Several in one quoted
+    /// value, or the option again: --set "pc=0.3 ul=center".
+    #[arg(long = "set", value_name = "SETTINGS")]
+    set: Vec<String>,
 }
 
 impl SettingsArgs {
@@ -153,6 +160,21 @@ impl SettingsArgs {
         }
         if self.keep_overlaps {
             doc.settings.remove_overlaps = false;
+        }
+        if !self.set.is_empty() {
+            let all = self.set.join(" ");
+            for tok in all.split([' ', ',', ';']).filter(|t| !t.is_empty()) {
+                if zigzag::params::Params::parse(tok) == zigzag::params::Params::default() {
+                    bail!(
+                        "--set: '{tok}' isn't a stitch setting (e.g. pc=0.3, ul=center, s=0.4, lean=8)"
+                    );
+                }
+            }
+            // Under every object's own settings, like a layer they're all in.
+            let base = zigzag::params::Params::parse(&all);
+            for shape in &mut doc.shapes {
+                shape.params = base.merged(&shape.params);
+            }
         }
         Ok(doc)
     }

@@ -307,6 +307,13 @@ impl Document {
                 self.set_live_corners(i, &live)?;
             }
         }
+        // Lettering scaled: its new size in its settings (its letter height
+        // what it's drawn at), not its transform.
+        for uid in uids {
+            if let Some(i) = self.shapes.iter().position(|s| s.uid == uid) {
+                self.fold_lettering_scale(i)?;
+            }
+        }
         Ok(())
     }
 

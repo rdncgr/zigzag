@@ -1,0 +1,64 @@
+name: Resmi sürümle eşitle
+
+# Once a week (or by hand) merges simpsoka/zigzag main into turkce. A clean
+# merge is pushed and the Windows build is started. A merge with conflicts
+# is left alone and an issue says so, for a person to resolve.
+# New English text from upstream still needs translating afterwards.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: turkce
+          fetch-depth: 0
+
+      - name: Merge upstream main
+        id: merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/simpsoka/zigzag.git
+          git fetch upstream main
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "Already up to date."
+            echo "result=same" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git merge --no-edit upstream/main; then
+            git push origin turkce
+            echo "result=merged" >> "$GITHUB_OUTPUT"
+          else
+            git merge --abort
+            echo "result=conflict" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Start the Windows build
+        if: steps.merge.outputs.result == 'merged'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run turkce-windows.yml --repo "${{ github.repository }}" --ref turkce
+
+      - name: Report a conflict
+        if: steps.merge.outputs.result == 'conflict'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          title="Resmi sürümle birleştirmede çakışma var"
+          if gh issue list --repo "${{ github.repository }}" --state open --search "$title in:title" --json number --jq '.[0].number' | grep -q .; then
+            exit 0
+          fi
+          gh issue create --repo "${{ github.repository }}" --title "$title" --body "simpsoka/zigzag main dalı turkce dalına kendiliğinden birleştirilemedi: aynı satırlar iki tarafta da değişmiş. Bilgisayarda zigzag-git klasöründe \`git fetch origin && git merge origin/main\` ile birleştirip çakışmaları çözün, sonra \`git push fork turkce\`."

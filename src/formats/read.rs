@@ -726,6 +726,23 @@ mod tests {
     }
 
     #[test]
+    fn a_vp3_placed_into_a_document_comes_in_as_stitches() {
+        let f = read_stitch_file(&more::write_vp3(&sample()), "vp3").unwrap();
+        let mut doc =
+            crate::document::Document::from_svg(r#"<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="100mm" viewBox="0 0 100 100"></svg>"#, "t", None).unwrap();
+        let added = doc
+            .add_svg(&to_svg(&f), crate::document::Placement::default())
+            .unwrap();
+        assert!(!added.is_empty());
+        assert!(
+            added
+                .iter()
+                .all(|&i| doc.shapes[i].params.kind == Some(crate::params::Kind::Manual))
+        );
+        assert_eq!(doc.plan().blocks.len(), 2);
+    }
+
+    #[test]
     fn imported_file_becomes_editable_document() {
         let bytes = pes::write_pes(&sample());
         let f = read_stitch_file(&bytes, "pes").unwrap();

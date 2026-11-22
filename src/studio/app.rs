@@ -1442,11 +1442,31 @@ impl Studio {
             self.open_image(path, crate::trace_ui::Target::Place);
             return;
         }
-        let text = match std::fs::read_to_string(path) {
-            Ok(t) => t,
-            Err(e) => {
-                self.status = format!("Couldn't read {}: {e}", path.display());
-                return;
+        let ext = path
+            .extension()
+            .map(|e| e.to_string_lossy().to_ascii_lowercase())
+            .unwrap_or_default();
+        // A machine file comes in as manual stitches, one object per run,
+        // at its real size (scaling stitches changes their density).
+        let stitches = zigzag::formats::READABLE_FORMATS.contains(&ext.as_str());
+        let text = if stitches {
+            match std::fs::read(path)
+                .map_err(anyhow::Error::from)
+                .and_then(|b| zigzag::formats::read::read_stitch_file(&b, &ext))
+            {
+                Ok(f) => zigzag::formats::read::to_svg(&f),
+                Err(e) => {
+                    self.status = format!("Couldn't read {}: {e:#}", path.display());
+                    return;
+                }
+            }
+        } else {
+            match std::fs::read_to_string(path) {
+                Ok(t) => t,
+                Err(e) => {
+                    self.status = format!("Couldn't read {}: {e}", path.display());
+                    return;
+                }
             }
         };
         let mut added = Vec::new();
@@ -1457,6 +1477,9 @@ impl Studio {
             Ok(()) => {
                 self.set_selection(&added);
                 self.status = format!("Placed {} ({} objects).", path.display(), added.len());
+                if stitches {
+                    return;
+                }
                 if let Some(s) = self.fit_to_hoop(true) {
                     self.status = format!(
                         "Placed {}. It was bigger than the hoop, so it's scaled to {:.0}%. Undo puts it back to full size.",

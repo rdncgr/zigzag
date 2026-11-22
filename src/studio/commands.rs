@@ -763,7 +763,10 @@ impl Studio {
             Action::Place => {
                 let mut exts = vec!["svg"];
                 exts.extend(zigzag::trace::IMAGE_FORMATS);
-                let req = crate::file_dialog::Request::open().filter("Artwork", &exts);
+                exts.extend(zigzag::formats::READABLE_FORMATS);
+                let req = crate::file_dialog::Request::open()
+                    .filter("Artwork and machine files", &exts)
+                    .filter("Machine files", &zigzag::formats::READABLE_FORMATS);
                 self.file_dialog(req, crate::file_dialog::Then::Place);
             }
             Action::Save => {

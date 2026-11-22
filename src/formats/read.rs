@@ -407,10 +407,11 @@ fn read_vp3(d: &[u8]) -> Result<StitchFile> {
         r.skip(3)?; // 0A F6 00
         let s = d.get(r.i..end).unwrap_or_default();
         let mut i = 0;
-        let mut trimmed = false;
+        // A color block starts with the move to its first stitch.
+        let mut trimmed = true;
         let step = |bld: &mut Builder, x: f64, y: f64, trimmed: &mut bool| {
             // The move after a trim, or one too long to be a stitch, is a jump.
-            if *trimmed || x.abs() > 127.0 || y.abs() > 127.0 {
+            if *trimmed || x.abs() > 255.0 || y.abs() > 255.0 {
                 bld.jump(x, y);
             } else {
                 bld.stitch(x, y);

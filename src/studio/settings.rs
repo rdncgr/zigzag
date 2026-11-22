@@ -94,6 +94,8 @@ pub struct Prefs {
     /// General: most people keep what they're given, and Basic is for
     /// someone who asks for less.
     pub advanced: bool,
+    /// The language the interface is shown in (see `i18n`).
+    pub language: crate::i18n::Lang,
     path: Option<PathBuf>,
 }
 
@@ -114,6 +116,7 @@ impl Default for Prefs {
             thread_chart: Default::default(),
             share_defaults: None,
             advanced: true,
+            language: crate::i18n::Lang::English,
             path: None,
         }
     }
@@ -138,6 +141,9 @@ impl Prefs {
         };
         if let Some(on) = v["advanced"].as_bool() {
             p.advanced = on;
+        }
+        if let Some(l) = v["language"].as_str().and_then(crate::i18n::Lang::from_id) {
+            p.language = l;
         }
         if let Some(a) = v["appearance"]
             .as_str()
@@ -203,6 +209,7 @@ impl Prefs {
         let Some(path) = &self.path else { return };
         let v = serde_json::json!({
             "appearance": self.appearance.id(),
+            "language": self.language.id(),
             "interface_size": self.ui_size,
             "gpu": self.gpu,
             "agent_server": self.agent_server,
@@ -434,6 +441,7 @@ impl Studio {
     pub(crate) fn apply_prefs(&mut self) {
         self.view_tools.brand = self.prefs.thread_chart;
         self.view_tools.gpu_stitches = self.prefs.gpu;
+        crate::i18n::set(self.prefs.language);
         // (An appearance forced from outside, for screenshots, stays.)
         let forced = std::env::var_os("ZIGZAG_THEME").is_some()
             || std::env::var_os("THREADLINE_THEME").is_some();
@@ -897,6 +905,10 @@ impl Studio {
         );
 
         group(ui, "Appearance", false);
+        row(ui, "Language", |ui, _| {
+            let options = crate::i18n::Lang::ALL.map(|l| (l, l.label()));
+            crate::theme::segmented(ui, "settings-language", &mut prefs.language, &options);
+        });
         row(ui, "Theme", |ui, _| {
             let options = Appearance::ALL.map(|a| (a, a.label()));
             crate::theme::segmented(ui, "settings-appearance", &mut prefs.appearance, &options);

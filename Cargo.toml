@@ -108,3 +108,9 @@ winresource = "0.1"
 
 [dev-dependencies]
 egui_kittest = "0.37"
+
+# ZigZag's copy of epaint 0.37.0 with one addition: a hook that translates
+# interface text as it's laid out (vendor/epaint/src/text/translate.rs).
+# See vendor/README.md.
+[patch.crates-io]
+epaint = { path = "vendor/epaint" }

@@ -1,0 +1,1677 @@
+# ZigZag: English -> Türkçe. One line each: the English, a tab, the Turkish.
+# In a template, {0}, {1}... is the English's first, second... hole ({} {name} {:.1}).
+ (and {n} more)	 (ve {0} tane daha)
+ (none)	 (yok)
+ (or `{}`)	 (ya da `{0}`)
+ (outline)	 (dış hat)
+ min	 dk
+ mm wide	 mm genişlik
+ Tool	 Aracı
+ Turn off Sew over fill (Document panel) to cut it there instead.	 Bunun yerine orada kesmek için Dolgu üzerinden dik seçeneğini kapatın (Belge paneli).
+ · working	 · çalışıyor
+ · {} lines	 · {0} çizgi
+ · {}{} stitches	 · {0}{1} dikiş
+(a pin, no comment)	(iğne, yorum yok)
+(image)	(görsel)
+(no label)	(etiket yok)
++ Stripe	+ Şerit
+1 issue	1 sorun
+1 more cut saved where the thread blends in	İpliğin kaynaştığı yerde 1 kesim daha kazanıldı
+4×4 in (100 × 100 mm) · Skitch / PE	4×4 inç (100 × 100 mm) · Skitch / PE
+70 × 70 mm · Skitch small frame	70 × 70 mm · Skitch küçük kasnak
+A bee on a honeycomb	Petek üzerinde bir arı
+A bicycle with a basket of flowers	Çiçek sepetli bir bisiklet
+A cactus in a terracotta pot	Toprak saksıda bir kaktüs
+A cat curled up asleep, for a pocket	Cep için kıvrılıp uyuyan bir kedi
+A change to the server takes effect the next time ZigZag opens.	Sunucudaki değişiklik ZigZag bir sonraki açılışında geçerli olur.
+A coffee cup with steam swirls	Buhar kıvrımlı bir kahve fincanı
+A crescent moon with stars	Yıldızlı bir hilal
+A dog's name in a bone-shaped badge	Kemik biçimli armada köpeğin adı
+A fox sitting in tall grass	Uzun çimenlerde oturan bir tilki
+A grid of X's, like hand cross-stitch.	El kanaviçesi gibi X'lerden bir ızgara.
+A lemon slice with leaves	Yapraklı bir limon dilimi
+A lighthouse on rocks, for a hat	Şapka için kayalar üzerinde deniz feneri
+A line of stitches for details; triple run is bolder.	Ayrıntılar için bir dikiş çizgisi; üçlü düz dikiş daha belirgindir.
+A line with prongs, for appliqué and patch edges.	Aplike ve arma kenarları için dişli bir çizgi.
+A little whale for a baby's onesie	Bebek zıbını için küçük bir balina
+A machine of your own that starts as a copy of this one	Bunun kopyası olarak başlayan size ait bir makine
+A machine of your own, starting with this document's hoop	Bu belgenin kasnağıyla başlayan size ait bir makine
+A mountain sunset patch with a stitched border	Dikişli kenarlı, dağda gün batımı arması
+A mushroom cluster with tiny leaves	Minik yapraklı mantar kümesi
+A new shape around each selected object (inside, if negative), sewn just before it.	Her seçili nesnenin çevresinde (negatifse içinde) yeni bir şekil; nesneden hemen önce dikilir.
+A paper airplane with a dashed trail	Kesik çizgili iziyle kâğıt uçak
+A positive angle turns clockwise, as in the Transform panel	Pozitif açı, Dönüştür panelindeki gibi saat yönünde döndürür
+A rainbow over two clouds	İki bulutun üstünde gökkuşağı
+A retro surf patch: “Catch a Wave”	Retro sörf arması: “Catch a Wave”
+A round camp badge with a pine tree	Çam ağaçlı yuvarlak bir kamp arması
+A run down the middle: anchors narrow columns	Ortadan geçen düz dikiş: dar sütunları sabitler
+A strawberry with a smiling face	Gülümseyen bir çilek
+A wildflower bouquet tied with a ribbon	Kurdeleyle bağlanmış kır çiçeği buketi
+About ZigZag	ZigZag Hakkında
+about {:.0} min	yaklaşık {0} dk
+Account	Hesap
+Activity	Etkinlik
+Add	Ekle
+Add a comment…	Yorum ekleyin…
+Add a machine of your own, or change one	Kendi makinenizi ekleyin ya da birini değiştirin
+Add a satin border around it	Çevresine saten kenar ekle
+Add a thread: the column is split across its width, one strip per thread	İplik ekle: sütun genişliği boyunca bölünür, her iplik için bir şerit
+Add Anchor Point Tool	Bağlantı Noktası Ekleme Aracı
+Add Color	Renk Ekle
+Add Hoop	Kasnak Ekle
+Add Outline	Dış Hat Ekle
+Add Text	Metin Ekle
+Add Text…	Metin Ekle…
+Add the selection's thread to this palette	Seçimin ipliğini bu palete ekle
+Add to Design	Tasarıma Ekle
+Add to {pname}	{0} paletine ekle
+Added "{}".	"{0}" eklendi.
+Added a point.	Nokta eklendi.
+Added {}: a running stitch round the edge. Its stitch, thread and width are in the task bar's second row.	{0} eklendi: kenar boyunca düz dikiş. Dikişi, ipliği ve genişliği görev çubuğunun ikinci satırında.
+Address	Adres
+After	Sonra
+After sending, the needle goes around the design's outline without sewing, so you can check where it lands	Gönderdikten sonra iğne dikmeden tasarımın dış hattında dolaşır; böylece nereye denk geldiğini kontrol edebilirsiniz
+Agent	Ajan
+Agent Panel	Ajan Paneli
+Agent panel divider	Ajan paneli ayırıcısı
+Agent Server	Ajan Sunucusu
+Agent:	Ajan:
+Align	Hizala
+Align Center	Ortaya Hizala
+Align Left	Sola Hizala
+Align Right	Sağa Hizala
+All open documents	Tüm açık belgeler
+All rights reserved	Tüm hakları saklıdır
+All That Touch	Değenlerin Tümü
+all {}	tümü ({0})
+Already a corner: drag from it to pull out handles.	Zaten köşe: tutamaçları çekmek için ondan sürükleyin.
+Already in the fewest color changes the layering allows.	Katman düzeninin izin verdiği en az renk değişimi zaten bu.
+Already smooth there.	Orası zaten yumuşak.
+An advanced setting, shown because it's been changed. Reset to Defaults puts it back.	Gelişmiş bir ayar; değiştirildiği için gösteriliyor. Varsayılanlara Sıfırla geri alır.
+An agent is connected over MCP	Bir ajan MCP üzerinden bağlı
+An agent is working over MCP	Bir ajan MCP üzerinden çalışıyor
+an outline	Dış hat
+Anchor Point Tool	Bağlantı Noktası Aracı
+Angle	Açı
+Annotate	Not Ekle
+Annotate: click the canvas to pin a comment for the agent, or drag a box round an area (N)	Not ekle: ajana yorum iğnelemek için tuvale tıklayın ya da bir alanın çevresine kutu sürükleyin (N)
+Annotating · {pending}	Not ekleniyor · {0}
+Any machine	Herhangi bir makine
+Any other frame: type its sewing field's width and height	Başka bir kasnak: dikiş alanının genişliğini ve yüksekliğini yazın
+Anyone	Herkes
+Anyone can find it, and search engines list it.	Herkes bulabilir ve arama motorları listeler.
+Anyone may do anything with it, no credit needed.	Herkes onunla her şeyi yapabilir, ad belirtmek gerekmez.
+Anyone with the link	Bağlantıya sahip herkes
+Appearance	Görünüm
+Appliqué	Aplike
+Appliqué: sews a placement line, stops for you to lay fabric, tacks it down, stops for you to trim, then covers the edge with satin.	Aplike: yerleşim çizgisi diker, kumaşı koymanız için durur, sabitler, kesmeniz için durur, sonra kenarı satenle kaplar.
+Apply	Uygula
+Arc Over	Üst Yay
+Arc radius	Yay yarıçapı
+Arc Under	Alt Yay
+Artwork and machine files	Çizimler ve nakış dosyaları
+As CC BY, and what they make from it is shared the same way.	CC BY gibi; ondan yapılanlar da aynı şekilde paylaşılır.
+As CC BY, but not to sell.	CC BY gibi, ama satış için değil.
+As Placed	Yerleştirildiği Gibi
+As Typed	Yazıldığı Gibi
+Ask Agent…	Ajana Sor…
+Ask {} for a design, or a change to this one. It works on the canvas as you watch.	{0} ajanından bir tasarım ya da bu tasarımda bir değişiklik isteyin. Siz izlerken tuval üzerinde çalışır.
+Ask {} to fix these in the design	Bunları tasarımda düzeltmesini {0} ajanından iste
+Asking GitHub for ZigZag's latest release.	GitHub'dan ZigZag'ın son sürümü soruluyor.
+Asks GitHub for ZigZag's latest release, when it opens and once a day. Nothing about you or your designs is sent.	Açılışta ve günde bir kez GitHub'a ZigZag'ın son sürümünü sorar. Sizinle ya da tasarımlarınızla ilgili hiçbir şey gönderilmez.
+At {} mm	{0} mm'de
+Attach the embroidery frame.	Nakış kasnağını takın.
+Attach the frame again.	Kasnağı yeniden takın.
+Auto	Otomatik
+Auto split	Otomatik böl
+Auto-Hide	Otomatik Gizle
+Auto-Simplify	Otomatik Sadeleştir
+Automatic	Otomatik
+Back 1 stitch	1 dikiş geri
+Back 10 stitches	10 dikiş geri
+Back 100 stitches	100 dikiş geri
+Back and forth	İleri geri
+Back to text: {} object(s) can be edited as text again (changes made to the outlines' points don't carry over).	Metne döndü: {0} nesne yeniden metin olarak düzenlenebilir (dış hat noktalarında yapılan değişiklikler aktarılmaz).
+Back to the design as it was	Tasarımın önceki hâline dön
+Back to the fabric's defaults for this stitch type	Bu dikiş türü için kumaşın varsayılanlarına dön
+Back to where this thread began	Bu ipliğin başladığı yere dön
+Baseline	Taban çizgisi
+Before	Önce
+Before you sew	Dikmeden önce
+Being made…	Hazırlanıyor…
+Blanket	Battaniye Dikişi
+Blanket (E-stitch) edge: a line with prongs into the shape. Classic appliqué and patch edge. (B)	Battaniye (E-dikiş) kenarı: şeklin içine dişleri olan bir çizgi. Klasik aplike ve arma kenarı. (B)
+Blanket (E-stitch): a line with prongs to one side. (B)	Battaniye (E-dikiş): bir yana dişleri olan bir çizgi. (B)
+Blend	Kaynaştır
+Blend gaps	Boşlukları kaynaştır
+Blob Brush Tool	Kabarcık Fırça Aracı
+Bluetooth Permission	Bluetooth İzni
+Bobbin thread	Masura ipliği
+Bobbin winder	Masura sarıcı
+Bobbin winder safety stop	Masura sarıcı güvenlik durdurması
+Bobbin wound and in	Masura sarılı ve takılı
+Bold	Kalın
+Border	Kenarlık
+Both Brother sets: all 61 Brother Embroidery colors	İki Brother seti birden: Brother nakış ipliğinin 61 rengi
+Break into Columns	Sütunlara Ayır
+Breaking into parts	Parçalara ayırıyor
+brew install --cask claude-code	npm install -g @anthropic-ai/claude-code
+brew install --cask codex	npm install -g @openai/codex
+Broke it into {} satin columns, sewn as before. Reorder them in Layers or reshape their rails; they stay one piece of thread while they're in one group with the same settings.	{0} saten sütuna ayrıldı, eskisi gibi dikiliyor. Katmanlar'da yeniden sıralayın ya da raylarını yeniden şekillendirin; aynı ayarlarla tek grupta kaldıkça tek parça iplik olarak kalırlar.
+Brother 12 Colors	Brother 12 Renk
+Brother 22 Colors	Brother 22 Renk
+Brother 40 + 22 Colors	Brother 40 + 22 Renk
+Brother 40 Colors	Brother 40 Renk
+Brother Embroidery thread, 12-spool starter set	Brother nakış ipliği, 12 makaralı başlangıç seti
+Brother Embroidery thread, 22-spool set (adds to the 40)	Brother nakış ipliği, 22 makaralı set (40'lık sete ek)
+Brother Embroidery thread, 40-spool set	Brother nakış ipliği, 40 makaralı set
+Brother's videos: threading, the bobbin, the frame, a thread break, tension, cleaning	Brother videoları: iplik takma, masura, kasnak, iplik kopması, gerginlik, temizlik
+Brush	Fırça
+Brush Tool	Fırça Aracı
+Brush Tools	Fırça Araçları
+Busy	Meşgul
+By Color	Renge Göre
+By file	Dosyayla
+Can't change that now	Bu şimdi değiştirilemez
+Cancel	İptal
+Cancelled.	İptal edildi.
+Cap order	Şapka sırası
+Case	Harf
+CC0 (public domain)	CC0 (kamu malı)
+Cell	Hücre
+Center	Orta
+Center in Hoop	Kasnakta Ortala
+Centered	Ortalanmış
+Centimeters	Santimetre
+Chamfer	Pah
+Change	Değiştir
+Change Case	Büyük/Küçük Harf
+Change every color in the design to the nearest one in this palette	Tasarımdaki her rengi bu paletteki en yakın renge değiştir
+Change the thread	İpliği değiştirin
+Change this block's thread	Bu bloğun ipliğini değiştir
+Change this thread everywhere it's used	Bu ipliği kullanıldığı her yerde değiştir
+Change thread: {}	İplik değiştir: {0}
+Changed since it was shared: put this version up	Paylaşıldıktan sonra değişti: bu sürümü yükle
+Changed: byte {}	Değişen: bayt {0}
+Chat History	Sohbet Geçmişi
+Check Again	Yeniden Denetle
+Check for Updates…	Güncellemeleri Denetle…
+Check it for problems before I sew	Dikmeden önce sorunları denetle
+Check it's on and close by.	Açık ve yakında olduğundan emin olun.
+Check Now	Şimdi Denetle
+Check that the bobbin is in the right way round.	Masuranın doğru yönde takılı olduğunu kontrol edin.
+Check the bobbin case (seated right, no scratches), then put the cover back on.	Masura yuvasını kontrol edin (doğru oturmuş, çiziksiz), sonra kapağı geri takın.
+Check the bobbin case for scratches or dirt.	Masura yuvasında çizik ya da kir olup olmadığını kontrol edin.
+Check the machine's lights and the error code.	Makinenin ışıklarını ve hata kodunu kontrol edin.
+Check the needle clears the frame's magnets, seams and the brim.	İğnenin kasnak mıknatıslarına, dikişlere ve siperliğe değmediğini kontrol edin.
+Check whether the thread is tangled.	İpliğin dolaşıp dolaşmadığını kontrol edin.
+Check ZigZag is allowed to use Bluetooth	ZigZag'ın Bluetooth kullanma izni olduğunu denetleyin
+Checking	Denetliyor
+Checking it and putting it in place. ZigZag will reopen.	Denetleniyor ve yerine konuyor. ZigZag yeniden açılacak.
+Checking the machine	Makineyi denetliyor
+Choose a machine, or add one of your own.	Bir makine seçin ya da kendinizinkini ekleyin.
+Choose Agent	Ajan Seç
+Claude Desktop and other stdio clients	Claude Desktop ve diğer stdio istemcileri
+Clean Up	Temizle
+Clean Up…	Temizle…
+Clear	Temizle
+Clear History	Geçmişi Temizle
+Clear the problem on the machine.	Makinedeki sorunu giderin.
+Clear Thread Route	İplik Yolunu Temizle
+Click a path's outline to add a point · Option deletes points instead	Nokta eklemek için yolun dış hattına tıklayın · Alt ile nokta silinir
+Click a path's outline to add a point.	Nokta eklemek için yolun dış hattına tıklayın.
+Click a path's point to delete it.	Silmek için yolun bir noktasına tıklayın.
+Click a point to delete it · Option adds points instead	Silmek için bir noktaya tıklayın · Alt ile nokta eklenir
+Click a shape to edit its points	Noktalarını düzenlemek için bir şekle tıklayın
+Click a smooth point for a corner · drag from a point for smooth handles · drag a handle to move it alone, click its end to take it in · drag a curve to bend it	Köşe için yumuşak noktaya tıklayın · yumuşak tutamaçlar için noktadan sürükleyin · tek başına taşımak için tutamacı sürükleyin, içeri almak için ucuna tıklayın · bükmek için eğriyi sürükleyin
+Click an object first, to read its thread and settings.	İpliğini ve ayarlarını okumak için önce bir nesneye tıklayın.
+Click an object to give the selection its thread and stitch settings · Alt-click to give it the selection's · Shift-click for the thread alone	Seçime bir nesnenin ipliğini ve dikiş ayarlarını vermek için ona tıklayın · seçiminkini ona vermek için Alt-tıklama · yalnızca iplik için Shift-tıklama
+Click an object to rotate it	Döndürmek için bir nesneye tıklayın
+Click for the next point (Alt-click: a corner) · drag a point to move it · double-click one to turn it between smooth and corner · click the first to close · Enter ends the line	Sonraki nokta için tıklayın (Alt-tıklama: köşe) · taşımak için noktayı sürükleyin · yumuşak/köşe arasında geçiş için çift tıklayın · kapatmak için ilk noktaya tıklayın · Enter çizgiyi bitirir
+Click on a point to delete it.	Silmek için bir noktaya tıklayın.
+Click on the object's outline where it should {}. Esc cancels.	Nesnenin {0} gereken yerde dış hattına tıklayın. Esc iptal eder.
+Click on the outline to add a point there.	Oraya nokta eklemek için dış hatta tıklayın.
+Click on the outline where this object should finish (the thread goes on from there)	Bu nesnenin biteceği yerde dış hatta tıklayın (iplik oradan devam eder)
+Click on the outline where this object should start sewing (drag the marker to move it)	Bu nesnenin dikişe başlayacağı yerde dış hatta tıklayın (taşımak için işaretçiyi sürükleyin)
+Click points: the curve runs through them · Alt-click for a corner	Noktalara tıklayın: eğri bunlardan geçer · köşe için Alt-tıklama
+Click to reshape how the thread gets here	İpliğin buraya nasıl geldiğini yeniden şekillendirmek için tıklayın
+Click to set the reference point · drag to rotate · Shift: 45° steps · Option: a copy · Option-click for an exact angle	Referans noktasını belirlemek için tıklayın · döndürmek için sürükleyin · Shift: 45° adımlar · Alt: kopya · tam açı için Alt-tıklama
+Click Try Again straight away. If your computer asks to pair, click Connect or Pair.	Hemen Yeniden Dene'ye tıklayın. Bilgisayarınız eşleştirme isterse Bağlan ya da Eşleştir'e tıklayın.
+Clients	İstemciler
+Close	Kapat
+Close (Esc)	Kapat (Esc)
+Close Artspira: the Skitch talks to one app at a time.	Artspira'yı kapatın: Skitch aynı anda tek uygulamayla konuşur.
+Close Other Tabs	Diğer Sekmeleri Kapat
+Close Tab	Sekmeyi Kapat
+Close {name}	{0} kapat
+Close {}	{0} kapat
+closed 	kapalı
+Closed the path.	Yol kapatıldı.
+Closed {name}.	{0} kapatıldı.
+Closed.	Kapatıldı.
+Code	Kod
+Codex cancelled the edit: it wanted approval for ZigZag's tools, which it can't ask for when run from here. Updating Codex (`npm i -g @openai/codex`) should fix it.	Codex düzenlemeyi iptal etti: ZigZag araçları için onay istedi, ama buradan çalıştırıldığında onay isteyemez. Codex'i güncellemek (`npm i -g @openai/codex`) sorunu çözmeli.
+Codex is still finishing an earlier run of this chat, so it can't carry on yet. Wait a moment and send again, or start a new chat with /new.	Codex bu sohbetin önceki çalışmasını hâlâ bitiriyor, bu yüzden henüz devam edemiyor. Biraz bekleyip yeniden gönderin ya da /new ile yeni bir sohbet başlatın.
+Collapse	Daralt
+Collapse Panels to Icons	Panelleri Simgelere Daralt
+Collapse to Icons	Simgelere Daralt
+Collapse to icons	Simgelere daralt
+Color changes: {} → {}.	Renk değişimi: {0} → {1}.
+Colors	Renkler
+Column	Sütun
+Columns	Sütunlar
+Combining shapes	Şekilleri birleştiriyor
+Comes with ZigZag	ZigZag ile gelir
+Comes with ZigZag, and stays as it is. Duplicate it for one of your own to change.	ZigZag ile gelir ve olduğu gibi kalır. Değiştirmek için çoğaltıp kendinize ait yapın.
+Comment	Yorum
+Compare {n} Version{}	{0} Sürümü Karşılaştır
+Comparing	Karşılaştırıyor
+Completely covered by objects sewn on top; it won't be stitched.	Üstüne dikilen nesnelerle tamamen kaplı; dikilmeyecek.
+Connect	Bağla
+Connect gaps	Boşlukları bağla
+Connect to a Simulated Machine	Sanal Makineye Bağlan
+Connect to your Skitch	Skitch'inize bağlanın
+Connected	Bağlı
+Connected (initialize) {}. Protocol {}.	Bağlandı (initialize) {0}. Protokol {1}.
+Connecting…	Bağlanıyor…
+Connection	Bağlantı
+Connection lost	Bağlantı koptu
+Connections	Bağlantılar
+Contact a Brother service center when you can; you can keep sewing.	Uygun olduğunuzda bir Brother servis merkezine başvurun; dikmeye devam edebilirsiniz.
+Contextual Task Bar	Bağlamsal Görev Çubuğu
+Continue	Devam
+Contour	Kontur
+Contour Fill	Kontur Dolgu
+Contour fill: rows that follow the outline inward, like ripples, or a spiral out from the center. Good for organic shapes. (C)	Kontur dolgu: dalgalar gibi dış hattı içe doğru izleyen sıralar ya da merkezden dışa spiral. Organik şekiller için iyi. (C)
+Convert to Text	Metne Dönüştür
+Converted the point.	Nokta dönüştürüldü.
+Copied	kopyalandı
+Copied {}.	{0} kopyalandı.
+Copied.	Kopyalandı.
+Copies of the selection, each with one setting stepped, to stitch out and compare.	Seçimin kopyaları; her birinde bir ayar kademeli değişir; dikip karşılaştırmak için.
+Copy	Kopyala
+Copy (make a transformed copy)	Kopya (dönüştürülmüş bir kopya oluştur)
+Copy Path	Yolu Kopyala
+Copy Stitch Settings	Dikiş Ayarlarını Kopyala
+Copy: {text}	Kopyala: {0}
+Corners	Köşeler
+Couldn't add an outline: {e:#}	Dış hat eklenemedi: {0}
+Couldn't add text: {e:#}	Metin eklenemedi: {0}
+Couldn't add the drawing: {e:#}	Çizim eklenemedi: {0}
+Couldn't add the line: {e:#}	Çizgi eklenemedi: {0}
+Couldn't add the shape: {e:#}	Şekil eklenemedi: {0}
+Couldn't attach that image.	Bu görsel eklenemedi.
+Couldn't attach {what}: it isn't an image that can be read.	{0} eklenemedi: okunabilen bir görsel değil.
+Couldn't attach {what}: {e}	{0} eklenemedi: {1}
+Couldn't attach {}.	{0} eklenemedi.
+Couldn't break into columns: {e:#}	Sütunlara ayrılamadı: {0}
+Couldn't change the path: {e:#}	Yol değiştirilemedi: {0}
+Couldn't change the text: {e:#}	Metin değiştirilemedi: {0}
+Couldn't clean up: {e:#}	Temizlenemedi: {0}
+Couldn't combine them: {e:#}	Birleştirilemedi: {0}
+Couldn't connect	Bağlanılamadı
+Couldn't convert to text: {e:#}	Metne dönüştürülemedi: {0}
+Couldn't copy the update into place ({e}).	Güncelleme yerine kopyalanamadı ({0}).
+Couldn't copy: {e:#}	Kopyalanamadı: {0}
+Couldn't create outlines: {e:#}	Dış hatlar oluşturulamadı: {0}
+Couldn't delete the text: {e:#}	Metin silinemedi: {0}
+Couldn't delete: {e:#}	Silinemedi: {0}
+Couldn't download the shared design (curl: {e}).	Paylaşılan tasarım indirilemedi (curl: {0}).
+Couldn't download the shared design ({why}).	Paylaşılan tasarım indirilemedi ({0}).
+Couldn't download the shared design.	Paylaşılan tasarım indirilemedi.
+couldn't draw the preview	önizleme çizilemedi
+Couldn't duplicate: {e:#}	Çoğaltılamadı: {0}
+Couldn't edit the path: {e:#}	Yol düzenlenemedi: {0}
+Couldn't export {}: {e}	Dışa aktarılamadı {0}: {1}
+Couldn't extend the path: {e:#}	Yol uzatılamadı: {0}
+Couldn't join the paths: {e:#}	Yollar birleştirilemedi: {0}
+Couldn't join: {e:#}	Birleştirilemedi: {0}
+Couldn't look for updates	Güncellemeler denetlenemedi
+Couldn't make swatches: {e:#}	Deneme örnekleri oluşturulamadı: {0}
+Couldn't offset: {e:#}	Kaydırılamadı: {0}
+Couldn't open the download ({e}).	İndirilen dosya açılamadı ({0}).
+Couldn't open the shared design: it isn't a {} file ZigZag can read.	Paylaşılan tasarım açılamadı: ZigZag'ın okuyabildiği bir {0} dosyası değil.
+Couldn't open the shared design: {why}.	Paylaşılan tasarım açılamadı: {0}.
+Couldn't open the trace: {e:#}	İzleme açılamadı: {0}
+Couldn't open {}: {e:#}	{0} açılamadı: {1}
+Couldn't outline: {e:#}	Dış hatta dönüştürülemedi: {0}
+Couldn't paint that: {e:#}	Boyanamadı: {0}
+Couldn't paste: {e:#}	Yapıştırılamadı: {0}
+Couldn't place the trace: {e:#}	İzleme yerleştirilemedi: {0}
+Couldn't place {}: {e:#}	{0} yerleştirilemedi: {1}
+Couldn't put the text on the path: {e:#}	Metin yola yerleştirilemedi: {0}
+Couldn't put the update in place ({e}), and the old ZigZag is now at {}. Move it back to {}.	Güncelleme yerine konamadı ({0}) ve eski ZigZag artık {1} konumunda. Onu {2} konumuna geri taşıyın.
+Couldn't put the update in place ({e}). Nothing was changed.	Güncelleme yerine konamadı ({0}). Hiçbir şey değiştirilmedi.
+Couldn't reach GitHub to look for updates ({e}).	Güncellemeleri denetlemek için GitHub'a ulaşılamadı ({0}).
+Couldn't reach zigzag.diy ({}).	zigzag.diy'a ulaşılamadı ({0}).
+Couldn't read the unsaved changes to {name} ({e:#}); they're kept in {}.	{0} belgesindeki kaydedilmemiş değişiklikler okunamadı ({1}); şurada saklanıyor: {2}.
+Couldn't read {}: {e:#}	{0} okunamadı: {1}
+Couldn't read {}: {e}	{0} okunamadı: {1}
+Couldn't release: {e:#}	Ayrılamadı: {0}
+Couldn't remove the outline: {e:#}	Dış hat kaldırılamadı: {0}
+Couldn't rename it: {e}.	Yeniden adlandırılamadı: {0}.
+Couldn't reverse: {e:#}	Ters çevrilemedi: {0}
+Couldn't round the corners: {e:#}	Köşeler yuvarlatılamadı: {0}
+Couldn't save the shared design in {}: {e}	Paylaşılan tasarım {0} içine kaydedilemedi: {1}
+Couldn't save: {e:#}	Kaydedilemedi: {0}
+Couldn't simplify: {e:#}	Sadeleştirilemedi: {0}
+Couldn't start on port {port}: {e}	{0} portunda başlatılamadı: {1}
+Couldn't start the download ({e}).	İndirme başlatılamadı ({0}).
+Couldn't start {}: {e}	{0} başlatılamadı: {1}
+Couldn't update lettering: {e:#}	Yazı güncellenemedi: {0}
+Couldn't update the stitches ({e}); showing the last plan.	Dikişler güncellenemedi ({0}); son plan gösteriliyor.
+Couldn't update the stitches ({}); showing the last plan.	Dikişler güncellenemedi ({0}); son plan gösteriliyor.
+Couldn't update the text: {e:#}	Metin güncellenemedi: {0}
+Couldn't write the design: {e:#}	Tasarım yazılamadı: {0}
+Couldn't {}: {e:#}	İşlem yapılamadı ({0}): {1}
+Cover	Kaplama
+Crash logs are kept in {}.	Çökme kayıtları şurada tutuluyor: {0}.
+Create Outlines	Dış Hatlar Oluştur
+Cross-Stitch	Kanaviçe
+Cross-stitch	Kanaviçe
+Cross-stitch: a grid of X's, like hand cross-stitch. Flat and blocky.	Kanaviçe: el kanaviçesi gibi X'lerden oluşan bir ızgara. Düz ve bloklu.
+curl -fsSL https://claude.ai/install.sh | bash	irm https://claude.ai/install.ps1 | iex
+Curvature Tool	Eğrilik Aracı
+Curves	Kıvrımlar
+Custom	Özel
+Custom Color	Özel Renk
+Custom · {}	Özel · {0}
+Cut	Kesik
+Cut and pull out the old thread.	Eski ipliği kesip çıkarın.
+Cut down the thread changes	İplik değişimlerini azalt
+Cut into {} pieces.	{0} parçaya kesildi.
+Cut the thread after this object, even if the next one is close	Sonraki nesne yakın olsa bile bu nesneden sonra ipliği kes
+D  {}\nAngle  {:.1}°\nW  {}    H  {}	M  {0}\nAçı  {1}°\nG  {2}    Y  {3}
+Dark	Koyu
+Default	Varsayılan
+Default is what the agent uses on its own. A change applies from the next message. Each agent keeps its own.	Varsayılan, ajanın kendi kullandığıdır. Değişiklik bir sonraki mesajdan itibaren geçerli olur. Her ajan kendi ayarını tutar.
+Delete	Sil
+Delete All Comments	Tüm Yorumları Sil
+Delete Anchor Point Tool	Bağlantı Noktası Silme Aracı
+Delete Comment	Yorumu Sil
+Delete from zigzag.diy…	zigzag.diy'dan Sil…
+Delete it from zigzag.diy?	zigzag.diy'dan silinsin mi?
+Delete Machine	Makineyi Sil
+Delete Palette	Paleti Sil
+Deleted a point.	Nokta silindi.
+Deleted from zigzag.diy.	zigzag.diy'dan silindi.
+Deleted the text.	Metin silindi.
+Deleted {label}.	{0} silindi.
+Deleted {n} point(s).	{0} nokta silindi.
+Density	Yoğunluk
+Density Map	Yoğunluk Haritası
+Describe a design, or a change…	Bir tasarım ya da değişiklik tarif edin…
+Deselect All	Seçimi Kaldır
+Design	Tasarım
+Design fits the hoop but isn't centered in it.	Tasarım kasnağa sığıyor ama ortalanmamış.
+Design is {:.1} × {:.1} mm; the hoop sews {:.0} × {:.0} mm.	Tasarım {0} × {1} mm; kasnak {2} × {3} mm dikebilir.
+Designs	Tasarımlar
+Detail	Ayrıntı
+Details	Ayrıntılar
+Direct Selection	Doğrudan Seçim
+Direct Selection Tool	Doğrudan Seçim Aracı
+Direct Selection Tools	Doğrudan Seçim Araçları
+Disconnect	Bağlantıyı Kes
+Distance between prongs	Dişler arası mesafe
+Distance between the outline-following rows	Dış hattı izleyen sıralar arası mesafe
+Distance between the rows	Sıralar arası mesafe
+Distance between zigzags (auto-adjusted for width unless set)	Zikzaklar arası mesafe (ayarlanmadıkça genişliğe göre otomatik)
+Do a trial run	Deneme turu yapın
+Do you want to save the changes you made to “{name}”?	“{0}” belgesinde yaptığınız değişiklikleri kaydetmek istiyor musunuz?
+Dock Left	Sola Yerleştir
+Dock Right	Sağa Yerleştir
+Document	Belge
+Don't fill areas that objects on top will cover (keeps 0.5 mm of overlap)	Üstteki nesnelerin örteceği alanları doldurma (0,5 mm bindirme bırakır)
+Don't Save	Kaydetme
+Don't send this	Bunu gönderme
+Don't Stitch	Dikme
+Don't stitch this object. (X)	Bu nesneyi dikme. (X)
+Done	Bitti
+Done · {t}	Bitti · {0}
+Done. Press T and click to add more text; V to go back to selecting.	Bitti. Daha fazla metin eklemek için T'ye basıp tıklayın; seçime dönmek için V.
+Done: {}.	Bitti: {0}.
+Download	İndir
+Downloading ZigZag {}…	ZigZag {0} indiriliyor…
+Downloading {name}…	{0} indiriliyor…
+Downloads it, checks it's signed by ZigZag's developer, puts it in place of this one and opens it. Your open documents come back.	İndirir, ZigZag geliştiricisi tarafından imzalandığını denetler, bunun yerine koyar ve açar. Açık belgeleriniz geri gelir.
+Drag a corner's circle to round every corner.	Tüm köşeleri yuvarlatmak için bir köşenin dairesini sürükleyin.
+Drag across a selected path to erase that part of it	Seçili yolun bir kısmını silmek için üzerinden sürükleyin
+Drag across parts to make one shape of them · click a part to make it a shape of its own · Alt takes parts away	Parçaları tek şekil yapmak için üzerlerinden sürükleyin · bir parçayı ayrı şekil yapmak için tıklayın · Alt parçaları çıkarır
+Drag across the fill to set the stitch direction · Shift snaps to 15° · Esc to finish	Dikiş yönünü belirlemek için dolgunun üzerinden sürükleyin · Shift 15°'ye kenetler · bitirmek için Esc
+Drag across the shape to set the angle (G)	Açıyı belirlemek için şeklin üzerinden sürükleyin (G)
+Drag along a selected path to smooth it: fewer points, smoother curves · drag again for more	Yumuşatmak için seçili yol boyunca sürükleyin: daha az nokta, daha yumuşak eğriler · daha fazlası için yeniden sürükleyin
+Drag the bar to move the needle, then Resume.	İğneyi taşımak için çubuğu sürükleyin, sonra Devam Et.
+Drag to add a point to the thread's route	İpliğin yoluna nokta eklemek için sürükleyin
+Drag to draw · Option: from the center · Shift: square, circle, upright or 45° · arrow keys while dragging: sides or points · click to type a size	Çizmek için sürükleyin · Alt: merkezden · Shift: kare, daire, dik ya da 45° · sürüklerken ok tuşları: kenar ya da köşe sayısı · boyut yazmak için tıklayın
+Drag to round just this corner. Shift-click picks more; click it again for all of them.	Yalnızca bu köşeyi yuvarlatmak için sürükleyin. Shift-tıklama daha fazlasını seçer; hepsi için yeniden tıklayın.
+Drag to round these {n} corners.	Bu {0} köşeyi yuvarlatmak için sürükleyin.
+Draw	Çiz
+Draw a cut right across a filled shape · Alt for a straight cut (Shift: 45° steps)	Dolgulu bir şeklin tam ortasından kesik çizin · düz kesik için Alt (Shift: 45° adımlar)
+Draw a cut right across the selected shapes · Alt for a straight cut (Shift: 45° steps)	Seçili şekillerin tam ortasından kesik çizin · düz kesik için Alt (Shift: 45° adımlar)
+Draw a loop round points or objects to select them · Shift adds · Alt takes away	Seçmek için noktaların ya da nesnelerin çevresine bir halka çizin · Shift ekler · Alt çıkarır
+Draw stitches on the GPU	Dikişleri GPU ile çiz
+Draw with Pen	Kalemle Çiz
+Drawing	Çiziyor
+Drew a {} ({} points).	Bir {0} çizildi ({1} nokta).
+Drew a {} through {n} points.	{1} noktadan geçen bir {0} çizildi.
+Drew {a} {name} ({what}).	{1} çizildi ({2}).{0}
+DST (Tajima: most commercial machines)	DST (Tajima: çoğu ticari makine)
+Duplicate	Çoğalt
+Duplicated	çoğaltıldı
+Duplicating	Çoğaltıyor
+Each design's chats with the agent, kept in ZigZag's settings folder (not in the file). A design's last chat comes back with it for a day; older ones are under the clock in the Agent panel.	Her tasarımın ajanla sohbetleri ZigZag'ın ayarlar klasöründe (dosyada değil) saklanır. Bir tasarımın son sohbeti bir gün boyunca onunla geri gelir; daha eskileri Ajan panelindeki saat simgesinin altındadır.
+Each step along the column is shared between the stitch over and the stitch back, so both slant the same. Off: one stitch goes straight across and the next takes the whole step.	Sütun boyunca her adım gidiş ve dönüş dikişi arasında paylaşılır; böylece ikisi de aynı eğimde olur. Kapalı: bir dikiş düz karşıya geçer, sonraki tüm adımı alır.
+Earlier chat · {} · “{title}”	Önceki sohbet · {0} · “{1}”
+Earlier chats about this design	Bu tasarımla ilgili önceki sohbetler
+Edge walk + rows	Kenar yürüyüşü + sıralar
+Edit	Düzen
+Edit Points	Noktaları Düzenle
+Edit points (Direct Selection, A)	Noktaları düzenle (Doğrudan Seçim, A)
+Edit Thread Route as Path	İplik Yolunu Yol Olarak Düzenle
+Editable design and machine files	Düzenlenebilir tasarım ve nakış dosyaları
+Editing group	Grup düzenleniyor
+Editing group "{}".	Grup düzenleniyor: "{0}".
+Editing group "{}". Press Esc or double-click empty canvas to leave it.	Grup düzenleniyor: "{0}". Çıkmak için Esc'ye basın ya da boş tuvale çift tıklayın.
+Effort	Çaba
+Ellipse	Elips
+Email	E-posta
+Empty. Select an object and click + to add its thread.	Boş. İpliğini eklemek için bir nesne seçip + düğmesine tıklayın.
+End	Bitiş
+End Job	İşi Bitir
+End the job: the design comes off the machine	İşi bitir: tasarım makineden silinir
+End this job?	Bu iş bitirilsin mi?
+Ending the job	İş sonlandırılıyor
+Enter sends · Shift-Enter for a new line	Enter gönderir · yeni satır için Shift-Enter
+Erased part of {changed} path(s).	{0} yolun bir kısmı silindi.
+Erased {gone} path(s) entirely.	{0} yol tamamen silindi.
+Estimate at {SPM} stitches/min. Planned in {:.1} ms.	Dakikada {0} dikiş varsayımıyla tahmin. {1} ms'de planlandı.
+Even	Eşit
+Every color is already in {name}.	Tüm renkler zaten {0} paletinde.
+Every layer stays a layer.	Her katman ayrı kalır.
+Every point is a needle point, exactly as drawn.	Her nokta, tam çizildiği gibi bir iğne noktasıdır.
+Every tool call agents have made: when, which tool, what it was asked and what it answered. Kept on this computer.	Ajanların yaptığı tüm araç çağrıları: ne zaman, hangi araç, ne soruldu ve ne yanıtladı. Bu bilgisayarda tutulur.
+Every tool call: when, which tool, what it was asked and what it answered. Kept on this computer, in ZigZag's settings folder.	Tüm araç çağrıları: ne zaman, hangi araç, ne soruldu ve ne yanıtladı. Bu bilgisayarda, ZigZag'ın ayarlar klasöründe tutulur.
+Exclude	Hariç Tut
+Exit Group	Gruptan Çık
+EXP (Melco, Bernina)	EXP (Melco, Bernina)
+Expand	Genişlet
+Expand Panels	Panelleri Genişlet
+Expand the panels	Panelleri genişlet
+Expired	Süresi doldu
+Expires in {h} hour{}	{0} saat içinde sona erer
+Expires in {} days	{0} gün içinde sona erer
+Expires within the hour	Bir saat içinde sona erer
+Export	Dışa Aktar
+Export for your machine	Makineniz için dışa aktarın
+Exported {}	Dışa aktarıldı: {0}
+Extended the path ({n} points).	Yol uzatıldı ({0} nokta).
+Extends rows at the edges to counter fabric pulling in	Kumaşın içe çekmesini dengelemek için sıraları kenarlarda uzatır
+Extra points{}	Fazla noktalar{0}
+Extra width per side; satins pull in narrower than drawn	Her yanda ek genişlik; satenler çizildiğinden dar çekilir
+Eyedropper	Damlalık
+Eyedropper Tool	Damlalık Aracı
+Eyedropper Tools	Damlalık Araçları
+Eyedropper: {changed} object{} given the {}.	Damlalık: {0} nesneye {2} verildi.{1}
+Fabric	Kumaş
+Fabric color	Kumaş rengi
+Fabric hooped smooth and tight	Kumaş kasnağa düzgün ve gergin takılı
+Fabric instead of stitches, with stops to place and trim it.	Dikiş yerine kumaş; yerleştirmek ve kesmek için duraklamalarla.
+Faster for big designs. Turn it off if stitches don't show, or show wrongly, on this computer.	Büyük tasarımlar için daha hızlı. Bu bilgisayarda dikişler görünmüyor ya da yanlış görünüyorsa kapatın.
+Fewer points	Daha az nokta
+Fewer thread changes, without breaking layering	Katman düzenini bozmadan daha az iplik değişimi
+Fewer threads, small details and trims (Object › Simplify Design…)	Daha az iplik, küçük ayrıntı ve kesim (Nesne › Tasarımı Sadeleştir…)
+Fewer trims, please	Daha az kesim lütfen
+File	Dosya
+File format	Dosya biçimi
+Files from an earlier update are still at {}. Keep them until ZigZag has been recovered.	Önceki bir güncellemenin dosyaları hâlâ {0} konumunda. ZigZag kurtarılana kadar saklayın.
+Fill	Dolgu
+Fill Angle	Dolgu Açısı
+Fill angle	Dolgu açısı
+finish	bitmesi
+Finished	Bitti
+Firmware	Yazılım Sürümü
+First time? Hold its Bluetooth button until it beeps, then Try Again.	İlk kez mi? Bluetooth düğmesini bip sesi gelene kadar basılı tutun, sonra Yeniden Dene.
+Fit to Hoop	Kasnağa Sığdır
+Fitted	sığdırıldı
+Fix	Düzelt
+Flat logos trace best: a few solid colors, crisp edges. Photos are posterized.	En iyi sonucu düz logolar verir: birkaç düz renk, keskin kenarlar. Fotoğraflar posterleştirilir.
+Flip	Çevir
+Flip Horizontal	Yatay Çevir
+Flip Vertical	Dikey Çevir
+Flipped	çevrildi
+Float	Serbest
+Font	Yazı tipi
+For Claude Code, Claude Desktop, Codex and other agents on this computer (MCP). It listens to this computer only.	Bu bilgisayardaki Claude Code, Claude Desktop, Codex ve diğer ajanlar için (MCP). Yalnızca bu bilgisayarı dinler.
+Forever	Süresiz
+Forget every kept chat	Saklanan tüm sohbetleri unut
+Forget this machine. Designs set up for it keep their hoop.	Bu makineyi unut. Bunun için ayarlanmış tasarımlar kasnaklarını korur.
+Frame Comments	Yorumları Çerçevele
+From	Başlangıç
+From the machine. To change it, change the machine in Settings.	Makineden gelir. Değiştirmek için Ayarlar'dan makineyi değiştirin.
+General	Genel
+Get Share Link	Paylaşım Bağlantısı Al
+GitHub's answer about the latest release couldn't be read.	GitHub'ın son sürümle ilgili yanıtı okunamadı.
+Glossy columns 1–7 mm wide: borders, letters, rings.	1–7 mm genişliğinde parlak sütunlar: kenarlıklar, harfler, halkalar.
+Grid	Izgara
+Group	Grup
+Group Colors	Renkleri Grupla
+Hand	El
+Has a gap under 1 mm wide; thread will close it up.	1 mm'den dar bir boşluk var; iplik onu kapatacak.
+Height	Yükseklik
+Height of the hoop's sewing field	Kasnağın dikiş alanı yüksekliği
+Help	Yardım
+Hide	Gizle
+Hide Comments	Yorumları Gizle
+Hide Panel	Paneli Gizle
+Hide Task Bar	Görev Çubuğunu Gizle
+Hide the comments	Yorumları gizle
+History	Geçmiş
+Hold the Skitch's Bluetooth button until it beeps.	Skitch'in Bluetooth düğmesini bip sesi gelene kadar basılı tutun.
+Home	Konumlandır
+Home the machine	Makineyi konumlandırın
+Hoop	Kasnak
+Hoop height	Kasnak yüksekliği
+Hoop on the machine	Kasnak makinede
+Hoops	Kasnaklar
+Hoops, file format, shortest stitch and locks for your machines	Makineleriniz için kasnaklar, dosya biçimi, en kısa dikiş ve kilit dikişleri
+Horizontal scale	Yatay ölçek
+How a design gets to this machine. One ZigZag connects to has Send in the toolbar and the File menu; the rest take an exported file.	Tasarımın bu makineye nasıl ulaştığı. ZigZag'ın bağlandığı makinelerde araç çubuğunda ve Dosya menüsünde Gönder bulunur; diğerleri dışa aktarılan dosyayı alır.
+How close the wandering line comes to itself	Gezinen çizginin kendine ne kadar yaklaştığı
+How far a stroke may move the path to smooth it: right for smoother, left to stay closer	Bir vuruşun yolu yumuşatmak için ne kadar oynatabileceği: daha yumuşak için sağa, yola yakın kalmak için sola
+How far the prongs reach into the shape	Dişlerin şeklin içine ne kadar uzandığı
+How far the stitches lean from square across the column. A few degrees stops them sinking between a knit's rows; more shows a slant, like a leaf's veins.	Dikişlerin sütun boyunca diklikten ne kadar eğildiği. Birkaç derece, örgü kumaşın sıraları arasına gömülmelerini önler; fazlası yaprak damarları gibi eğim gösterir.
+How large everything in the window is drawn	Penceredeki her şeyin ne kadar büyük çizildiği
+How long each lock stitch is (never shorter than the shortest stitch)	Her kilit dikişinin uzunluğu (en kısa dikişten kısa olamaz)
+How many lock stitches: twos back and forth, threes round a triangle	Kaç kilit dikişi: ileri geri ikişer, üçgen boyunca üçer
+How much of the hand's wobble is taken out	El titremesinin ne kadarının giderileceği
+How others see you on your shared designs.	Paylaştığınız tasarımlarda başkalarının sizi gördüğü ad.
+How wide the brush paints. [ and ] change it too.	Fırçanın ne kadar geniş boyadığı. [ ve ] tuşları da değiştirir.
+Hue	Ton
+If it keeps happening, change the embroidery needle and rethread.	Tekrarlarsa nakış iğnesini değiştirip ipliği yeniden takın.
+If it keeps happening, note the error code and contact Brother support.	Tekrarlarsa hata kodunu not edip Brother desteğiyle iletişime geçin.
+If you don't, nothing is lost: they come back as they are the next time you open ZigZag. Their files stay as they were until you save.	Kaydetmezseniz hiçbir şey kaybolmaz: ZigZag'ı bir sonraki açışınızda oldukları gibi geri gelirler. Dosyaları siz kaydedene kadar olduğu gibi kalır.
+Ignore specks	Lekeleri yok say
+Image	Görsel
+Images to trace	İzlenecek görseller
+Inches	İnç
+Inner	İç
+Install and Relaunch	Kur ve Yeniden Başlat
+Installing ZigZag {}…	ZigZag {0} kuruluyor…
+Interface size	Arayüz boyutu
+internal error	iç hata
+Interrupted	Kesildi
+Intersect	Kesiştir
+Inverted	Ters
+Issue: {name}	Sorun: {0}
+Issues	Sorunlar
+it doesn't say which file to open	hangi dosyanın açılacağını söylemiyor
+it has spaces or control characters in it	boşluk ya da denetim karakteri içeriyor
+it isn't a zigzag:// link	zigzag:// bağlantısı değil
+it isn't encoded properly	düzgün kodlanmamış
+It keeps sewing; reconnect to follow it.	Dikmeye devam ediyor; takip etmek için yeniden bağlanın.
+It kept a short log of what went wrong. Reporting it helps get the problem fixed: a GitHub issue opens with the gist of the log already in it, and the log file is shown so you can attach it. Nothing is sent unless you post it.	Neyin ters gittiğine dair kısa bir kayıt tuttu. Bildirmeniz sorunun çözülmesine yardımcı olur: kaydın özetini içeren bir GitHub sorunu açılır ve kayıt dosyası eklemeniz için gösterilir. Siz göndermedikçe hiçbir şey gönderilmez.
+it names more than one file	birden fazla dosya adı veriyor
+It won't show up in the Mac's Bluetooth settings: it pairs from here.	Mac'in Bluetooth ayarlarında görünmez: buradan eşleşir.
+it's too long	çok uzun
+Italic	İtalik
+Its old page was gone, so this is a new one.	Eski sayfası kaldırılmıştı, bu yüzden bu yeni bir sayfa.
+Its page and links stop working.	Sayfası ve bağlantıları çalışmaz.
+JEF (Janome, Elna)	JEF (Janome, Elna)
+Join Tool	Birleştirme Aracı
+Joined the paths ({n} points).	Yollar birleştirildi ({0} nokta).
+Joined.	Birleştirildi.
+Jump stitches	Atlama dikişleri
+Jump Stitches	Atlama Dikişleri
+just now	az önce
+Keep	Koru
+Keep a log of what agents do	Ajanların yaptıklarının kaydını tut
+Keep chats on this computer	Sohbetleri bu bilgisayarda sakla
+Keep Original	Orijinali Koru
+Keep proportions	Oranları koru
+Keep the prompt with what the agent makes	Ajanın yaptıklarıyla birlikte istemi sakla
+Keep This	Bunu Koru
+Keeping a version	Bir sürümü saklıyor
+Kept in {}	Şurada tutuluyor: {0}
+Kept it as it is.	Olduğu gibi bırakıldı.
+Kept {left} {} with unsaved changes open.	Kaydedilmemiş değişiklikleri olan {0} sekme açık bırakıldı.
+Kern	Çift aralığı
+Kerning {a}{b}: {}	Çift aralığı {0}{1}: {2}
+Knife	Bıçak
+Knife Tool	Bıçak Aracı
+Knit (beanie, jersey)	Örme (bere, süprem)
+Knit (beanie, jersey, fleece)	Örme (bere, süprem, polar)
+Labels	Etiketler
+Language	Dil
+Lasso	Kement
+Lasso Tool	Kement Aracı
+last heard {}	son sinyal {0}
+Later	Daha Sonra
+layer	katman
+Layer name	Katman adı
+Layers	Katmanlar
+layers	katman
+Layers in one thread that touch and are sewn the same way (fill with fill, satin with satin) become one shape. A satin on a fill stays.	Aynı iplikte olup birbirine değen ve aynı şekilde dikilen katmanlar (dolguyla dolgu, satenle saten) tek şekil olur. Dolgu üzerindeki saten kalır.
+Layers in one thread that touch become one shape, whatever they're sewn as: the fewest stitches, and detail in the same thread goes.	Aynı iplikte olup birbirine değen katmanlar, nasıl dikilirse dikilsin tek şekil olur: en az dikiş, ama aynı iplikteki ayrıntılar kaybolur.
+Leading	Satır aralığı
+Lean	Eğim
+Leave this group (Esc)	Bu gruptan çık (Esc)
+Left	Sola
+Left Dock	Sol Panel
+Left for fewer points, right to keep closer to the original	Daha az nokta için sola, aslına yakın kalmak için sağa
+Length	Uzunluk
+Let agents connect	Ajanların bağlanmasına izin ver
+Let the planner choose where to start and end	Başlangıç ve bitişi planlayıcı seçsin
+Letter height	Harf yüksekliği
+Letter spacing	Harf aralığı
+Lettering	Yazı
+Lettering is edited with its text settings, not point by point.	Yazı, nokta nokta değil, metin ayarlarıyla düzenlenir.
+Lettering updated.	Yazı güncellendi.
+Letters on the other side of the path	Harfler yolun diğer tarafında
+License	Lisans
+Light	Açık
+Light, flexible crown. Lighter fill, more pull compensation, edge walk to keep shapes flat.	Hafif, esnek tepe. Daha hafif dolgu, daha fazla çekme telafisi, şekilleri düz tutmak için kenar yürüyüşü.
+line	çizgi
+Line	Çizgi
+Line spacing, as a multiple of the letter height	Harf yüksekliğinin katı olarak satır aralığı
+Link copied.	Bağlantı kopyalandı.
+Link works	Bağlantı geçerli
+List in Sewing Order	Dikiş Sırasına Göre Listele
+List the layers as they sew, the first at the top. Off: what's on top is at the top, as in Illustrator.	Katmanları dikiliş sırasıyla, ilki en üstte olacak şekilde listeler. Kapalı: Illustrator'daki gibi üstte olan en üstte.
+Listening on port {port}	{0} portunda dinliyor
+Lock	Kilitle
+Lock stitch length	Kilit dikişi uzunluğu
+Lock stitches	Kilit dikişleri
+Locks	Kilit dikişleri
+Log	Kayıt
+Longest gap to sew across	Üzerinden dikilecek en uzun boşluk
+Longest stitch in a row	Bir sıradaki en uzun dikiş
+Look for it again, after installing it	Kurduktan sonra yeniden ara
+Look for updates when ZigZag opens	ZigZag açılırken güncellemeleri denetle
+Looking	Bakıyor
+Looking for the Skitch…	Skitch aranıyor…
+Looking for updates…	Güncellemeler denetleniyor…
+Looks like small lettering (under 4 mm tall). Fill won't read at this size: use Satin and keep letters at least 5 mm tall.	Küçük yazıya benziyor (4 mm'den kısa). Bu boyutta dolgu okunmaz: Saten kullanın ve harfleri en az 5 mm yüksekliğinde tutun.
+Lost the connection	Bağlantı koptu
+lowercase	küçük harf
+Machine	Makine
+Machine details	Makine ayrıntıları
+Machine error	Makine hatası
+Machine files	Nakış dosyaları
+Machine files only	Yalnızca nakış dosyaları
+Machine name	Makine adı
+Machine Settings	Makine Ayarları
+Machine Settings…	Makine Ayarları…
+Machines	Makineler
+Made a corner point.	Köşe noktası yapıldı.
+Made a smooth point.	Yumuşak nokta yapıldı.
+Made one shape of those parts.	Bu parçalardan tek şekil yapıldı.
+Made the corners sharp.	Köşeler keskinleştirildi.
+Made {n} swatches, {} from {} to {}.	{0} deneme örneği oluşturuldu: {1}, {2} ile {3} arası.
+Made {} corners sharp.	{0} köşe keskinleştirildi.
+Maintenance due	Bakım zamanı
+Make	Oluştur
+Make it half the size	Yarı boyuta küçült
+Make it sew faster	Daha hızlı dikilsin
+Make it work on a stretchy T-shirt	Esnek bir tişörtte çalışacak hâle getir
+Make the lettering satin	Yazıyı saten yap
+Making changes	Değişiklik yapıyor
+Making {}…	{0} hazırlanıyor…
+Manual	Elle
+Manual Stitches	Elle Dikişler
+Manual: every point of the path is a needle point, exactly as drawn. Used for imported machine files and hand digitizing. (M)	Elle: yolun her noktası, tam çizildiği gibi bir iğne noktasıdır. İçe aktarılan makine dosyaları ve elle dijitalleştirme için. (M)
+Match All to Palette	Tümünü Palete Eşle
+Match All to {name}	Tümünü {0} paletine eşle
+Match System	Sistemle Aynı
+Matched {n} object(s) to {name}.	{0} nesne {1} paletine eşlendi.
+MCP Server	MCP Sunucusu
+MCP server off	MCP sunucusu kapalı
+MCP server running — no agents yet	MCP sunucusu çalışıyor — henüz ajan yok
+MCP status	MCP durumu
+Meander	Kıvrımlı
+Meander Fill	Kıvrımlı Dolgu
+Meander: one wandering line through the shape, quilting style. Light and soft; good on thin fabric and for large areas.	Kıvrımlı: kapitone tarzı, şeklin içinde gezinen tek bir çizgi. Hafif ve yumuşak; ince kumaşta ve geniş alanlarda iyi.
+Measure	Ölçü
+Measure Tool	Ölçü Aracı
+Measurements	Ölçüler
+Menu bar unavailable: {e}	Menü çubuğu kullanılamıyor: {0}
+Merge the threads most alike until this many are left. Each pair becomes the one that sews more, so they stay real threads.	Bu sayıda kalana kadar en benzer iplikleri birleştir. Her çift, daha çok dikilen ipliğe dönüşür; böylece gerçek iplikler olarak kalırlar.
+Millimeters	Milimetre
+Min stitch	En kısa dikiş
+Minimize	Simge Durumuna Küçült
+Minimize the Skitch window	Skitch penceresini küçült
+Minimize: it carries on, and the status bar shows how it's doing	Küçült: işlem sürer, durum çubuğu ilerlemeyi gösterir
+Minus Front	Öndekini Çıkar
+Mitred	Gönyeli
+Mitred: each stroke of a letter is its own column, and where two meet at a corner both end on the line between them. Cut: the shape is cut into columns where its strokes part, corners squared, one stroke running on and the other ending against it. Auto: mitred, unless a corner is too sharp for a mitre to sew cleanly (the point of a V) or a join can't be read clearly, when it's cut. Cut is the default.	Gönyeli: harfin her vuruşu ayrı bir sütundur; iki vuruş köşede buluştuğunda ikisi de aradaki çizgide biter. Kesik: şekil vuruşlarının ayrıldığı yerlerde sütunlara kesilir, köşeler düzdür; bir vuruş devam eder, diğeri ona dayanarak biter. Otomatik: gönyeli; ancak köşe gönye için fazla keskinse (V'nin ucu) ya da birleşim net okunamıyorsa kesik. Varsayılan Kesik'tir.
+Mixed	Karışık
+Model	Model
+More	Daha fazla
+More detail	Daha fazla ayrıntı
+Move Annotation Bar	Not Çubuğunu Taşı
+Move Task Bar	Görev Çubuğunu Taşı
+Move the needle to stitch {}	İğneyi {0} numaralı dikişe taşı
+Moved	taşındı
+Moved back {back} stitches ({}).	{0} dikiş geri gidildi ({1}).
+Moved points.	Noktalar taşındı.
+Moved {label} in the sewing order.	{0} dikiş sırasında taşındı.
+Moving the hoop clear	Kasnak kenara alınıyor
+Moving the needle	İğne hareket ettiriliyor
+My initials in a monogram with a laurel wreath	Defne çelengi içinde baş harflerimden monogram
+Name	Ad
+Naming	Adlandırıyor
+Narrow satin	Dar saten
+Needle	İğne
+Needle plate cover	İğne plakası kapağı
+Needle points	İğne noktaları
+Needle Points	İğne Noktaları
+Needle up	İğne yukarıda
+Needs homing	Konumlandırma gerekli
+Never expires	Süresi dolmaz
+New	Yeni
+New Chat	Yeni Sohbet
+New chat: the agent forgets this conversation	Yeni sohbet: ajan bu konuşmayı unutur
+New Document (⌘N)	Yeni Belge (Ctrl+N)
+New document.	Yeni belge.
+New documents	Yeni belgeler
+New documents begin in this machine's hoop, with its shortest stitch and locks	Yeni belgeler bu makinenin kasnağı, en kısa dikişi ve kilit dikişleriyle başlar
+New documents start in the chosen hoop.	Yeni belgeler seçilen kasnakla başlar.
+new documents start in this one	yeni belgeler bununla başlar
+New hoop height	Yeni kasnak yüksekliği
+New hoop width	Yeni kasnak genişliği
+New link	Yeni bağlantı
+New Machine	Yeni Makine
+New Palette	Yeni Palet
+New Palette from This Design	Bu Tasarımdan Yeni Palet
+New Palette from Thread Kit	İplik Setinden Yeni Palet
+New Tab	Yeni Sekme
+Next Document	Sonraki Belge
+Next: {}	Sonraki: {0}
+No agent has connected since the studio opened.	Stüdyo açıldığından beri hiçbir ajan bağlanmadı.
+No corners to round here.	Burada yuvarlatılacak köşe yok.
+No cuts	Kesim yok
+No earlier chats about this design yet.	Bu tasarımla ilgili henüz önceki sohbet yok.
+No frame	Kasnak yok
+No gaps where the thread blends in	İpliğin kaynaştığı boşluk yok
+No heavy spots: at most {:.1} stitches per mm².	Yoğun bölge yok: mm² başına en fazla {0} dikiş.
+No layers yet. Open or drop an SVG, add text, or draw with the pen.	Henüz katman yok. Bir SVG açın ya da sürükleyin, metin ekleyin veya kalemle çizin.
+no locks	kilit dikişi yok
+No machine	Makine yok
+No notes on the canvas.	Tuvalde not yok.
+No outline to remove.	Kaldırılacak dış hat yok.
+No problems found	Sorun bulunamadı
+No problems found.	Sorun bulunamadı.
+No Skitch found	Skitch bulunamadı
+No stitch shorter than this, for machines that drop short stitches. Fill rows closer together than this are sewn every second row and then the rows between, and other short stitches are merged into their neighbours.	Kısa dikişleri atlayan makineler için bundan kısa dikiş olmaz. Bundan daha sık dolgu sıraları önce bir atlayarak, sonra aradaki sıralar dikilir; diğer kısa dikişler komşularıyla birleştirilir.
+no stitch under {} mm	{0} mm altında dikiş yok
+No threads yet.	Henüz iplik yok.
+No tool calls yet.	Henüz araç çağrısı yok.
+None	Yok
+None under 1.5 mm, center walk to 4 mm, contour + zigzag above	1,5 mm altında yok, 4 mm'ye kadar orta yürüyüş, üzerinde kontur + zikzak
+None under {} mm on this fabric, center walk to 4 mm, contour + zigzag above	Bu kumaşta {0} mm altında yok, 4 mm'ye kadar orta yürüyüş, üstünde kontur + zikzak
+Not connected	Bağlı değil
+Not connected to the machine.	Makineye bağlı değil.
+Not Now	Şimdi Değil
+Not now	Şimdi değil
+Not paired	Eşleştirilmedi
+Not running	Çalışmıyor
+Not running ({e})	Çalışmıyor ({0})
+Not set	Ayarlanmadı
+Not shared yet.	Henüz paylaşılmadı.
+Not stitched.	Dikilmez.
+Not to sell, and shared the same way.	Satış için değil ve aynı şekilde paylaşılır.
+Nothing cut: {e:#}.	Hiçbir şey kesilmedi: {0}.
+Nothing has been logged yet.	Henüz hiçbir şey kaydedilmedi.
+Nothing of the selected paths under the eraser.	Silginin altında seçili yollardan hiçbir şey yok.
+Nothing selected	Hiçbir şey seçili değil
+Nothing selected.	Hiçbir şey seçili değil.
+Nothing to change: it's sewn that way already.	Değişecek bir şey yok: zaten öyle dikiliyor.
+Nothing to clean up.	Temizlenecek bir şey yok.
+Nothing to sew yet	Henüz dikilecek bir şey yok
+Nothing to sew yet.	Henüz dikilecek bir şey yok.
+Nothing typed.	Hiçbir şey yazılmadı.
+Now	Şu an
+npm install -g @openai/codex	winget install OpenAI.Codex
+Nudged	kaydırıldı
+Nudged points.	Noktalar kaydırıldı.
+Object	Nesne
+object	nesne
+Objects smaller than	Şundan küçük nesneler:
+Objects with only one point, or no size at all	Tek noktalı ya da hiç boyutu olmayan nesneler
+Off	Kapalı
+Off, the Stitch and Document panels show the few settings most designs need, and the fabric sets the rest. A setting that's been changed still shows.	Kapalıyken Dikiş ve Belge panelleri çoğu tasarımın ihtiyaç duyduğu birkaç ayarı gösterir, gerisini kumaş belirler. Değiştirilmiş bir ayar yine görünür.
+Offered earlier.	Daha önce önerildi.
+Offering choices	Seçenek sunuyor
+Offset	Kaydırma
+Offset by {mm:+.1} mm (the new shape is behind).	{0} mm kaydırıldı (yeni şekil arkada).
+Offset distance	Kaydırma mesafesi
+Offset Path	Yolu Kaydır
+Offset Path…	Yolu Kaydır…
+OK	Tamam
+On 1 stitch	1 dikiş ileri
+On 10 stitches	10 dikiş ileri
+On 100 stitches	100 dikiş ileri
+On a path	Yol üzerinde
+Once the agent is done	Ajan bitirdiğinde
+One of your machines.	Makinelerinizden biri.
+One of your machines. A change reaches the document in front, if it's set up for this machine.	Makinelerinizden biri. Değişiklik, bu makine için ayarlanmışsa öndeki belgeye de yansır.
+One wandering line, quilting style: light and soft.	Kapitone tarzı gezinen tek çizgi: hafif ve yumuşak.
+Only people you send it to. Forever, unless you choose a time.	Yalnızca gönderdiğiniz kişiler. Bir süre seçmezseniz süresiz.
+Only with the link · {}	Yalnızca bağlantıyla · {0}
+Only you	Yalnızca siz
+Only {:.1} mm across: too small to fill. Make it bigger or use Run.	Yalnızca {0} mm genişliğinde: dolgu için çok küçük. Büyütün ya da Düz Dikiş kullanın.
+Only {:.1} mm wide: Satin looks cleaner than Fill on narrow shapes.	Yalnızca {0} mm genişliğinde: dar şekillerde Saten, Dolgu'dan daha temiz görünür.
+Open	Aç
+Open a file in a new tab (or the empty tab in front), which becomes the document the other tools work on: an SVG, or a machine file (pes, pec, dst, exp, jef) which opens as manual stitches you can move, scale and recolor. A file that's already open comes to the front instead, keeping its unsaved changes.	Open a file in a new tab (or the empty tab in front), which becomes the document the other tools work on: an SVG, or a machine file (pes, pec, dst, exp, jef, vp3) which opens as manual stitches you can move, scale and recolor. A file that's already open comes to the front instead, keeping its unsaved changes.
+Open an SVG (or drop one on the window).	Bir SVG açın (ya da pencereye sürükleyip bırakın).
+Open it, to read it or carry on	Okumak ya da sürdürmek için açın
+Open rows following the outline, or one spiral.	Dış hattı izleyen açık sıralar ya da tek bir spiral.
+Opened {} ({n} objects).	{0} açıldı ({1} nesne).
+Opened {}. It was bigger than the hoop, so it's scaled to {:.0}%. Undo puts it back to full size.	{0} açıldı. Kasnaktan büyük olduğu için %{1} oranına ölçeklendi. Geri Al tam boyutuna döndürür.
+Opening	Açıyor
+Opens the release on GitHub in your browser	Sürümü tarayıcınızda GitHub'da açar
+Open…	Aç…
+Or with Homebrew	Ya da Homebrew ile
+Or with npm	Ya da npm ile
+Or with WinGet	Ya da WinGet ile
+Order	Sıra
+Original	Orijinal
+Others can sew it, not change it.	Başkaları dikebilir, değiştiremez.
+Others may look and sew it for themselves, nothing more.	Başkaları yalnızca bakabilir ve kendileri için dikebilir.
+Others may sew, change and share it, crediting you.	Başkaları adınızı belirterek dikebilir, değiştirebilir ve paylaşabilir.
+Outline	Dış hat
+Outline on: a running stitch round the edge. Its stitch, thread and width are in the bar's second row.	Dış hat açık: kenar boyunca düz dikiş. Dikişi, ipliği ve genişliği çubuğun ikinci satırında.
+Outline row closed. The outline is still there: its button shows its thread.	Dış hat satırı kapatıldı. Dış hat hâlâ orada: düğmesi ipliğini gösterir.
+Outline Stroke	Konturu Dış Hatta Çevir
+Outline thread	Dış hat ipliği
+Outline Thread Color	Dış Hat İplik Rengi
+Outline thread: {name}	Dış hat ipliği: {0}
+Outline width	Dış hat genişliği
+Outline: a line of stitches round the shape, in its own thread	Dış hat: şeklin çevresinde kendi ipliğiyle bir dikiş çizgisi
+Outline: on (click to close its row; the outline stays)	Dış hat: açık (satırını kapatmak için tıklayın; dış hat kalır)
+Outline: on (click to open its row)	Dış hat: açık (satırını açmak için tıklayın)
+Outline: {name}	Dış hat: {0}
+Outlined {} line(s) into shapes.	{0} çizgi şekle dönüştürüldü.
+Outlines made: {} object(s) can be edited point by point now, not as text.	Dış hatlar oluşturuldu: {0} nesne artık metin olarak değil, nokta nokta düzenlenebilir.
+Outlining	Dış hat ekliyor
+Overlapping	Üst üste
+Paint a filled shape: it joins the fills in the same thread that it touches · [ and ] size the brush	Dolgulu şekil boyayın: dokunduğu aynı iplikteki dolgularla birleşir · [ ve ] fırça boyutunu ayarlar
+Paint a line: it's smoothed and sewn as satin (or a run) · end where you began to close it · Smoothness and width in the bar above	Bir çizgi boyayın: yumuşatılır ve saten (ya da düz dikiş) olarak dikilir · kapatmak için başladığınız yerde bitirin · Yumuşaklık ve genişlik üstteki çubukta
+Painted a new fill.	Yeni bir dolgu boyandı.
+Painted a {}running-stitch line ({n} points).	{0}düz dikiş çizgisi boyandı ({1} nokta).
+Painted a {}satin line {width:.1} mm wide ({n} points).	{1} mm genişliğinde {0}saten çizgi boyandı ({2} nokta).
+Painted onto the fill it touched.	Dokunduğu dolgunun üzerine boyandı.
+Pair the Skitch with this computer	Skitch'i bu bilgisayarla eşleştirin
+Palette	Palet
+Palette menu	Palet menüsü
+Palette {n}	Palet {0}
+Panels	Paneller
+Panels, text, buttons and the handles on the canvas. Your design stays the size it is.	Paneller, metin, düğmeler ve tuvaldeki tutamaçlar. Tasarımınız aynı boyutta kalır.
+Part of it is outside the hoop: move it in, or choose Centered.	Bir kısmı kasnağın dışında: içeri taşıyın ya da Ortalanmış'ı seçin.
+Passes	Geçişler
+Paste	Yapıştır
+Paste Stitch Settings	Dikiş Ayarlarını Yapıştır
+Pasted stitch settings onto {n} object(s).	Dikiş ayarları {0} nesneye yapıştırıldı.
+Pasted {} object(s).	{0} nesne yapıştırıldı.
+Path	Yol
+Path Eraser Tool	Yol Silgisi Aracı
+Pathfinder	Yol Bulucu
+Pause	Duraklat
+Pause it with the Start/Stop button on the Skitch first.	Önce Skitch'teki Başlat/Durdur düğmesiyle duraklatın.
+Pause the machine after this object (to lay foam, or trim appliqué fabric)	Bu nesneden sonra makineyi duraklat (köpük koymak ya da aplike kumaşını kesmek için)
+Pause with the Start/Stop button on the Skitch: it can't be paused over Bluetooth.	Skitch'teki Başlat/Durdur düğmesiyle duraklatın: Bluetooth üzerinden duraklatılamaz.
+Paused	Duraklatıldı
+PEC (Brother, stitches only)	PEC (Brother, yalnızca dikişler)
+Pen	Kalem
+PEN (Brother Skitch over Bluetooth)	PEN (Bluetooth ile Brother Skitch)
+Pen Tool	Kalem Aracı
+Pen Tools	Kalem Araçları
+Performance	Performans
+Pick one for all {} selected layers	{0} seçili katmanın tümü için birini seçin
+Picked up where you left off: {name}, with its unsaved changes.	Kaldığınız yerden devam: {0}, kaydedilmemiş değişiklikleriyle.
+Picked up where you left off: {name}.	Kaldığınız yerden devam: {0}.
+Picked up where you left off: {opened} documents.	Kaldığınız yerden devam: {0} belge.
+Pin Bar Position	Çubuk Konumunu Sabitle
+Pixels	Piksel
+Place	Yerleştir
+Place SVG…	Yerleştir (SVG, VP3…)…
+Placed traced {what}.	İzlenen görsel yerleştirildi: {0}.
+Placed {} ({} objects).	{0} yerleştirildi ({1} nesne).
+Placed {}. It was bigger than the hoop, so it's scaled to {:.0}%. Undo puts it back to full size.	{0} yerleştirildi. Kasnaktan büyük olduğu için %{1} oranına ölçeklendi. Geri Al tam boyutuna döndürür.
+Placement	Yerleşim
+Place…	Yerleştir (SVG, VP3…)…
+Placing	Yerleştiriyor
+Play	Oynat
+Play Stitch-Out	Dikiş Animasyonunu Oynat
+Play the stitch-out (Space)	Dikiş animasyonunu oynat (Boşluk)
+Playback speed	Oynatma hızı
+Points	Uçlar
+Points on top of each other, and points in the middle of straight lines	Üst üste binen noktalar ve düz çizgilerin ortasındaki noktalar
+Polygon	Çokgen
+Port	Port
+Position	Konum
+Press Accept on the machine	Makinede Kabul'e basın
+Press Accept on the machine.	Makinede Kabul'e basın.
+Press Start on the machine	Makinede Başlat'a basın
+Press Start on the machine.	Makinede Başlat'a basın.
+Press the Accept button on the machine.	Makinedeki Kabul düğmesine basın.
+Press the needle position button to raise the needle.	İğneyi kaldırmak için iğne konumu düğmesine basın.
+Preview	Önizleme
+Preview on	Zemin
+Previous Document	Önceki Belge
+Private: its page and links are off	Gizli: sayfası ve bağlantıları kapalı
+Production worksheet	Üretim föyü
+Production Worksheet (HTML)…	Üretim Föyü (HTML)…
+Prompt	İstem
+Prompts	İstemler
+Prong	Diş
+Prong length	Diş uzunluğu
+Proportions locked	Oranlar kilitli
+Public: anyone can find and open it	Herkese açık: herkes bulup açabilir
+Pull comp.	Çekme telafisi
+Pull compensation	Çekme telafisi
+Pull the bobbin thread up before you go on.	Devam etmeden önce masura ipliğini yukarı çekin.
+Push the needle threading lever back up to where it rests.	İğne iplik takma kolunu durduğu yere kadar yukarı itin.
+Put back as it was before “{prompt}”. Undo brings the changes back.	“{0}” öncesindeki hâline döndür. Geri Al değişiklikleri geri getirir.
+Put back as it was. Undo brings the changes back.	Önceki hâline döndür. Geri Al değişiklikleri geri getirir.
+Put it on zigzag.diy as set above, and copy its address	Yukarıdaki ayarlarla zigzag.diy'a koy ve adresini kopyala
+Put on the first thread	İlk ipliği takın
+Put the embroidery needle back in.	Nakış iğnesini geri takın.
+Put the needle plate cover back on.	İğne plakası kapağını geri takın.
+Put the panel away when you click the canvas or pick another tool. The Agent button brings it back, with a dot when there's a reply.	Tuvale tıkladığınızda ya da başka bir araç seçtiğinizde paneli kaldır. Ajan düğmesi onu geri getirir; yanıt geldiğinde üzerinde bir nokta görünür.
+Quit ZigZag	ZigZag'dan Çık
+Radius	Yarıçap
+Radius {}	Yarıçap {0}
+Read	Oku
+Read {}: Alt-click an object to give it this thread and these settings.	{0} okundu: bu ipliği ve ayarları vermek için bir nesneye Alt-tıklayın.
+Readies the machine: then press Start on it	Makineyi hazırlar: sonra makinede Başlat'a basın
+Reading	Okuyor
+Reading notes	Notları okuyor
+Reading the settings	Ayarlar okunuyor
+Ready	Hazır
+Ready to sew	Dikmeye hazır
+Receiving	Alınıyor
+Receiving the design	Tasarım alınıyor
+Recommended	Önerilen
+Recommended (PowerShell)	Önerilen (PowerShell)
+Recommended. Others can open it in ZigZag and change it, as well as sew it.	Önerilen. Başkaları onu ZigZag'da açıp değiştirebilir ve dikebilir.
+Recommended. {what}	Önerilen. {0}
+Reconnect	Yeniden Bağlan
+Rectangle	Dikdörtgen
+Redo	Yinele
+Redoing	Yineliyor
+Redone.	Yinelendi.
+Reference point	Referans noktası
+Reference point: X and Y show this point; resizing keeps it in place	Referans noktası: X ve Y bu noktayı gösterir; yeniden boyutlandırmada yerinde kalır
+Release Compound Path	Bileşik Yolu Ayır
+Released into {} objects, grouped. Each one has its own stitch settings now.	{0} nesneye ayrıldı ve gruplandı. Artık her birinin kendi dikiş ayarları var.
+Remove from Palette	Paletten Kaldır
+Remove Hoop	Kasnağı Kaldır
+Remove Image	Görseli Kaldır
+Remove image	Görseli kaldır
+Remove Note	Notu Kaldır
+Remove Outline	Dış Hattı Kaldır
+Remove outline	Dış hattı kaldır
+Remove overlaps	Çakışmaları kaldır
+Remove Queued Message	Sıradaki Mesajı Kaldır
+Remove the last thread	Son ipliği kaldır
+Remove the outline	Dış hattı kaldır
+Remove the thread from the top of the fabric, then remove the needle.	Kumaşın üstündeki ipliği çıkarın, sonra iğneyi çıkarın.
+Remove the thread from under the fabric and clean any thread out of the bobbin case.	Kumaşın altındaki ipliği çıkarın ve masura yuvasındaki iplikleri temizleyin.
+Remove this stripe	Bu şeridi kaldır
+Remove white background	Beyaz arka planı kaldır
+Removed	Kaldırıldı
+Removed {}.	{0} kaldırıldı.
+Removing	Kaldırıyor
+Rename Palette	Paleti Yeniden Adlandır
+Renamed to {name}.	Yeni ad: {0}.
+Reopening ZigZag…	ZigZag yeniden açılıyor…
+Reorder the layers so each thread sews in as few goes as the layering allows (Group Colors)	Katmanları, her iplik katman düzeninin izin verdiği en az seferde dikilecek şekilde yeniden sırala (Renkleri Grupla)
+Report an Issue…	Sorun Bildir…
+Report on GitHub…	GitHub'da Bildir…
+Reset	Sıfırla
+Reset Bar Position	Çubuk Konumunu Sıfırla
+Reset Panels	Panelleri Sıfırla
+Reset to Defaults	Varsayılanlara Sıfırla
+Reshape this connection	Bu bağlantıyı yeniden şekillendir
+Reshaped the curve.	Eğri yeniden şekillendirildi.
+Reshaping	Yeniden şekillendiriyor
+Resized	yeniden boyutlandırıldı
+Resolve	Çözüldü
+Resolving a note	Bir notu çözüyor
+Restart the machine	Makineyi yeniden başlatın
+Restyling	Stil değiştiriyor
+Resume	Devam Et
+Rethread the top thread.	Üst ipliği yeniden takın.
+Reverse Direction	Yönü Ters Çevir
+Reversed: it sews from the other end now.	Ters çevrildi: artık diğer uçtan dikiliyor.
+Revert to This	Buna Dön
+Reviewing	Gözden geçiriyor
+Right	Sağa
+Rings	Halkalar
+Ripple	Dalga
+Ripple Fill	Dalga Dolgu
+Ripple: open running-stitch rows following the outline, like ripples on water, or one spiral from the center.	Dalga: sudaki dalgalar gibi dış hattı izleyen açık düz dikiş sıraları ya da merkezden tek bir spiral.
+Rotate	Döndür
+Rotate (Shift+R)	Döndür (Shift+R)
+Rotate Left 90°	90° Sola Döndür
+Rotate Right 90°	90° Sağa Döndür
+Rotate Tool	Döndürme Aracı
+Rotated	döndürüldü
+Rotate…	Döndür…
+Rotation angle	Döndürme açısı
+Round	Yuvarlak
+Round Corners	Köşeleri Yuvarla
+Round Corners…	Köşeleri Yuvarla…
+Rounded the corners.	Köşeler yuvarlatıldı.
+Rounded {} corners.	{0} köşe yuvarlatıldı.
+Rounding corners	Köşeleri yuvarlıyor
+Route Thread Along Path	İpliği Yol Boyunca Geçir
+Row spacing within each stripe	Her şerit içindeki sıra aralığı
+Row spacing: smaller is denser	Sıra aralığı: küçük değer daha sık
+Rows following the outline inward.	Dış hattı içe doğru izleyen sıralar.
+Rows of stitches covering an area wider than ~7 mm.	~7 mm'den geniş bir alanı kaplayan dikiş sıraları.
+Run	Düz Dikiş
+Running	Çalışıyor
+Running stitch along the outline: a thin line. (R)	Dış hat boyunca düz dikiş: ince bir çizgi. (R)
+Running stitch: a thin line for details and fine outlines. (R)	Düz dikiş: ayrıntılar ve ince dış hatlar için ince bir çizgi. (R)
+Runs	Çalıştırılan
+Runs just inside both edges: crisp edges on wide columns	İki kenarın hemen içinden düz dikiş: geniş sütunlarda keskin kenarlar
+S-stitch	S dikişi
+Safety error	Güvenlik hatası
+Same thread again	Yine aynı iplik
+Satin	Saten
+Satin column across the shape (narrow shapes, letters, rings), or a satin border along its outline. (S)	Şekil boyunca saten sütun (dar şekiller, harfler, halkalar) ya da dış hattı boyunca saten kenarlık. (S)
+Satin column width. Keep it under 7 mm.	Saten sütun genişliği. 7 mm'nin altında tutun.
+Satin column: smooth, shiny zigzag 1–7 mm wide. Great for lettering and borders. (S)	Saten sütun: 1–7 mm genişliğinde düzgün, parlak zikzak. Yazı ve kenarlıklar için ideal. (S)
+Satin cover width	Saten kaplama genişliği
+Satin only {mean:.1} mm wide on average: too narrow to look smooth. Use Run.	Saten ortalamada yalnızca {0} mm genişliğinde: düzgün görünmek için çok dar. Düz Dikiş kullanın.
+Satin up to {max:.1} mm wide: stitches longer than {split:.1} mm are split so they don't snag.	Saten {0} mm genişliğe kadar: takılmasınlar diye {1} mm'den uzun dikişler bölünür.
+Satin up to {max:.1} mm wide: stitches over ~7 mm get loose and snag. Turn on auto split or use Fill.	Saten {0} mm genişliğe kadar: ~7 mm'yi aşan dikişler gevşer ve takılır. Otomatik bölmeyi açın ya da Dolgu kullanın.
+Satin width	Saten genişliği
+Satins narrower than this on average get a warning suggesting Run. How narrow a column still sews cleanly depends on your fabric and thread: set it to what does for you (0 never warns). It doesn't change the stitches.	Ortalamada bundan dar satenler için Düz Dikiş öneren bir uyarı verilir. Bir sütunun ne kadar dar olup hâlâ temiz dikilebileceği kumaşa ve ipliğe bağlıdır: size uyan değeri girin (0 hiç uyarmaz). Dikişleri değiştirmez.
+Saturation and brightness	Doygunluk ve parlaklık
+Save	Kaydet
+Save All	Tümünü Kaydet
+Save As…	Farklı Kaydet…
+Saved in the design with each object the agent adds, so it can look back at what was asked for. Shared files carry them too.	Ajanın eklediği her nesneyle birlikte tasarıma kaydedilir; böylece ne istendiğine geri bakabilir. Paylaşılan dosyalar da bunları taşır.
+Saved {} (settings are stored in the object names)	{0} kaydedildi (ayarlar nesne adlarında saklanır)
+Saved.	Kaydedildi.
+Saving	Kaydediyor
+Saving…	Kaydediliyor…
+Scale	Ölçek
+Scaled {} to {:.0}% ({}) to fit the {} hoop.	{0} {3} kasnağa sığması için %{1} oranında ölçeklendi ({2}).
+Screen name	Görünen ad
+Scrub between two open ends to join them (selected paths, or any) · an open path's own ends close it	Birleştirmek için iki açık uç arasında sürükleyin (seçili yollar ya da herhangi biri) · açık bir yolun kendi uçları onu kapatır
+Scrub from one open end to another to join them.	Birleştirmek için bir açık uçtan diğerine sürükleyin.
+Scrub through the sewing order	Dikiş sırasında ileri geri gezin
+Search fonts	Yazı tipi ara
+Select	Seçim
+Select a Fill object, then drag to set its stitch direction	Bir Dolgu nesnesi seçin, sonra dikiş yönünü belirlemek için sürükleyin
+select a filled shape sewn in satin	saten dikilen dolu bir şekil seçin
+Select a path first (or start the drag on one).	Önce bir yol seçin (ya da sürüklemeyi bir yolun üzerinde başlatın).
+Select a text object and a path.	Bir metin nesnesi ve bir yol seçin.
+Select All	Tümünü Seç
+Select layers to set their thread color	İplik rengini ayarlamak için katman seçin
+Select objects first, then click a thread to use it.	Önce nesneleri seçin, sonra kullanmak için bir ipliğe tıklayın.
+Select objects to choose their thread.	İpliklerini seçmek için nesne seçin.
+Select overlapping shapes first (V), then drag across their parts here	Önce üst üste binen şekilleri seçin (V), sonra burada parçalarının üzerinden sürükleyin
+Select Same Stitch Type	Aynı Dikiş Türünü Seç
+select the object to test first	önce denenecek nesneyi seçin
+Select the path the text should follow too.	Metnin izleyeceği yolu da seçin.
+Select the {} object(s) sewn in this thread	Bu iplikle dikilen {0} nesneyi seç
+Selecting	Seçiyor
+Send	Gönder
+Send Again	Yeniden Gönder
+Send Design	Tasarımı Gönder
+Send now: stops what it's doing	Şimdi gönder: yaptığı işi durdurur
+Send Queued Message Now	Sıradaki Mesajı Şimdi Gönder
+Send the design	Tasarımı gönderin
+Send to Skitch	Skitch'e Gönder
+Send to Skitch…	Skitch'e Gönder…
+Sending	Gönderiliyor
+Sending to the machine	Makineye gönderiyor
+Sending {:.0}%	Gönderiliyor %{0}
+Sending…	Gönderiliyor…
+Separate {}	{0} ayır
+Serial	Seri No
+Setting	Ayar
+Setting up	Ayarlıyor
+Setting up versions	Sürümleri hazırlıyor
+Settings	Ayarlar
+Settings bytes	Ayar baytları
+Settings…	Ayarlar…
+Several threads	Birkaç iplik
+Several threads · click to pick one for all the selected layers	Birkaç iplik · tüm seçili katmanlar için birini seçmek üzere tıklayın
+Sew	Dik
+Sew across gaps up to this long instead of cutting the thread (the Document panel's Connect). These stitches show on the fabric.	Bu uzunluğa kadar olan boşluklarda ipliği kesmek yerine üzerinden dik (Belge panelindeki Bağla). Bu dikişler kumaşta görünür.
+Sew across gaps up to this long where the thread is close in color to what it crosses: the same thread, a lighter or darker one, or cloth of its own color. The plainer it would show, the less far it goes (light red on red a bit over half this; white on black not at all). Judged against Preview on for bare cloth, so set that to the cloth's color.	İpliğin rengi üzerinden geçtiği yere yakın olduğunda bu uzunluğa kadar boşlukları dikerek geç: aynı iplik, daha açık ya da koyu bir ton, ya da kendi renginde kumaş. Ne kadar belirgin görünecekse o kadar kısa mesafe geçer (kırmızı üzerinde açık kırmızı bunun yarısından biraz fazla; siyah üzerinde beyaz hiç). Çıplak kumaş için Önizleme zeminine göre değerlendirilir, onu kumaşın rengine ayarlayın.
+Sew across gaps up to this long with running stitches instead of cutting the thread, between objects or the parts of one. These stitches show: they light up on the canvas as you drag. (Travel that's out of sight, under a fill or what's sewn on top, is made anyway.)	Nesneler ya da bir nesnenin parçaları arasında bu uzunluğa kadar olan boşlukları ipliği kesmek yerine düz dikişle geç. Bu dikişler görünür: sürüklerken tuvalde parlarlar. (Dolgunun ya da üste dikilenin altında görünmeyen geçişler zaten yapılır.)
+Sew Again	Yeniden Dik
+Sew each thread together	Her ipliği bir arada dik
+Sew Earlier	Daha Önce Dik
+Sew earlier	Daha önce dik
+Sew First	İlk Dik
+Sew from the center out and the bottom up, grouping colors, so puckering is pushed away	Ortadan dışa ve aşağıdan yukarı, renkleri gruplayarak dik; böylece büzülme dışarı itilir
+Sew it on your Skitch	Skitch'inizde dikin
+Sew Last	En Son Dik
+Sew Last (on Top)	En Son Dik (Üstte)
+Sew Later	Daha Sonra Dik
+Sew later	Daha sonra dik
+Sew over fill	Dolgu üzerinden dik
+Sew thin lines as lines	İnce çizgileri çizgi olarak dik
+Sewing	Dikiş
+Sewing area	Dikiş alanı
+Sewing ends there. Drag the marker to move it.	Dikiş burada biter. Taşımak için işaretçiyi sürükleyin.
+Sewing Order	Dikiş Sırası
+Sewing starts there. Drag the marker to move it.	Dikiş buradan başlar. Taşımak için işaretçiyi sürükleyin.
+Sewing time	Dikiş süresi
+Sews: {}	Diker: {0}
+Shape	Şekil
+shape	şekil
+Shape Builder Tool	Şekil Oluşturucu Aracı
+Shape Builder Tools	Şekil Oluşturucu Araçları
+Shape or Line	Şekil ya da Çizgi
+Shape Tools	Şekil Araçları
+Share	Paylaş
+Share and Export	Paylaş ve Dışa Aktar
+Shared design	Paylaşılan tasarım
+Shared from your account, {e}.	Hesabınızdan paylaşıldı, {0}.
+Shared from {by}. Sign in as them in Settings › Account to change it.	{0} tarafından paylaşıldı. Değiştirmek için Ayarlar › Hesap'tan o hesapla oturum açın.
+Shared without an account, so it can be changed only from this computer. Sign in in Settings › Account to change it anywhere.	Hesap olmadan paylaşıldı, bu yüzden yalnızca bu bilgisayardan değiştirilebilir. Her yerden değiştirmek için Ayarlar › Hesap'tan oturum açın.
+Shared {} at {u}	{0} paylaşıldı: {1}
+Shared, and the link is copied.	Paylaşıldı, bağlantı kopyalandı.
+Share…	Paylaş…
+Sharing…	Paylaşılıyor…
+Short stitches	Kısa dikişler
+Shortens every other stitch on the inside of tight curves	Keskin kıvrımların iç tarafında her iki dikişten birini kısaltır
+Show	Göster
+Show advanced settings	Gelişmiş ayarları göster
+Show All	Tümünü Göster
+Show All Open Documents	Tüm Açık Belgeleri Göster
+Show Comments	Yorumları Göster
+Show Crash Logs	Çökme Kayıtlarını Göster
+Show Log	Kaydı Göster
+Show or Hide Layers	Katmanları Göster/Gizle
+Show or Hide Panels	Panelleri Göster/Gizle
+Show Palette	Paleti Göster
+Show progress on the canvas	İlerlemeyi tuvalde göster
+Show the comments	Yorumları göster
+Show the Skitch window	Skitch penceresini göster
+Show the whole chat	Tüm sohbeti göster
+Show this when the machine needs you	Makine sizi beklerken bunu göster
+Showing lengths in {}.	Uzunluklar şu birimde gösteriliyor: {0}.
+Showing the design before and after side by side.	Tasarımın öncesi ve sonrası yan yana gösteriliyor.
+Showing the original and {n} version(s) side by side.	Orijinal ve {0} sürüm yan yana gösteriliyor.
+Showing {name}'s settings. Stitch types apply to all.	{0} ayarları gösteriliyor. Dikiş türleri tümüne uygulanır.
+Shown at {in_use}%, the most this display has room for. Panels, text, buttons and the handles on the canvas; your design stays the size it is.	%{0} olarak gösteriliyor; bu ekranın sığdırabildiği en büyük değer. Paneller, metin, düğmeler ve tuvaldeki tutamaçlar; tasarımınız aynı boyutta kalır.
+Side by Side	Yan Yana
+Sides	Kenarlar
+Sign In	Oturum Aç
+Sign in to change your shared designs from any computer. We'll email you a code; no password.	Paylaştığınız tasarımları herhangi bir bilgisayardan değiştirmek için oturum açın. E-postanıza bir kod göndeririz; parola yok.
+Sign Out	Oturumu Kapat
+Signed in as	Oturum açan
+Signed in as {email}.	{0} olarak oturum açıldı.
+Signed in.	Oturum açıldı.
+Signed in. The design shared from this computer is in your account now.	Oturum açıldı. Bu bilgisayardan paylaşılan tasarım artık hesabınızda.
+Signed in. The {n} designs shared from this computer are in your account now.	Oturum açıldı. Bu bilgisayardan paylaşılan {0} tasarım artık hesabınızda.
+Signed out of zigzag.diy.	zigzag.diy oturumu kapatıldı.
+Signed out.	Oturum kapatıldı.
+Similar Layers	Benzer Katmanlar
+Simplified	Sadeleştirilmiş
+Simplified: the same to sew as before.	Sadeleştirildi: dikimi öncekiyle aynı.
+Simplified: {} points, {} before.	Sadeleştirildi: {0} nokta, önceden {1}.
+Simplified: {}.	Sadeleştirildi: {0}.
+Simplify	Sadeleştir
+Simplify Design	Tasarımı Sadeleştir
+Simplify Design…	Tasarımı Sadeleştir…
+Simplify this for a 4x4 hoop	Bunu 4x4 kasnak için sadeleştir
+Simplifying	Sadeleştiriyor
+Simplify…	Sadeleştir…
+Simplify… (fewer points, smoother curves)	Sadeleştir… (daha az nokta, daha yumuşak eğriler)
+Since service	Servisten beri
+Single	Tek
+Size	Boyut
+Size of each X	Her X'in boyutu
+Sizes	Boyutlar
+Skitch How-To Videos	Skitch Nasıl Yapılır Videoları
+Skitch Menu	Skitch Menüsü
+Skitch status	Skitch durumu
+Skitch: not connected. Click to connect.	Skitch: bağlı değil. Bağlanmak için tıklayın.
+Slide the bobbin winder shaft toward the front.	Masura sarıcı milini öne doğru kaydırın.
+Small running-stitch lettering	Küçük düz dikiş yazı
+Smallest detail to keep	Tutulacak en küçük ayrıntı
+Smart Guides	Akıllı Kılavuzlar
+Smooth Tool	Yumuşatma Aracı
+Smoothed {changed} path(s).	{0} yol yumuşatıldı.
+Smoothness	Yumuşaklık
+Something went wrong inside the machine.	Makinenin içinde bir şeyler ters gitti.
+Spacing	Aralık
+Sparse zigzag: lifts and supports wide columns	Seyrek zikzak: geniş sütunları kaldırır ve destekler
+Spiral	Spiral
+Split length	Bölme uzunluğu
+Split stitches longer than this so wide columns don't snag	Geniş sütunlar takılmasın diye bundan uzun dikişleri böl
+Stabilizing rows	Sabitleme sıraları
+Stable woven fabric. Classic densities.	Sabit dokuma kumaş. Klasik yoğunluklar.
+Standard (twill, denim, patches)	Standart (dimi, kot, arma)
+Star	Yıldız
+Start	Başlat
+Start on this machine	Bu makineyle başla
+start sewing	dikişe başlaması
+Starting	Başlatılıyor
+Starting the trial run	Deneme turu başlatılıyor
+Status	Durum
+Stiff front panel. Medium density.	Sert ön panel. Orta yoğunluk.
+Stitch	Dikiş
+Stitch length	Dikiş uzunluğu
+Stitch Lines	Dikiş Çizgileri
+Stitch position	Dikiş konumu
+Stitch settings copied. Select other objects and Paste Stitch Settings.	Dikiş ayarları kopyalandı. Başka nesneler seçip Dikiş Ayarlarını Yapıştır'ı kullanın.
+Stitch the value under each	Değeri her birinin altına dik
+Stitch timeline	Dikiş zaman çizelgesi
+Stitch Type	Dikiş Türü
+Stitch type	Dikiş türü
+Stitches	Dikişler
+stitches	dikiş
+Stitches drawn by the CPU ({e}).	Dikişler CPU ile çiziliyor ({0}).
+Stitches sewn	Dikilen dikişler
+Stop	Durdur
+Stop Annotating	Not Eklemeyi Bitir
+Stopped	Durdu
+Stopped to send your message now.	Mesajınızı şimdi göndermek için durduruldu.
+Stopped.	Durduruldu.
+Stopped: {}	Durdu: {0}
+Straight	Düz
+Straighten	Düzleştir
+Stray points{}	Başıboş noktalar{0}
+Stretchy or lofty. Strong underlay (a center walk under satins from 1 mm) and pull compensation so stitches don't sink.	Esnek ya da kabarık. Dikişler gömülmesin diye güçlü alt dikiş (1 mm'den itibaren satenlerin altında orta yürüyüş) ve çekme telafisi.
+Stretchy. Strong underlay and pull compensation so stitches don't sink.	Esnek. Dikişler gömülmesin diye güçlü alt dikiş ve çekme telafisi.
+Stripes	Şeritler
+Strokes	Vuruşlar
+Structured cap (buckram front)	Yapılı şapka (tela destekli ön)
+Style	Stil
+SVG artwork	SVG çizimler
+Swatches	Örnekler
+Take out layers smaller than this across: details too small to sew well, each of which costs a stop. Lettering is left alone.	Bundan küçük katmanları çıkar: iyi dikilemeyecek kadar küçük ve her biri bir duruşa mal olan ayrıntılar. Yazılara dokunulmaz.
+Take the embroidery frame off the machine.	Nakış kasnağını makineden çıkarın.
+Take the hoop off and trim the jump threads.	Kasnağı çıkarın ve atlama ipliklerini kesin.
+Take the text off its path	Metni yolundan çıkar
+Taken down after reports: others can't see it	Bildirimler üzerine kaldırıldı: başkaları göremez
+Talking to zigzag.diy…	zigzag.diy ile bağlantı kuruluyor…
+Tartan	Tartan (Ekose)
+Tartan: woven stripes in several threads. Set the stripes below; each thread sews as its own color.	Tartan: birkaç iplikle dokuma şeritler. Şeritleri aşağıda ayarlayın; her iplik kendi rengiyle dikilir.
+Task bar hidden. View › Contextual Task Bar shows it again.	Görev çubuğu gizlendi. Görünüm › Bağlamsal Görev Çubuğu ile yeniden gösterilir.
+Task bar options	Görev çubuğu seçenekleri
+Tatami fill: rows of stitches that cover an area. Best for shapes wider than ~7 mm. (F)	Tatami dolgu: bir alanı kaplayan dikiş sıraları. ~7 mm'den geniş şekiller için en iyisi. (F)
+Tear Off	Ayır
+Tear off: the group as a toolbar of its own	Ayır: grubu ayrı bir araç çubuğu yap
+Test Swatches	Deneme Örnekleri
+Test Swatches…	Deneme Örnekleri…
+Text	Metin
+That screen name is taken.	Bu görünen ad alınmış.
+that shape has no columns to break into	bu şeklin bölünecek sütunu yok
+That ZigZag link can't be opened: {why}.	Bu ZigZag bağlantısı açılamıyor: {0}.
+The agent is working	Ajan çalışıyor
+The agent is working: open an earlier chat once it's done.	Ajan çalışıyor: önceki bir sohbeti o bitince açın.
+The agent the Agent panel talks to. Changing it starts a new chat.	Ajan panelinin konuştuğu ajan. Değiştirmek yeni bir sohbet başlatır.
+The agent works through the studio's MCP server, which is off (started with --no-mcp).	Ajan stüdyonun MCP sunucusu üzerinden çalışır, ancak sunucu kapalı (--no-mcp ile başlatıldı).
+The agent's versions show here as it makes them.	Ajanın hazırladığı sürümler burada görünür.
+The app went down last time while reopening {what}, so it wasn't reopened.	Uygulama geçen sefer {0} yeniden açılırken kapandı, bu yüzden yeniden açılmadı.
+The bobbin is almost empty.	Masura neredeyse boş.
+The bobbin winder's safety device stopped it.	Masura sarıcının güvenlik düzeneği onu durdurdu.
+The box from {} to {} mm	{0} ile {1} mm arasındaki kutu
+The canvas shows the design again.	Tuval yeniden tasarımı gösteriyor.
+The design	Tasarım
+the design	Tasarım
+The design comes off the machine. Send it again to start over.	Tasarım makineden silinir. Baştan başlamak için yeniden gönderin.
+The design has problems it didn't have before: {what}{more}. The Issues list has them all, and Fix sends them to the agent.	Tasarımda önceden olmayan sorunlar var: {0}{1}. Hepsi Sorunlar listesinde; Düzelt onları ajana gönderir.
+The design's page	Tasarımın sayfası
+The download couldn't be checked.	İndirme denetlenemedi.
+The download didn't finish ({}).	İndirme tamamlanmadı ({0}).
+The download doesn't match the release's checksum. Nothing was changed; try again later.	İndirilen dosya sürümün sağlama toplamıyla eşleşmiyor. Hiçbir şey değiştirilmedi; daha sonra yeniden deneyin.
+The download isn't ZigZag {name}, so it wasn't installed.	İndirilen dosya ZigZag {0} değil, bu yüzden kurulmadı.
+The download stopped ({e}).	İndirme durdu ({0}).
+the file isn't an SVG or a stitch file ZigZag reads	dosya SVG ya da ZigZag'ın okuduğu bir dikiş dosyası değil
+the file isn't on an https:// address	dosya https:// adresinde değil
+The file this machine reads: Export offers it first	Bu makinenin okuduğu dosya: Dışa Aktar önce bunu önerir
+the file's address has a user name in it	dosyanın adresinde kullanıcı adı var
+the file's address has no host	dosyanın adresinde sunucu yok
+the file's address has spaces in it	dosyanın adresinde boşluk var
+The hoop a new document starts in	Yeni belgenin başladığı kasnak
+The latest Fable model	En yeni Fable modeli
+The latest Haiku model: the quickest	En yeni Haiku modeli: en hızlısı
+The latest Opus model	En yeni Opus modeli
+The latest release on GitHub isn't one ZigZag can update to.	GitHub'daki son sürüm, ZigZag'ın güncelleyebileceği bir sürüm değil.
+The latest Sonnet model	En yeni Sonnet modeli
+The level for the selection's size	Seçimin boyutuna uygun düzey
+The link has expired	Bağlantının süresi doldu
+The log is turned off, in Settings › Agent.	Kayıt, Ayarlar › Ajan bölümünde kapalı.
+The machine has sewn enough that a service is recommended.	Makine servis önerilecek kadar çok dikti.
+The machine needs to find its starting position.	Makinenin başlangıç konumunu bulması gerekiyor.
+The machine refused a change to the stitch position.	Makine dikiş konumundaki değişikliği reddetti.
+The machine reported a problem ZigZag doesn't know.	Makine, ZigZag'ın tanımadığı bir sorun bildirdi.
+The machine sensed something wrong where it sews.	Makine dikiş bölgesinde bir sorun algıladı.
+The machine this design is for: its hoops, the file it reads and what it asks of the stitches. New documents start with the one you choose.	Bu tasarımın makinesi: kasnakları, okuduğu dosya ve dikişlerden beklentileri. Yeni belgeler seçtiğiniz makineyle başlar.
+The MCP server couldn't start	MCP sunucusu başlatılamadı
+The MCP server is off.	MCP sunucusu kapalı.
+The needle goes around the outline without sewing, to check where it lands.	İğne, nereye denk geldiğini kontrol etmek için dikmeden dış hatta dolaşır.
+The needle is down	İğne aşağıda
+The needle needs to be up before the machine can go on.	Makinenin devam edebilmesi için iğnenin yukarıda olması gerekir.
+The needle plate cover isn't on properly.	İğne plakası kapağı düzgün takılı değil.
+The needle threading lever isn't back in place.	İğne iplik takma kolu yerine dönmemiş.
+the outline	Dış hat
+The pair of letters to adjust (pairs already kerned are bold)	Ayarlanacak harf çifti (aralığı ayarlanmış çiftler kalın)
+The release's checksums couldn't be read, so the download can't be checked.	Sürümün sağlama toplamları okunamadı, bu yüzden indirme denetlenemiyor.
+the selection	Seçim
+The shared design came back empty.	Paylaşılan tasarım boş geldi.
+The shared design is too big to open (over {} MB).	Paylaşılan tasarım açılamayacak kadar büyük ({0} MB'tan fazla).
+The small stitches that hold the thread where sewing starts and before each cut, in the files you export. (The Skitch has locks of its own.)	Dışa aktardığınız dosyalarda, dikişin başladığı yerde ve her kesimden önce ipliği tutan küçük dikişler. (Skitch'in kendi kilit dikişleri vardır.)
+The stripes repeat mirrored: a b c b a b c…	Şeritler aynalanarak tekrarlanır: a b c b a b c…
+The text follows the path now. Offset and Flip are in the Lettering panel.	Metin artık yolu izliyor. Kaydırma ve Çevir, Yazı panelinde.
+The thread crosses {rows} rows of stitches already sewn on its way from one part of this object to the next, and shows on top of them.	İplik, bu nesnenin bir parçasından diğerine giderken önceden dikilmiş {0} dikiş sırasının üzerinden geçiyor ve üstte görünüyor.
+The thread crosses {rows} rows of stitches already sewn on its way from one part of this object to the next, and shows on top of them.{}	İplik, bu nesnenin bir parçasından diğerine giderken önceden dikilmiş {0} dikiş sırasının üzerinden geçiyor ve üstte görünüyor.{1}
+The thread wiper reported a problem.	İplik silici bir sorun bildirdi.
+The top thread broke or came out.	Üst iplik koptu ya da çıktı.
+The top thread wasn't caught when sewing started.	Dikiş başladığında üst iplik yakalanmadı.
+The turn failed.	Bu tur başarısız oldu.
+The update is installed, but ZigZag couldn't reopen itself ({e}). Quit and open it again.	Güncelleme kuruldu, ama ZigZag kendini yeniden açamadı ({0}). Çıkıp yeniden açın.
+The update isn't signed by ZigZag's developer, so it wasn't installed.	Güncelleme ZigZag geliştiricisi tarafından imzalanmamış, bu yüzden kurulmadı.
+The update's signature isn't valid, so it wasn't installed ({e}).	Güncellemenin imzası geçerli değil, bu yüzden kurulmadı ({0}).
+Theme	Tema
+Then run `claude` once in a terminal to sign in.	Sonra oturum açmak için bir terminalde `claude` komutunu bir kez çalıştırın.
+Then run `claude` once in Terminal to sign in.	Sonra oturum açmak için Terminal'de `claude` komutunu bir kez çalıştırın.
+Then run `codex` once in a terminal and choose Sign in with ChatGPT.	Sonra bir terminalde `codex` komutunu bir kez çalıştırıp Sign in with ChatGPT'yi seçin.
+Then run `codex` once in Terminal and choose Sign in with ChatGPT.	Sonra Terminal'de `codex` komutunu bir kez çalıştırıp Sign in with ChatGPT'yi seçin.
+There's a problem with the bobbin thread.	Masura ipliğinde bir sorun var.
+There's no embroidery frame on the machine.	Makinede nakış kasnağı yok.
+There's no settings folder to keep crash logs in.	Çökme kayıtlarının tutulacağı bir ayarlar klasörü yok.
+These all have outlines. Select one to set its outline up, or Object › Path › Remove Outline takes them all off.	Bunların hepsinin dış hattı var. Ayarlamak için birini seçin ya da Nesne › Yol › Dış Hattı Kaldır ile hepsini kaldırın.
+Thin cotton cap (unstructured)	İnce pamuklu şapka (yapısız)
+Thinking	Düşünüyor
+This build has no Bluetooth. Rebuild with --features gui,ble.	Bu derlemede Bluetooth yok. --features gui,ble ile yeniden derleyin.
+This chat was with {}: {} will start a new session from here.	Bu sohbet {0} ile yapılmıştı: {1} buradan yeni bir oturum başlatacak.
+This computer's graphics can't draw them: they're drawn by the CPU.	Bu bilgisayarın grafik birimi bunları çizemiyor: CPU ile çiziliyor.
+This computer's shares aren't known to zigzag.diy any more, so they can't be changed. Delete shares.json in ZigZag's settings folder to share as someone new.	Bu bilgisayarın paylaşımları artık zigzag.diy tarafından tanınmıyor, bu yüzden değiştirilemez. Yeni biri olarak paylaşmak için ZigZag'ın ayarlar klasöründeki shares.json dosyasını silin.
+This copy of ZigZag wasn't signed by its developer (it was built from source), so it can't check that an update is the real thing.	ZigZag'ın bu kopyası geliştiricisi tarafından imzalanmadı (kaynaktan derlendi), bu yüzden bir güncellemenin gerçek olup olmadığını denetleyemez.
+This design was set up for a machine this computer doesn't have.	Bu tasarım, bu bilgisayarda tanımlı olmayan bir makine için ayarlanmış.
+This display doesn't have room for it.	Bu ekranda buna yer yok.
+This embroidery frame can't sew this design.	Bu nakış kasnağı bu tasarımı dikemez.
+This model doesn't take effort {e}: back to its default.	Bu model {0} çaba düzeyini almıyor: varsayılana dönüldü.
+This object has no points to edit.	Bu nesnede düzenlenecek nokta yok.
+This object won't be stitched.	Bu nesne dikilmeyecek.
+This release doesn't have a download ZigZag can install by itself.	Bu sürümde ZigZag'ın kendi kendine kurabileceği bir indirme yok.
+This text is set to overlapping strokes, which are no longer offered: they leave more seams and piled satin than columns. Strokes puts it back.	Bu metin artık sunulmayan üst üste vuruşlara ayarlı: sütunlara göre daha çok dikiş izi ve yığılmış saten bırakırlar. Vuruşlar seçeneği geri getirir.
+This version	Bu sürüm
+This was in another document	Bu başka bir belgedeydi
+Thread	İplik
+thread	iplik
+thread and stitch settings	iplik ve dikiş ayarları
+thread changes	iplik değişimi
+Thread changes	İplik değişimleri
+Thread Color	İplik Rengi
+Thread color	İplik rengi
+Thread Color: several	İplik Rengi: birkaç
+Thread color: several	İplik rengi: birkaç
+Thread piles up over {} mm² ({how:.0} mm of it in one square millimetre at {}; a single layer of satin is about 5): stitching that thick is stiff and breaks needles. Open the spacing, or keep objects from lying on top of each other there.	İplik {0} mm² alanda birikiyor ({2} konumunda bir milimetrekarede {1} mm; tek kat saten yaklaşık 5): bu kadar kalın dikiş serttir ve iğne kırar. Aralığı açın ya da nesnelerin orada üst üste binmesini önleyin.
+Thread Route	İplik Yolu
+Thread route point {}	İplik yolu noktası {0}
+Thread Start	İplik Başı
+Thread this one, needle too.	Bunu takın, iğneye de.
+Thread wiper	İplik silici
+Thread {} of {total}	İplik {0} / {1}
+Thread: {}	İplik: {0}
+Thread: {} · click to change	İplik: {0} · değiştirmek için tıklayın
+Threaded with the first color	İlk renk takılı
+Threaded with {}	{0} takılı
+Threading lever	İplik takma kolu
+Threads	İplikler
+threads	iplik
+Threads to have ready	Hazır bulundurulacak iplikler
+Threads to keep	Tutulacak iplik sayısı
+Tidying	Düzenliyor
+Title Case	Baş Harfler Büyük
+To	Şuna
+To go back first, drag the bar or use Needle below.	Önce geri gitmek için çubuğu sürükleyin ya da aşağıdaki İğne'yi kullanın.
+To start the trial run.	Deneme turunu başlatmak için.
+To work out what these mean: read them, change one setting in Artspira (disconnect here first), reconnect and read again.	Bunların ne anlama geldiğini bulmak için: okuyun, Artspira'da bir ayarı değiştirin (önce buradan bağlantıyı kesin), yeniden bağlanıp tekrar okuyun.
+Too big for the hoop.	Kasnak için çok büyük.
+Too big for this machine: it sews up to {}.	Bu makine için çok büyük: en fazla {0} diker.
+too many files with that name	bu adla çok fazla dosya var
+Too many shared designs are opening at once. Try that one again in a moment.	Aynı anda çok fazla paylaşılan tasarım açılıyor. Biraz sonra yeniden deneyin.
+Too small to sew: they stitch as a knot	Dikilemeyecek kadar küçük: düğüm gibi dikilir
+Took the handle in.	Tutamaç içeri alındı.
+Took those parts away.	Bu parçalar çıkarıldı.
+Tool calls	Araç çağrıları
+Tools ({})	Araçlar ({0})
+Trace canceled.	İzleme iptal edildi.
+Trace Image	Görseli İzle
+Trace the outline first	Önce dış hattı izle
+Traced	İzlenmiş
+Traced {what}. Save to keep it as SVG.	İzlendi: {0}. SVG olarak saklamak için kaydedin.
+Tracing	İzliyor
+Tracing {}…	İzleniyor: {0}…
+Tracing…	İzleniyor…
+Tracking	Harf aralığı
+Transform	Dönüştür
+Transform Again	Dönüştürmeyi Yinele
+Transformed	dönüştürüldü
+Transformed again:	yeniden dönüştürüldü
+Travel	Geçiş
+Trial	Deneme
+Trial Again	Yeniden Dene
+Trial run	Deneme turu
+Trial Run	Deneme Turu
+Trial run after sending	Gönderdikten sonra deneme turu
+Trial run done	Deneme turu bitti
+Trial run…	Deneme turu…
+Triangle	Üçgen
+triangle locks	üçgen kilit dikişi
+Trim	Kes
+Trims	Kesimler
+trims	kesim
+Triple	Üçlü
+Try a warmer color palette	Daha sıcak bir renk paleti dene
+Try Again	Yeniden Dene
+Try again once the machine is paused.	Makine duraklatıldığında yeniden deneyin.
+Try it without a Skitch: the simulated one does each step on the machine by itself	Skitch olmadan deneyin: sanal makine her adımı kendisi yapar
+Turn the machine off and on again if it won't clear.	Sorun gitmezse makineyi kapatıp yeniden açın.
+Turn the machine off, then on again.	Makineyi kapatıp yeniden açın.
+Turn the machine on.	Makineyi açın.
+turn the text into shapes first (Type › Create Outlines)	önce metni şekle çevirin (Yazı › Dış Hat Oluştur)
+Type	Yazı
+Type ({}): click to place text, click text to edit it, click a selected path to put text on it	Yazı ({0}): metin yerleştirmek için tıklayın, düzenlemek için metne tıklayın, metni üzerine koymak için seçili bir yola tıklayın
+Type on a Path	Yol Üzerine Yaz
+Type your text. Enter for a new line, Esc when done.	Metninizi yazın. Yeni satır için Enter, bitince Esc.
+Under the cover	Örtünün altında
+Underlay	Alt dikiş
+Undo	Geri Al
+Undoing	Geri alıyor
+Undone.	Geri alındı.
+Unite	Birleştir
+Unite into one shape (Pathfinder)	Tek şekilde birleştir (Yol Bulucu)
+Units	Birimler
+Units for sizes, positions, the grid and measuring	Boyutlar, konumlar, ızgara ve ölçüm için birimler
+Unlock All	Tüm Kilitleri Aç
+untitled	adsız
+Untitled	Adsız
+Untitled chat	Adsız sohbet
+Up to	En fazla
+Update	Güncelle
+Update ZigZag	ZigZag'ı Güncelle
+Updates	Güncellemeler
+Updating stitches…	Dikişler güncelleniyor…
+Updating…	Güncelleniyor…
+Upper thread	Üst iplik
+Upper thread at the start	Başlangıçta üst iplik
+UPPERCASE	BÜYÜK HARF
+Use a frame the design fits in.	Tasarımın sığdığı bir kasnak kullanın.
+Use a Simulated Machine	Sanal Makine Kullan
+Use Another Email	Başka E-posta Kullan
+Use the SVG's Color	SVG'nin Rengini Kullan
+Use This	Bunu Kullan
+Use {palette_name} thread colors	{0} iplik renklerini kullan
+Use {} Instead	Bunun Yerine {0} Kullan
+Using the {}.	Kullanılan: {0}.
+Using version {} ({label}).	Sürüm {0} kullanılıyor ({1}).
+Version {}	Sürüm {0}
+version {} ({label})	sürüm {0} ({1})
+Version {} · SVG to machine embroidery	Sürüm {0} · SVG'den makine nakışına
+Vertical scale	Dikey ölçek
+View	Görünüm
+View Options	Görünüm Seçenekleri
+VP3 (Husqvarna Viking, Pfaff)	VP3 (Husqvarna Viking, Pfaff)
+Wait while the arm moves to its starting position.	Kol başlangıç konumuna giderken bekleyin.
+Waiting for a thread change	İplik değişimi bekleniyor
+Waiting to start the trial run	Deneme turunun başlaması bekleniyor
+We picked a screen name for you; change it to any that's free. It's how others see you on your shared designs.	Sizin için bir görünen ad seçtik; boşta olan herhangi bir adla değiştirebilirsiniz. Paylaştığınız tasarımlarda başkaları sizi bu adla görür.
+We sent a 6-digit code to {email}. It works for 10 minutes.	{0} adresine 6 haneli bir kod gönderdik. 10 dakika geçerlidir.
+What lengths are shown and typed in	Uzunlukların hangi birimde gösterilip girileceği
+What others can download	Başkalarının indirebileceği
+What others may do with it	Başkalarının onunla neler yapabileceği
+What you changed in Artspira	Artspira'da değiştirdiğiniz
+Where along the path the text starts	Metnin yol üzerinde başladığı yer
+Where the thread can't get from one part of an object to the next out of sight (under stitches still to come, or under what's sewn on top): off, it's cut; on, it's sewn over the fill already there. On saves cuts, and the running stitch shows on top of the fill.	İplik bir nesnenin bir parçasından diğerine görünmeden geçemediğinde (sonra gelecek dikişlerin ya da üste dikilenin altından): kapalıyken kesilir; açıkken mevcut dolgunun üzerinden dikilir. Açık olması kesimden tasarruf sağlar, düz dikiş dolgunun üstünde görünür.
+Who can see it	Kimler görebilir
+Width	Genişlik
+Width of the hoop's sewing field	Kasnağın dikiş alanı genişliği
+Width of the satin, centered on the shape's edge	Şeklin kenarında ortalanmış saten genişliği
+Wind a bobbin and put it in.	Bir masura sarıp takın.
+Winding the bobbin	Masura sarılıyor
+Window	Pencere
+With Homebrew	Homebrew ile
+With npm	npm ile
+Working	Çalışıyor
+Would remove	Kaldırılacak
+Woven stripes in several threads.	Birkaç iplikle dokuma şeritler.
+Wrong frame	Yanlış kasnak
+Yellow to red: {} to {} stitches per mm² and up (peak {:.1}). Two fills on top of each other, or dense satin over fill, get there.	Sarıdan kırmızıya: mm² başına {0} ile {1} ve üzeri dikiş (en yüksek {2}). Üst üste iki dolgu ya da dolgu üzerinde sık saten bu seviyeye çıkar.
+You have {here}.	Sizdeki: {0}.
+You've been signed out. Sign in again in Settings › Account to change your shares.	Oturumunuz kapatıldı. Paylaşımlarınızı değiştirmek için Ayarlar › Hesap'tan yeniden oturum açın.
+Your changes will be lost if you don't save them.	Kaydetmezseniz değişiklikleriniz kaybolacak.
+Your hat's color, for the preview (saved with the design; doesn't change the stitches)	Önizleme için şapkanızın rengi (tasarımla kaydedilir; dikişleri değiştirmez)
+Your machine	Makineniz
+Your text	Metniniz
+Yours	Sizin
+Zig-zag	Zikzak
+Zigzag	Zikzak
+ZigZag can't write to {} ({e}), so it can't replace itself.	ZigZag {0} konumuna yazamıyor ({1}), bu yüzden kendini güncelleyemez.
+ZigZag couldn't move itself aside ({e}), so it can't replace itself.	ZigZag kendini kenara taşıyamadı ({0}), bu yüzden kendini güncelleyemez.
+ZigZag couldn't tell where it's installed.	ZigZag nereye kurulduğunu anlayamadı.
+ZigZag is running from where it was downloaded, not from Applications, so it can't replace itself. Move it to Applications first, or	ZigZag indirildiği yerden çalışıyor, Uygulamalar klasöründen değil; bu yüzden kendini güncelleyemez. Önce Uygulamalar'a taşıyın ya da
+ZigZag is up to date	ZigZag güncel
+ZigZag isn't running as an app here, so it can't replace itself.	ZigZag burada uygulama olarak çalışmıyor, bu yüzden kendini güncelleyemez.
+ZigZag on GitHub	GitHub'da ZigZag
+ZigZag only knows zigzag://open	ZigZag yalnızca zigzag://open bağlantısını tanır
+ZigZag stopped unexpectedly last time	ZigZag geçen sefer beklenmedik şekilde kapandı
+ZigZag works with the {} command-line tool (`{}`). Install it in a terminal:	ZigZag, {0} komut satırı aracıyla (`{1}`) çalışır. Bir terminalde kurun:
+ZigZag works with the {} command-line tool (`{}`). Install it in Terminal:	ZigZag, {0} komut satırı aracıyla (`{1}`) çalışır. Terminal'de kurun:
+ZigZag {} is available	ZigZag {0} mevcut
+ZigZag {} is available (you have {})	ZigZag {0} mevcut (sizdeki: {1})
+ZigZag {} wasn't installed	ZigZag {0} kurulmadı
+zigzag.diy answered {status}.	zigzag.diy {0} yanıtını verdi.
+zigzag.diy didn't make a file for it.	zigzag.diy bunun için dosya oluşturmadı.
+zigzag.diy didn't sign this computer in.	zigzag.diy bu bilgisayarda oturum açmadı.
+Zoom In	Yakınlaştır
+Zoom Out	Uzaklaştır
+Zoom to Fit	Sığacak Şekilde Yakınlaştır
+{:.1} of {:.1} MB	{0} / {1} MB
+{count} objects	{0} nesne
+{doing} didn't work: {e:#}	{0} başarısız oldu: {1}
+{failed} failed	{0} başarısız
+{folded} earlier turn{}	{0} önceki tur
+{here} is the newest version.	{0} en yeni sürüm.
+{k} cut{}	{0} kesim
+{label} ({}) · hold or right-click for the group	{0} ({1}) · grup için basılı tutun ya da sağ tıklayın
+{label} · hold or right-click for the group	{0} · grup için basılı tutun ya da sağ tıklayın
+{label}: {} layers, {} stitches. Click to select the group.	{0}: {1} katman, {2} dikiş. Grubu seçmek için tıklayın.
+{left_out} more {}: Show advanced settings, in Settings › General.	{0} ayar daha {1}: Ayarlar › Genel'de Gelişmiş ayarları göster.
+{model} · Sending {:.0}%	{0} · Gönderiliyor %{1}
+{more} more	{0} tane daha
+{name} has no colors yet.	{0} paletinde henüz renk yok.
+{name} tab	{0} sekmesi
+{name} · stop	{0} · duruş
+{n} comments	{0} yorum
+{n} corners. Each rounds as far as its sides allow.	{0} köşe. Her biri kenarlarının izin verdiği kadar yuvarlanır.
+{n} issues	{0} sorun
+{n} more cuts saved where the thread blends in	İpliğin kaynaştığı yerlerde {0} kesim daha kazanıldı
+{n} objects	{0} nesne
+{n} of {}	{0} / {1}
+{n} outlines	{0} dış hat
+{n} selected corners. Each rounds as far as its sides allow.	{0} seçili köşe. Her biri kenarlarının izin verdiği kadar yuvarlanır.
+{n} steps	{0} adım
+{n} {} object(s) selected.	{0} {1} nesnesi seçildi.
+{op:?}: {n} objects into one shape.	{1} nesne tek şekilde birleştirildi.
+{secs} s	{0} sn
+{server} {tool} failed.	{0} {1} başarısız oldu.
+{s} s ago	{0} sn önce
+{s} · {} failed	{0} · {1} başarısız
+{tool} failed.	{0} başarısız oldu.
+{turns} turns · {secs:.0} s	{0} tur · {1} sn
+{what} {label}.	{1} {0}.
+{what} {} to {}	{0} {1} → {2}
+{what} {}.	{1} {0}.
+{what}: {} to {}{unit}	{0}: {1} → {2}{3}
+{why} Download it from GitHub instead.	{0} Bunun yerine GitHub'dan indirin.
+{} (error 0x{code:02X})	{0} (hata 0x{1})
+{} ({} colors, {} objects)	{0} ({1} renk, {2} nesne)
+{} ({} threads)	{0} ({1} iplik)
+{} / {} stitches	{0} / {1} dikiş
+{} across · {} points	{0} çap · {1} uç
+{} across · {} sides	{0} çap · {1} kenar
+{} and {}	{0} ve {1}
+{} can't be a baseline.	{0} taban çizgisi olamaz.
+{} can't pick up the earlier session (it's no longer there). Send your message again to go on in a new one; it won't remember what was said before.	{0} önceki oturumu sürdüremiyor (artık yok). Yeni bir oturumda devam etmek için mesajınızı yeniden gönderin; önce konuşulanları hatırlamayacak.
+{} changes · {} trims	{0} değişim · {1} kesim
+{} copy	{0} kopyası
+{} days ago	{0} gün önce
+{} documents have changes that aren't saved. Save them before quitting?	{0} belgede kaydedilmemiş değişiklik var. Çıkmadan önce kaydedilsin mi?
+{} down to {cuts}	{0} → {1} kesime iniyor
+{} extra point(s)	{0} fazla nokta
+{} h ago	{0} sa önce
+{} is already open, with unsaved changes (kept).	{0} zaten açık, kaydedilmemiş değişikliklerle (korundu).
+{} is open in this tab.	{0} bu sekmede açık.
+{} is working here, from the chat in “{asked_in}”.	{0} burada çalışıyor; “{1}” içindeki sohbetten.
+{} is working on {name}: it works on one document at a time. Send this when it's done, or type /stop to stop it.	{0}, {1} üzerinde çalışıyor: aynı anda tek belgeyle çalışır. Bittiğinde gönderin ya da durdurmak için /stop yazın.
+{} isn't installed (no `{}` command found). Install it in Terminal with `{}`{}. {sign_in} Then try again.	{0} kurulu değil (`{1}` komutu bulunamadı). Terminal'de `{2}`{3} ile kurun. {4} Sonra yeniden deneyin.
+{} isn't installed (no `{}` command found). Install it in {} with `{}`{}. {sign_in} Then try again.	{0} kurulu değil (`{1}` komutu bulunamadı). {2} içinde `{3}`{4} ile kurun. {5} Sonra yeniden deneyin.
+{} isn't installed on this computer	{0} bu bilgisayarda kurulu değil
+{} isn't installed on this Mac	{0} bu bilgisayarda kurulu değil
+{} isn't shared now.	{0} artık paylaşılmıyor.
+{} layers	{0} katman
+{} left	{0} kaldı
+{} longer than {:.1} mm (the longest is {:.1} mm, at {}): more than a machine sews as one stitch. Shorten the stitch length, or turn on a satin's auto split.	{0} {1} mm'den uzun (en uzunu {2} mm, konum {3}): bir makinenin tek dikişte dikebileceğinden fazla. Dikiş uzunluğunu kısaltın ya da saten için otomatik bölmeyi açın.
+{} menu	{0} menüsü
+{} min ago	{0} dk önce
+{} Not yet sewn from ZigZag.	{0} Henüz ZigZag'dan dikilmedi.
+{} object{} selected.	{0} nesne seçildi.
+{} of thread between cuts with under {SHORT_PIECE_STITCHES} stitches or {:.0} mm of sewing (the shortest is {:.1} mm, at {}): a trimmer can miss a piece that short. Join it to what's beside it (Connect, in the Document panel) or make it longer.	{0} kesimler arasında {1} dikişten ya da {2} mm dikişten kısa iplik parçası (en kısası {3} mm, konum {4}): kesici bu kadar kısa bir parçayı kaçırabilir. Yanındakine bağlayın (Belge panelinde Bağla) ya da uzatın.
+{} panel	{0} paneli
+{} points, {} after simplifying.	{0} nokta, sadeleştirince {1}.
+{} points: already as simple as this level gets.	{0} nokta: bu düzeyde zaten olabildiğince sade.
+{} point{} of {} selected.	{2} için {0} nokta seçildi.{1}
+{} Sewn from ZigZag.	{0} ZigZag'dan dikildi.
+{} shorter than the shortest the document allows ({:.1} mm; the shortest is {:.2} mm, at {}): a machine that drops short stitches would drop {}.	{0} belgenin izin verdiği en kısa dikişten kısa ({1} mm; en kısası {2} mm, konum {3}): kısa dikişleri atlayan bir makine {4} atlar.
+{} small {} taken out	{0} küçük {1} çıkarıldı
+{} stitches	{0} dikiş
+{} stitches · {} colors	{0} dikiş · {1} renk
+{} stopped (exit code {code:?}).	{0} durdu (çıkış kodu {1}).
+{} stray point(s)	{0} başıboş nokta
+{} tab	{0} sekmesi
+{} tiny object(s)	{0} küçük nesne
+{} Tool	{0} Aracı
+{} where {HOLES} or more needle points fall within {:.1} mm of each other (up to {how:.0}, at {}): that many holes in one place can cut the cloth or break the thread. Short stitches (on a satin's tight curves) and a wider tip spread them.	{0} yerde {1} ya da daha fazla iğne noktası birbirine {2} mm'den yakın (en çok {3}, konum {4}): bir yerde bu kadar delik kumaşı kesebilir ya da ipliği koparabilir. Kısa dikişler (saten keskin kıvrımlarında) ve daha geniş bir uç bunları dağıtır.
+{} {} united with the one beside	{0} {1} yanındakiyle birleştirildi
+{} {} · {} requests	{0} {1} · {2} istek
+{} {} · {} shapes{} · {}	{0} {1} · {2} şekil{3} · {4}
+{} · MCP server couldn't start on port {port}: {e}	{0} · MCP sunucusu {1} portunda başlatılamadı: {2}
+{} · near {}	{0} · {1} yakını
+{} · Picking up the job on the Skitch: {name}.	{0} · Skitch'teki iş devralınıyor: {1}.
+{} · {count} objects	{0} · {1} nesne
+{} · {} colors · {} trims · ~{:.0} min	{0} · {1} renk · {2} kesim · ~{3} dk
+{} · {} lines	{0} · {1} satır
+{} × {} mm locks	{0} × {1} mm kilit dikişi
+{}, {} × {} mm	{0}, {1} × {2} mm
+{}: drag to sew across the short ones	{0}: kısa olanların üzerinden dikmek için sürükleyin
+{}: none this short	{0}: bu kadar kısa yok
+{}\n{} covers an area, so it needs a filled shape. This object is a line.	{0}\n{1} bir alanı kaplar, bu yüzden dolgulu bir şekil gerekir. Bu nesne bir çizgi.
+{}… {secs} s	{0}… {1} sn
+— Edited	— Düzenlendi

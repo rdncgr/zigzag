@@ -26,6 +26,7 @@ mod file_dialog;
 mod flyout;
 mod gpu;
 mod history;
+mod i18n;
 mod icons;
 mod instance;
 mod kits;

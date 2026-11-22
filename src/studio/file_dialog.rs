@@ -55,8 +55,10 @@ impl Request {
     }
 
     pub fn filter(mut self, name: impl Into<String>, exts: &[&str]) -> Self {
-        self.filters
-            .push((name.into(), exts.iter().map(|e| e.to_string()).collect()));
+        self.filters.push((
+            crate::i18n::t(&name.into()),
+            exts.iter().map(|e| e.to_string()).collect(),
+        ));
         self
     }
 

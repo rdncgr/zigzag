@@ -2040,8 +2040,9 @@ impl Studio {
     }
 
     fn update_title(&mut self, ctx: &egui::Context) {
+        let untitled = crate::i18n::t("untitled");
         let name = if self.doc.name.is_empty() {
-            "untitled"
+            &untitled
         } else {
             &self.doc.name
         };

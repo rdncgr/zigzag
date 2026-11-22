@@ -107,7 +107,7 @@ zigzag/
   src/checks.rs           digitizing checks (sizes, widths, lettering, hoop, travel in sight)
   src/machine/profile.rs  machine profiles: hoops and file format, built in (profiles.json) or your own
   src/formats/            PES (+PEC), DST, EXP, JEF, VP3, Skitch PEN writers;
-                          PES/PEC/DST/EXP/JEF readers; preview; worksheet;
+                          PES/PEC/DST/EXP/JEF/VP3 readers; preview; worksheet;
                           ZigZag's stitch-plan file (plan.rs)
   src/machine/            Skitch Bluetooth protocol (+ btleplug client, `ble` feature)
   src/studio/             editor (egui on OpenGL via glow) + MCP server (`gui` feature)
@@ -465,7 +465,7 @@ Checked against Wilcom Hatch's core feature set:
 | Digitize shapes and manual stitches by hand | ✓ (pen tool) |
 | Remove overlaps, color sequencing, re-order objects | ✓ |
 | Stitch player, show needle points, grid, measure | ✓ |
-| Open and save PES, DST, EXP, JEF, VP3 | ✓ (VP3 write only) |
+| Open and save PES, DST, EXP, JEF, VP3 | ✓ |
 | Production worksheet | ✓ (HTML) |
 | Auto-digitize bitmaps | ✓ (Image Trace: flat logos, posterized photos, centre lines) |
 | Built-in embroidery fonts, monogramming, multi-hooping, motif/pattern fills, 3D foam | not yet |

@@ -7806,8 +7806,20 @@ mod tests {
             "format is required",
         );
         ok(s.run_tool("export", &json!({ "path": at("x.vp3"), "format": "vp3" })));
+        // VP3 opens, as manual stitches, like the other machine files.
+        let opened: Value =
+            serde_json::from_str(&ok(s.run_tool("open_file", &json!({ "path": at("x.vp3") }))))
+                .unwrap();
+        assert!(
+            opened["objects"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|o| o["kind"] == "manual")
+        );
+        std::fs::write(at("x.dat"), [0xff, 0xfe, 0x00, 0x80]).unwrap();
         no(
-            s.run_tool("open_file", &json!({ "path": at("x.vp3") })),
+            s.run_tool("open_file", &json!({ "path": at("x.dat") })),
             "isn't a file ZigZag can open",
         );
         let _ = std::fs::remove_dir_all(&dir);

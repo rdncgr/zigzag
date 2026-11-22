@@ -410,10 +410,11 @@ fn read_vp3(d: &[u8]) -> Result<StitchFile> {
         r.skip(3)?; // 0A F6 00
         let s = d.get(r.i..end).unwrap_or_default();
         let mut i = 0;
-        let mut trimmed = false;
+        // A color block starts with the move to its first stitch.
+        let mut trimmed = true;
         let step = |bld: &mut Builder, x: f64, y: f64, trimmed: &mut bool| {
             // The move after a trim, or one too long to be a stitch, is a jump.
-            if *trimmed || x.abs() > 127.0 || y.abs() > 127.0 {
+            if *trimmed || x.abs() > 255.0 || y.abs() > 255.0 {
                 bld.jump(x, y);
             } else {
                 bld.stitch(x, y);
@@ -590,6 +591,19 @@ mod tests {
             }
             if ext == "pes" || ext == "jef" || ext == "vp3" {
                 assert_ne!(f.blocks[0].color, f.blocks[1].color, "{ext}: colors kept");
+            }
+            // Runs stay in one piece: no stitch is read as a jump, nor a jump
+            // as a stitch.
+            let runs: Vec<usize> = f.blocks.iter().map(|b| b.runs.len()).collect();
+            assert_eq!(runs, [2, 1], "{ext}: runs per color");
+            // (Lock stitches add points, so a run is checked by its ends.)
+            for (got, want) in f.blocks.iter().zip(&d.blocks) {
+                for (r, w) in got.runs.iter().zip(&want.runs) {
+                    let (a, b) = (r[0], r[r.len() - 1]);
+                    let (wa, wb) = (w.pts[0], w.pts[w.pts.len() - 1]);
+                    assert!(a.dist(wa) < 0.6, "{ext}: run starts at {a:?}, not {wa:?}");
+                    assert!(b.dist(wb) < 0.6, "{ext}: run ends at {b:?}, not {wb:?}");
+                }
             }
         }
     }

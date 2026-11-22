@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- VP3 files (Husqvarna Viking, Pfaff) open like the other machine files,
+  as stitches to move, scale and recolor; and there is a Pfaff creative
+  3.0 machine, which sends VP3.
+
 ## 0.1.9 — 2026-11-21
 
 - The agent reviews a design as an embroiderer would before it finishes:

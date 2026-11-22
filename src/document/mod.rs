@@ -344,7 +344,7 @@ impl Document {
         d
     }
 
-    /// Open an SVG, a machine file (PES/PEC/DST/EXP/JEF) as manual stitches,
+    /// Open an SVG, a machine file (PES/PEC/DST/EXP/JEF/VP3) as manual stitches,
     /// or a raster logo (PNG/JPEG/…) traced into shapes. Machine files and
     /// images get no save path, so they're never overwritten with SVG.
     pub fn open(path: &Path) -> Result<Document> {
